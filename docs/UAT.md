@@ -1,6 +1,8 @@
 # UAT — User Acceptance Testing
 
-Run this on the **preview deployment**, on the device you'll actually use on draft night, with at least three browsers open side by side (one of them a phone). Multi-user behaviour has to be *seen*, not assumed.
+Run this on the **live deployment**, on the machine you'll use on draft night, with at least three browser sessions open side by side (use incognito / a second browser for separate cookie jars). Multi-user behaviour has to be *seen*, not assumed.
+
+> The league confirmed everyone drafts on a laptop, so mobile layout is explicitly **out of scope**. If that changes, the grid and the bid buttons are the two things to re-check.
 
 Each section notes the requirement it proves.
 
@@ -32,7 +34,7 @@ Each section notes the requirement it proves.
 
 | ✓ | Check | Notes |
 |---|---|---|
-| ⬜ | Phone, laptop, tablet all reach the draft at once | |
+| ⬜ | Several laptops all reach the draft at once | |
 | ⬜ | Each manager claims their name and sets a PIN | |
 | ⬜ | A claimed name can't be taken by someone else | |
 | ⬜ | Wrong PIN rejected; correct PIN gets in | |
@@ -108,7 +110,7 @@ Each section notes the requirement it proves.
 | ⬜ | Drag your own player to another slot — sticks, survives refresh | |
 | ⬜ | **Slotting never blocks a bid** — buy a 4th QB on purpose, bid goes through | |
 | ⬜ | Slot labels stay pinned while scrolling sideways | |
-| ⬜ | **On a phone:** grid usable, scrolls sideways, can jump to one manager | |
+| ⬜ | Grid readable on the smallest laptop in the room | |
 | ⬜ | Budgets tab matches the draft screen exactly | |
 | ⬜ | Pick log matches what actually happened, in order | |
 
