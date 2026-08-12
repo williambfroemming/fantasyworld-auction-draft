@@ -96,4 +96,55 @@ describe('parseCsvPool', () => {
     const out = parseCsvPool('Name,Team,Position,Rank\n\nGuy,NYJ,LB,1\nReal,KC,TE,2\n')
     expect(out.map((p) => p.name)).toEqual(['Real'])
   })
+
+  describe('FantasyPros export — the real input format', () => {
+    // Verbatim shape of FantasyPros_2026_Draft_ALL_Rankings.csv, including the
+    // trailing spaces in "UPSIDE " and the positional rank baked into POS.
+    const FP = [
+      '"RK",TIERS,"PLAYER NAME",TEAM,"POS","BYE WEEK","UPSIDE ","BUST ","SOS SEASON","ECR VS. ADP"',
+      '"1",1,"Ja\'Marr Chase",CIN,"WR1","6","5 out of 5","1 out of 5","4 out of 5 stars","+2"',
+      '"156",9,"Houston Texans",HOU,"DST1","8","-","-","2 out of 5 stars","-52"',
+      '"200",12,"Cameron Dicker",LAC,"K3","-","-","-","-","-"',
+    ].join('\n')
+
+    it('reads rank, tier, team, bye and splits the positional rank out of POS', () => {
+      const out = parseCsvPool(FP)
+      expect(out[0]).toMatchObject({
+        name: "Ja'Marr Chase",
+        team: 'CIN',
+        position: 'WR',
+        searchRank: 1,
+        posRank: 1,
+        tier: 1,
+        byeWeek: 6,
+      })
+    })
+
+    it('maps DST to DEF so defenses are draftable', () => {
+      const def = parseCsvPool(FP).find((p) => p.position === 'DEF')
+      expect(def).toMatchObject({ name: 'Houston Texans', team: 'HOU', posRank: 1, searchRank: 156 })
+    })
+
+    it('treats "-" as missing rather than parsing it as a number', () => {
+      // FantasyPros uses "-" for absent bye weeks and ratings.
+      const k = parseCsvPool(FP).find((p) => p.position === 'K')
+      expect(k?.byeWeek).toBeNull()
+      expect(k?.posRank).toBe(3)
+    })
+
+    it('finds columns by header name, not position, so a reorder is harmless', () => {
+      const reordered = ['TEAM,"POS","PLAYER NAME","RK"', 'CIN,"WR1","Ja\'Marr Chase","1"'].join('\n')
+      expect(parseCsvPool(reordered)[0]).toMatchObject({
+        name: "Ja'Marr Chase",
+        team: 'CIN',
+        position: 'WR',
+        searchRank: 1,
+      })
+    })
+
+    it('picks up auction values when that export is used', () => {
+      const withValues = ['"RK","PLAYER NAME",TEAM,"POS","Auction Value"', '"1","Ja\'Marr Chase",CIN,"WR1","$62"'].join('\n')
+      expect(parseCsvPool(withValues)[0].auctionValue).toBe(62)
+    })
+  })
 })

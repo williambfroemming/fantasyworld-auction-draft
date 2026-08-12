@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "db:push": "dotenv -e .env.local -- drizzle-kit push",
     "db:sql": "dotenv -e .env.local -- tsx scripts/apply-sql.ts",
-    "db:setup": "npm run db:push && npm run db:sql"
+    "db:setup": "npm run db:push && npm run db:sql",
+    "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
+    "db:verify": "dotenv -e .env.local -- tsx scripts/verify.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

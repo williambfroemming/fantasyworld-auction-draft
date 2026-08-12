@@ -29,7 +29,13 @@ export interface PoolPlayer {
   name: string
   team: string | null
   position: DraftablePosition
+  /** Overall board rank. FantasyPros RK, or Sleeper search_rank as a weak fallback. */
   searchRank: number | null
+  /** Positional rank ("WR12" -> 12), when the source provides it. */
+  posRank?: number | null
+  tier?: number | null
+  byeWeek?: number | null
+  auctionValue?: number | null
   active: boolean
 }
 
@@ -141,9 +147,41 @@ export async function fetchLeagueUsers(leagueId: string) {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse `Name, Team, Position, Rank`. Tolerates a header row, quoted fields, and
- * extra columns. Rank falls back to file order, so an unranked list still keeps
- * whatever order the user pasted.
+ * Normalize the many spellings of a team defense into `DEF`.
+ * FantasyPros uses DST, ESPN uses D/ST, the league's old sheet used DS.
+ */
+export function normalizePosition(raw: string): { position: string; posRank: number | null } {
+  const trimmed = raw.trim().toUpperCase()
+  // FantasyPros embeds the positional rank in the column: "WR12", "DST1".
+  const m = trimmed.match(/^([A-Z/]+)\s*(\d+)?$/)
+  const base = (m?.[1] ?? trimmed).replace(/[^A-Z/]/g, '')
+  const posRank = m?.[2] ? Number(m[2]) : null
+  const position = base === 'DST' || base === 'D/ST' || base === 'DS' || base === 'DEFENSE' ? 'DEF' : base
+  return { position, posRank }
+}
+
+/** Case/space-insensitive header lookup, tolerating the trailing spaces FantasyPros emits. */
+function findColumn(header: string[], ...candidates: string[]): number {
+  const norm = header.map((h) => h.trim().toLowerCase().replace(/\s+/g, ' '))
+  for (const c of candidates) {
+    const i = norm.indexOf(c.toLowerCase())
+    if (i !== -1) return i
+  }
+  // fall back to a prefix match, so "BYE WEEK" matches "bye"
+  for (const c of candidates) {
+    const i = norm.findIndex((h) => h.startsWith(c.toLowerCase()))
+    if (i !== -1) return i
+  }
+  return -1
+}
+
+/**
+ * Parse a rankings CSV.
+ *
+ * Header-driven rather than positional, so it handles a FantasyPros export
+ * (`RK, TIERS, PLAYER NAME, TEAM, POS, BYE WEEK, ...`), a minimal
+ * `Name, Team, Position, Rank`, and column reorderings without code changes.
+ * Rank falls back to file order so an unranked paste keeps its order.
  */
 export function parseCsvPool(text: string): PoolPlayer[] {
   const rows = text
@@ -153,23 +191,49 @@ export function parseCsvPool(text: string): PoolPlayer[] {
     .map(splitCsvLine)
 
   if (rows.length === 0) return []
-  const hasHeader = /name/i.test(rows[0][0] ?? '')
+
+  const header = rows[0]
+  const iName = findColumn(header, 'player name', 'player', 'name')
+  const hasHeader = iName !== -1
+
+  // Without a header, assume the documented minimal shape.
+  const cols = hasHeader
+    ? {
+        name: iName,
+        team: findColumn(header, 'team', 'tm'),
+        pos: findColumn(header, 'pos', 'position'),
+        rank: findColumn(header, 'rk', 'rank', 'overall'),
+        tier: findColumn(header, 'tiers', 'tier'),
+        bye: findColumn(header, 'bye week', 'bye'),
+        value: findColumn(header, 'auction value', 'value', '$'),
+      }
+    : { name: 0, team: 1, pos: 2, rank: 3, tier: -1, bye: -1, value: -1 }
+
   const body = hasHeader ? rows.slice(1) : rows
+  const at = (r: string[], i: number) => (i === -1 ? undefined : r[i])
+  const num = (v: string | undefined): number | null => {
+    if (v === undefined) return null
+    const n = Number(String(v).replace(/[$,]/g, ''))
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
 
   const out: PoolPlayer[] = []
-  body.forEach((cols, i) => {
-    const [name, team, position, rank] = cols
-    if (!name?.trim()) return
-    const pos = (position ?? '').trim().toUpperCase()
-    const normalized = pos === 'DST' || pos === 'D/ST' || pos === 'DS' ? 'DEF' : pos
-    if (!DRAFTABLE_POSITIONS.includes(normalized as DraftablePosition)) return
-    const parsedRank = Number(rank)
+  body.forEach((r, i) => {
+    const name = at(r, cols.name)?.trim()
+    if (!name) return
+    const { position, posRank } = normalizePosition(at(r, cols.pos) ?? '')
+    if (!DRAFTABLE_POSITIONS.includes(position as DraftablePosition)) return
+
     out.push({
-      id: `csv-${slug(name)}-${normalized}`,
-      name: name.trim(),
-      team: team?.trim() || null,
-      position: normalized as DraftablePosition,
-      searchRank: Number.isFinite(parsedRank) && parsedRank > 0 ? parsedRank : i + 1,
+      id: `csv-${slug(name)}-${position}`,
+      name,
+      team: at(r, cols.team)?.trim() || null,
+      position: position as DraftablePosition,
+      searchRank: num(at(r, cols.rank)) ?? i + 1,
+      posRank,
+      tier: num(at(r, cols.tier)),
+      byeWeek: num(at(r, cols.bye)),
+      auctionValue: num(at(r, cols.value)),
       active: true,
     })
   })

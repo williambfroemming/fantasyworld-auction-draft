@@ -105,3 +105,30 @@ One entry per completed build step from `PROJECT_PLAN.md` §10. The **Learned** 
 - `sessionSecret()` throws in production if `SESSION_SECRET` is unset. **Set it in Vercel before deploying**, or every session would be forgeable.
 
 **Next:** Step 2 (Neon) is still the blocker for `/setup`, the seed, and all API routes.
+
+---
+
+## Step 2 + 5c — Neon provisioned, schema pushed, pool seeded from FantasyPros
+**Date:** 2026-08-11  **Status:** done
+
+**Built:** Neon provisioned via Vercel Marketplace (user ran the CLI); schema pushed; `manager_totals` view applied; `scripts/seed.ts` and `scripts/verify.ts`; header-driven CSV parser. **62 tests passing.** `npm run db:verify` green.
+
+**Seeded:** 10 managers (2025 seating, to be re-drawn at setup), **503 players** — WR 171, RB 140, TE 76, QB 52, K 33, DEF 31.
+
+**Decisions:**
+- **The pool now comes from FantasyPros, not Sleeper.** The user supplied `FantasyPros_2026_Draft_ALL_Rankings.csv`. Sleeper remains the fallback in `seed.ts` when no CSV is passed.
+- Schema gained `pos_rank`, `tier`, `bye_week`, `auction_value`. Tier and bye came free in the file and are genuinely useful while bidding; `auction_value` is populated only if an auction-values export is imported later.
+- The CSV parser is now **header-driven, not positional** — it locates columns by name so a column reorder, a missing tier, or a different export shape doesn't silently produce garbage.
+
+**Learned:**
+- **The CSV completely solves the Sleeper ranking problem documented in step 5a.** Defenses went from board index **3,150 of 3,228** to **rank 156 of 503** — findable. Every player now has a real overall rank; `db:verify` asserts zero unranked.
+- FantasyPros bakes the positional rank into the position column (`WR1`, `DST1`, `K3`) and uses `"-"` for missing bye weeks. Both needed explicit handling — `Number("-")` is `NaN`, which would have written nulls silently, and an unsplit `"WR1"` would have failed the draftable-position check and **dropped every player from the import**.
+- Its header has trailing spaces (`"UPSIDE "`), so header matching has to trim.
+- Confirmed live: a fresh manager reads **$200 budget / $185 max bid** straight out of `manager_totals`. That is the number the whole auction hangs on and it is now asserted in `db:verify`, not just in unit tests.
+
+**Watch out for:**
+- `seed.ts` deletes and reloads the pool but **only removes players nothing points at** (`WHERE id NOT IN (SELECT player_id FROM picks)`), so re-importing rankings mid-draft can't orphan a drafted player. It also uses `onConflictDoNothing` for managers so a re-seed never wipes someone's PIN.
+- FantasyPros lists **31 defenses, not 32**. `db:verify` therefore asserts `>= 28` rather than exactly 32. If a manager wants the missing team's defense, it must be added by hand.
+- Scripts run from outside the project directory can't resolve `node_modules` — that's why `verify.ts` lives in `scripts/` rather than a temp dir.
+
+**Next:** Step 7 — the nominate/bid/state routes, then integration tests for concurrency and the soft-close timer against real Postgres.

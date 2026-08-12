@@ -34,7 +34,12 @@ export const managers = pgTable(
   (t) => [uniqueIndex('managers_name_idx').on(t.name)],
 )
 
-/** Player pool, seeded from Sleeper (id is the Sleeper player_id). */
+/**
+ * Player pool. Seeded from a FantasyPros rankings CSV (preferred) or Sleeper.
+ *
+ * `id` is the Sleeper player_id when synced from Sleeper, or a derived slug for
+ * CSV imports.
+ */
 export const players = pgTable(
   'players',
   {
@@ -42,8 +47,20 @@ export const players = pgTable(
     name: text('name').notNull(),
     team: text('team'),
     position: text('position').notNull(),
-    /** Sleeper's search_rank. Popularity, NOT adp — null for a lot of players, sort nulls last. */
+    /**
+     * Overall draft rank — the board's sort order.
+     * From FantasyPros RK when imported; from Sleeper's search_rank otherwise,
+     * which is a much weaker signal (see docs/PROJECT_PLAN.md §9).
+     */
     searchRank: integer('search_rank'),
+    /** Positional rank parsed out of FantasyPros' "WR12" style POS column. */
+    posRank: integer('pos_rank'),
+    /** FantasyPros tier. Shown on the board so talent cliffs are visible while bidding. */
+    tier: integer('tier'),
+    /** Bye week; null for players without one in the source. */
+    byeWeek: integer('bye_week'),
+    /** Expected auction price, if an auction-values file was imported. */
+    auctionValue: integer('auction_value'),
     active: boolean('active').notNull().default(true),
   },
   (t) => [index('players_rank_idx').on(t.searchRank)],
