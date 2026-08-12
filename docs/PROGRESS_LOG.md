@@ -235,3 +235,26 @@ Commissioner can: pause/resume, ±10s/+30s on the live clock, change timer defau
 - `adjustClock(-300)` on a 5s lot clamps the deadline to "now", which ends the lot immediately. That's intended ("sold!"), and the test asserts it clamps rather than landing minutes in the past.
 
 **Next:** `/setup` (draft-order shuffle), then deploy to preview with `SESSION_SECRET`.
+
+---
+
+## Step 12 — Making it testable by one person
+**Date:** 2026-08-11  **Status:** done
+
+**Built:** `/test` multi-seat console (+ `/api/test/act`), `scripts/bots.ts`, `scripts/pins.ts`, `scripts/start-draft.ts`, seat-switching in the header, and much clearer "why can't I nominate" messaging.
+
+**Learned — a UX bug that would have cost real time on draft night:**
+The user opened the app and could not find any way to nominate. The cause: the draft was in `status='setup'` (left there by the integration suite's teardown) and **the UI said nothing about it**. The player list was simply inert. Two smaller versions of the same problem: nothing indicated whose turn it was if it wasn't yours, and there was no way to sign out and switch seats.
+
+Fixed by making the reason always visible: a banner when the draft hasn't started, a permanent "On the clock: *name*" bar, and an explicit line in the player list for every blocked case (not your turn / paused / bidding already open / draft complete). **A disabled control with no explanation is the worst possible failure mode in a live draft** — people assume the app is broken.
+
+**Decisions:**
+- `/test` can act as any manager without a PIN, so it is gated behind `ENABLE_TEST_SEATS=1`, checked **independently** in both the page and the API route — a single guard is one refactor away from being bypassed. Verified 404 in both places with the flag off before enabling it. `npm run dev:test` turns it on locally; the flag is never set in Vercel.
+- The test console calls the **same** `placeBid`/`nominate` functions as the real UI. It bypasses authentication only — never the auction rules — so a rejection there is the real rule firing, which is what makes it valid for verification.
+- `bots.ts` bids more aggressively inside the final six seconds, so the soft close is easy to observe by hand.
+
+**Watch out for:**
+- **`npm run pins -- --clear` before Friday.** Every seat currently shares PIN `1111` for testing; that defeats the point of PINs in the real draft.
+- The integration suite's `afterAll` leaves the draft in `setup`. After running tests, `npm run draft:start` (or ⚙ Commish → Start draft) is needed before anything works.
+
+**Next:** `/setup` page, then deploy to preview with `SESSION_SECRET`.

@@ -16,7 +16,11 @@
     "db:verify": "dotenv -e .env.local -- tsx scripts/verify.ts",
     "test:int": "npm run check:idle && ALLOW_DB_RESET=1 dotenv -e .env.local -- vitest run --config vitest.integration.config.ts",
     "smoke": "ALLOW_DB_RESET=1 dotenv -e .env.local -- tsx scripts/smoke.ts",
-    "check:idle": "dotenv -e .env.local -- tsx scripts/check-idle.ts"
+    "check:idle": "dotenv -e .env.local -- tsx scripts/check-idle.ts",
+    "bots": "dotenv -e .env.local -- tsx scripts/bots.ts",
+    "draft:start": "dotenv -e .env.local -- tsx scripts/start-draft.ts",
+    "dev:test": "ENABLE_TEST_SEATS=1 next dev",
+    "pins": "dotenv -e .env.local -- tsx scripts/pins.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

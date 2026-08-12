@@ -67,6 +67,22 @@ export default function DraftPage() {
 
   const myManager = state.managers.find((m) => m.id === me)
   const myTurn = state.onTheClock?.managerId === me && !state.lot
+  const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
+
+  // Always say WHY nominating isn't available. A dead button with no
+  // explanation is the single most confusing thing that can happen mid-draft.
+  const nominateBlockedBecause = myTurn
+    ? null
+    : state.draft.status === 'setup'
+      ? 'The draft has not been started yet.' +
+        (myManager?.isCommish ? ' Open ⚙ Commish → Start draft.' : ' Waiting on the commissioner.')
+      : state.draft.status === 'paused'
+        ? 'The draft is paused.'
+        : state.draft.status === 'done'
+          ? 'The draft is complete.'
+          : state.lot
+            ? `Bidding is open on ${state.lot.playerName}.`
+            : `It's ${onClock?.displayName ?? 'someone else'}'s turn to nominate.`
 
   return (
     <main
@@ -106,14 +122,42 @@ export default function DraftPage() {
               >
                 {myManager.displayName}
               </span>
+              {/* Switching seats matters more than it sounds: laptops get passed
+                  around, and during testing one person plays several managers. */}
+              <button
+                onClick={async () => {
+                  await fetch('/api/session', { method: 'DELETE' })
+                  router.push('/')
+                }}
+                className="text-xs text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
+              >
+                switch
+              </button>
             </>
           )}
         </div>
       </header>
 
-      {myTurn && (
-        <div className="bg-emerald-600/20 px-4 py-2 text-center text-sm font-semibold text-emerald-300">
-          You&apos;re on the clock — nominate a player.
+      {state.draft.status === 'live' && !state.lot && (
+        <div
+          className={`px-4 py-2 text-center text-sm font-semibold ${
+            myTurn ? 'bg-emerald-600/20 text-emerald-300' : 'bg-slate-800/60 text-slate-300'
+          }`}
+        >
+          {myTurn ? (
+            <>You&apos;re on the clock — pick a player from the list on the left to nominate.</>
+          ) : (
+            <>
+              On the clock:{' '}
+              <span style={{ color: onClock?.color }}>{onClock?.displayName ?? '—'}</span>
+            </>
+          )}
+        </div>
+      )}
+      {state.draft.status === 'setup' && (
+        <div className="bg-amber-500/15 px-4 py-2 text-center text-sm font-semibold text-amber-300">
+          Draft not started.{' '}
+          {myManager?.isCommish ? 'Open ⚙ Commish → Start draft.' : 'Waiting on the commissioner.'}
         </div>
       )}
 
@@ -123,6 +167,7 @@ export default function DraftPage() {
           <PlayerPool
             pool={board?.pool ?? []}
             canNominate={myTurn && state.draft.status === 'live'}
+            disabledReason={nominateBlockedBecause}
             onNominate={nominate}
           />
         </div>

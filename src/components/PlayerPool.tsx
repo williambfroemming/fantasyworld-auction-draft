@@ -16,10 +16,14 @@ const FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'DEF', 'K'] as const
 export function PlayerPool({
   pool,
   canNominate,
+  disabledReason,
   onNominate,
 }: {
   pool: BoardPlayer[]
   canNominate: boolean
+  /** Why nomination is unavailable. Shown at the top of the list — never leave
+   *  someone staring at a dead button with no explanation mid-draft. */
+  disabledReason?: string | null
   onNominate: (player: BoardPlayer, openingBid: number) => Promise<string | null>
 }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('ALL')
@@ -82,6 +86,12 @@ export function PlayerPool({
           <span className="ml-auto self-center text-xs text-slate-600">{visible.length}</span>
         </div>
       </div>
+
+      {!canNominate && disabledReason && (
+        <div className="border-b border-slate-800 bg-slate-800/40 px-3 py-2 text-xs text-slate-400">
+          {disabledReason}
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {visible.length === 0 && (
