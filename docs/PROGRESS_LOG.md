@@ -282,3 +282,32 @@ The third is the one that's right, and the reason is worth recording: **bidding 
 - The draft order is editable while `status='setup'` even with picks present, which is what makes "reset then re-draw" work. Once live, use swap-seats instead.
 
 **Next:** Deployment Protection is ON — the app 302s to Vercel SSO, so the league cannot reach it. That's the last blocker and it needs the user in the Vercel dashboard.
+
+---
+
+## Step 15 — Destructive tests isolated onto their own database
+**Date:** 2026-08-12  **Status:** done
+
+**Built:** `neondb_test`, a second database in the same Neon project; `scripts/setup-test-db.ts`, `scripts/seed-test.ts` (deterministic synthetic pool), `scripts/guard-test-db.ts`; `test:int`, `smoke` and `dev:test` now run against `TEST_DATABASE_URL`.
+
+**33/33 integration tests pass against the isolated database, and the live draft was verified untouched afterwards** (`status: setup, picks: 0, budgets all $200`).
+
+**Why this mattered:** `test:int` and `smoke` delete every pick, lot, and bid. Until now only `check-idle.ts` stood between a mistyped command and an erased draft — a *warning*, not a wall. Now the dangerous case is structurally impossible: the guard exits 1 (verified) if `TEST_DATABASE_URL` is unset or resolves to the same database as `DATABASE_URL`, so the suite never starts.
+
+**Learned — a shell subtlety that silently wrote to the wrong database:**
+```sh
+DATABASE_URL="$TEST" npx drizzle-kit push && npx tsx scripts/apply-sql.ts
+```
+The `VAR=x` prefix applies to **the first command only**. `drizzle-kit push` correctly targeted the test database, then `apply-sql.ts` ran against **production**. The failure surfaced as 31 tests erroring with `relation "manager_totals" does not exist` — the view had been created in the wrong place. Harmless here (the statement is `CREATE OR REPLACE` and production already had it), but the same mistake in a destructive script would have been the exact disaster this step exists to prevent. Fixed with `export VAR; cmd1 && cmd2`.
+
+This is worth remembering generally: **an env-var prefix does not survive `&&`.** Every multi-command shell string that overrides a database URL must use `export`.
+
+**Decisions:**
+- The test database is seeded with a **synthetic** 200-player pool rather than the real FantasyPros CSV, so the suite is reproducible on any machine and doesn't depend on a file on someone's Desktop (or redistribute FantasyPros' data).
+- `check-idle.ts` is kept as a secondary check but is no longer the primary defence.
+
+**Watch out for:**
+- `npm run db:test-migrate` must be re-run after any schema change, or the test database drifts from production.
+- `.env.local` now carries `TEST_DATABASE_URL`. It is not set in Vercel and must not be.
+
+**Next:** Thursday's dress rehearsal. The 2026 draft order is still to be drawn — the user is doing that on Friday.

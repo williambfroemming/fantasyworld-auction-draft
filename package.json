@@ -14,15 +14,19 @@
     "db:setup": "npm run db:push && npm run db:seed",
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
     "db:verify": "dotenv -e .env.local -- tsx scripts/verify.ts",
-    "test:int": "npm run check:idle && ALLOW_DB_RESET=1 dotenv -e .env.local -- vitest run --config vitest.integration.config.ts",
-    "smoke": "ALLOW_DB_RESET=1 dotenv -e .env.local -- tsx scripts/smoke.ts",
+    "test:int": "npm run check:testdb && dotenv -e .env.local -- sh -c 'export ALLOW_DB_RESET=1 DATABASE_URL=\"$TEST_DATABASE_URL\"; npx vitest run --config vitest.integration.config.ts'",
+    "smoke": "npm run check:testdb && dotenv -e .env.local -- sh -c 'export ALLOW_DB_RESET=1 DATABASE_URL=\"$TEST_DATABASE_URL\"; npx tsx scripts/smoke.ts'",
     "check:idle": "dotenv -e .env.local -- tsx scripts/check-idle.ts",
     "bots": "dotenv -e .env.local -- tsx scripts/bots.ts",
     "draft:start": "dotenv -e .env.local -- tsx scripts/start-draft.ts",
-    "dev:test": "ENABLE_TEST_SEATS=1 next dev",
+    "dev:test": "dotenv -e .env.local -- sh -c 'export ENABLE_TEST_SEATS=1 DATABASE_URL=\"$TEST_DATABASE_URL\"; next dev'",
     "pins": "dotenv -e .env.local -- tsx scripts/pins.ts",
     "recolor": "dotenv -e .env.local -- tsx scripts/recolor.ts",
-    "draft:reset": "dotenv -e .env.local -- tsx scripts/reset.ts"
+    "draft:reset": "dotenv -e .env.local -- tsx scripts/reset.ts",
+    "db:test-setup": "dotenv -e .env.local -- tsx scripts/setup-test-db.ts",
+    "db:test-migrate": "dotenv -e .env.local -- sh -c 'export DATABASE_URL=\"$TEST_DATABASE_URL\"; npx drizzle-kit push && npx tsx scripts/apply-sql.ts' && npm run db:test-seed",
+    "db:test-seed": "dotenv -e .env.local -- tsx scripts/seed-test.ts",
+    "check:testdb": "dotenv -e .env.local -- tsx scripts/guard-test-db.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
