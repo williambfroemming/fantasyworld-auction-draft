@@ -165,3 +165,30 @@ One entry per completed build step from `PROJECT_PLAN.md` §10. The **Learned** 
 - The integration suite leaves the draft in `status='setup'` on completion, by design. Re-run `npm run db:verify` after it if something looks odd.
 
 **Next:** Step 8 — join screen and `/draft` UI (pool, lot, clock, polling).
+
+---
+
+## Steps 8 + 9 — Join screen, draft board, League grid; playable end to end
+**Date:** 2026-08-11  **Status:** done
+
+**Built:** `src/hooks/useDraft.ts` (polling + skew-corrected countdown), `src/lib/sounds.ts`, `src/components/LotPanel.tsx`, `PlayerPool.tsx`, `SidePanel.tsx` (My Roster / League / Budgets / Picks), `src/app/page.tsx` (join), `src/app/draft/page.tsx`, `/api/board`, `scripts/smoke.ts`.
+
+**64 unit tests + 20 integration tests + 24 end-to-end smoke checks — all green.**
+
+**Decisions:**
+- Removed auction values entirely at the league's request (published prices anchor bidding the same way ADP does). Column dropped, importer ignores it, test pins the behaviour.
+- Bid buttons are +$1/+$2/+$5/+$10 plus a custom field, each pre-validated by the shared `validateBid` so the button disables *and* the reason is shown. A silent rejection mid-auction is useless.
+- The player pool shows a **tier break line** where FantasyPros' tier changes — that's where the talent cliff is, which is when to spend.
+- Audio is synthesized with WebAudio rather than asset files: nothing to 404 on draft night.
+
+**Learned — two real bugs the smoke test caught that nothing else would have:**
+1. **`drizzle-kit push` DROPS the `manager_totals` view.** Every `db:push` silently removed it, and the next `/api/state` returned HTTP 500 with `relation "manager_totals" does not exist`. Unit and integration tests didn't catch it because they'd run before the push. `db:push` now *always* re-applies `db:sql`, so the two can't drift.
+2. **A verify run that fails partway looks like a pass if you only read the matching lines.** `db:verify` did catch the missing view — it stopped after four checks — but the absence of the final "All checks passed" was easy to miss when grepping. Always check the **exit code**, not the visible output.
+
+**Watch out for:**
+- Never run `drizzle-kit push` directly. Use `npm run db:push`, which re-applies the view afterwards.
+- `endsAt` crosses the wire as an ISO string, so `ClockSync` accepts strings and returns 0 (not NaN) for an unparseable value — NaN on the big countdown is worse than 0.
+- Browsers block WebAudio until a user gesture. `unlockAudio()` is wired to the first click anywhere on the draft page; without it the 10s/3s cues stay silent all night.
+- `npm run smoke` also wipes draft state and is guarded by `ALLOW_DB_RESET=1`.
+
+**Next:** `/setup` (draft-order shuffle), commissioner drawer, CSV export, then deploy.

@@ -51,14 +51,23 @@ export class ClockSync {
     return clientNow + (this.offset ?? 0)
   }
 
-  /** Milliseconds left until `endsAt`, floored at zero. */
-  msUntil(endsAt: number | Date, clientNow: number = Date.now()): number {
-    const target = endsAt instanceof Date ? endsAt.getTime() : endsAt
+  /**
+   * Milliseconds left until `endsAt`, floored at zero.
+   * Accepts an ISO string because that is how the timestamp arrives over JSON.
+   */
+  msUntil(endsAt: number | Date | string, clientNow: number = Date.now()): number {
+    const target =
+      typeof endsAt === 'number'
+        ? endsAt
+        : endsAt instanceof Date
+          ? endsAt.getTime()
+          : Date.parse(endsAt)
+    if (Number.isNaN(target)) return 0
     return Math.max(0, target - this.now(clientNow))
   }
 
   /** Whole seconds to display. Rounds up so "1" shows until the moment it's over. */
-  secondsUntil(endsAt: number | Date, clientNow: number = Date.now()): number {
+  secondsUntil(endsAt: number | Date | string, clientNow: number = Date.now()): number {
     return Math.ceil(this.msUntil(endsAt, clientNow) / 1000)
   }
 

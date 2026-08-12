@@ -35,7 +35,6 @@ export interface PoolPlayer {
   posRank?: number | null
   tier?: number | null
   byeWeek?: number | null
-  auctionValue?: number | null
   active: boolean
 }
 
@@ -205,9 +204,8 @@ export function parseCsvPool(text: string): PoolPlayer[] {
         rank: findColumn(header, 'rk', 'rank', 'overall'),
         tier: findColumn(header, 'tiers', 'tier'),
         bye: findColumn(header, 'bye week', 'bye'),
-        value: findColumn(header, 'auction value', 'value', '$'),
       }
-    : { name: 0, team: 1, pos: 2, rank: 3, tier: -1, bye: -1, value: -1 }
+    : { name: 0, team: 1, pos: 2, rank: 3, tier: -1, bye: -1 }
 
   const body = hasHeader ? rows.slice(1) : rows
   const at = (r: string[], i: number) => (i === -1 ? undefined : r[i])
@@ -233,7 +231,6 @@ export function parseCsvPool(text: string): PoolPlayer[] {
       posRank,
       tier: num(at(r, cols.tier)),
       byeWeek: num(at(r, cols.bye)),
-      auctionValue: num(at(r, cols.value)),
       active: true,
     })
   })

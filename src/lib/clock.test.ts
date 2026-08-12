@@ -57,6 +57,21 @@ describe('ClockSync', () => {
     expect(Math.abs(c.offsetMs - before)).toBeLessThan(600)
   })
 
+  it('accepts an ISO string, which is how endsAt arrives over JSON', () => {
+    const c = new ClockSync()
+    const now = 1_700_000_000_000
+    c.sample({ serverNow: now, sentAt: now, receivedAt: now })
+    const iso = new Date(now + 25_000).toISOString()
+    expect(c.msUntil(iso, now)).toBe(25_000)
+    expect(c.secondsUntil(iso, now)).toBe(25)
+  })
+
+  it('returns 0 for an unparseable timestamp rather than NaN', () => {
+    // NaN would render as "NaN" on the big countdown, which is worse than 0.
+    const c = new ClockSync()
+    expect(c.msUntil('not-a-date', 1000)).toBe(0)
+  })
+
   it('counts down and floors at zero, never negative', () => {
     const c = new ClockSync()
     const now = 1_000_000

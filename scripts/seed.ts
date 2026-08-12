@@ -86,7 +86,6 @@ async function main() {
           posRank: p.posRank ?? null,
           tier: p.tier ?? null,
           byeWeek: p.byeWeek ?? null,
-          auctionValue: p.auctionValue ?? null,
           active: p.active,
         })),
       )
@@ -100,7 +99,6 @@ async function main() {
           posRank: sql`excluded.pos_rank`,
           tier: sql`excluded.tier`,
           byeWeek: sql`excluded.bye_week`,
-          auctionValue: sql`excluded.auction_value`,
         },
       })
   }

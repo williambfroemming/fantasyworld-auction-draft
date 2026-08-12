@@ -142,9 +142,14 @@ describe('parseCsvPool', () => {
       })
     })
 
-    it('picks up auction values when that export is used', () => {
+    it('ignores auction values even when the export contains them', () => {
+      // Deliberate: the league does not want published prices on the board.
+      // A suggested value anchors the bidding the same way ADP does, so the
+      // column is dropped on import rather than stored and hidden.
       const withValues = ['"RK","PLAYER NAME",TEAM,"POS","Auction Value"', '"1","Ja\'Marr Chase",CIN,"WR1","$62"'].join('\n')
-      expect(parseCsvPool(withValues)[0].auctionValue).toBe(62)
+      const parsed = parseCsvPool(withValues)[0]
+      expect(parsed.name).toBe("Ja'Marr Chase")
+      expect(Object.keys(parsed)).not.toContain('auctionValue')
     })
   })
 })

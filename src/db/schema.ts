@@ -59,8 +59,6 @@ export const players = pgTable(
     tier: integer('tier'),
     /** Bye week; null for players without one in the source. */
     byeWeek: integer('bye_week'),
-    /** Expected auction price, if an auction-values file was imported. */
-    auctionValue: integer('auction_value'),
     active: boolean('active').notNull().default(true),
   },
   (t) => [index('players_rank_idx').on(t.searchRank)],
