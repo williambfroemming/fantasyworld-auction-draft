@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { LotPanel } from '@/components/LotPanel'
 import { PlayerPool } from '@/components/PlayerPool'
 import { SidePanel } from '@/components/SidePanel'
+import { CommishDrawer } from '@/components/CommishDrawer'
 import { useDraft } from '@/hooks/useDraft'
 import { sounds, unlockAudio } from '@/lib/sounds'
 import type { BoardPlayer } from '@/hooks/useDraft'
@@ -154,6 +155,10 @@ export default function DraftPage() {
           <SidePanel state={state} board={board} me={me} />
         </div>
       </div>
+
+      {myManager?.isCommish && (
+        <CommishDrawer state={state} board={board} onDone={refresh} />
+      )}
     </main>
   )
 }

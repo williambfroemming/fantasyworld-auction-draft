@@ -207,3 +207,31 @@ One entry per completed build step from `PROJECT_PLAN.md` §10. The **Learned** 
 **Watch out for:** FantasyPros exports still *contain* `TIERS` and sometimes `Auction Value`. The header-driven parser simply doesn't look for them, so re-importing a fresh export can't reintroduce either. If a future request adds a column, add it deliberately — don't widen the parser to "take everything".
 
 **Next:** commissioner drawer, `/setup` draft-order shuffle, CSV export, deploy.
+
+---
+
+## Steps 10 + 11 — Commissioner controls and CSV export
+**Date:** 2026-08-11  **Status:** done
+
+**Built:** `src/server/commish-service.ts`, `/api/commish`, `src/components/CommishDrawer.tsx`, `/api/export` (CSV shaped like the old sheet's pick log), `scripts/check-idle.ts`, `src/server/commish-service.itest.ts`.
+
+**64 unit + 33 integration tests passing.**
+
+Commissioner can: pause/resume, ±10s/+30s on the live clock, change timer defaults, undo the last pick, cancel the current lot, skip a nominator, edit a price, reassign a player, swap two seats, clear a forgotten PIN, export CSV.
+
+**Learned — the biggest operational finding so far:**
+- **A single open browser tab breaks the integration suite, and could have destroyed a live draft.** Two tests failed mysteriously; the dev log showed **1,831 `/api/state` polls** from the user's open tab. Every poll settles expired lots — lazy settlement working exactly as designed — so lots were being awarded out from under tests that had just created them. The tests were right; the environment was contaminated.
+- The serious version of this is not flaky tests. `test:int` and `smoke` both **wipe picks, lots, and bids**. Running either during the real draft on Friday would erase it. `ALLOW_DB_RESET=1` prevented an *accidental* run, but not a deliberate one against the wrong database.
+- Added `npm run check:idle`, now a prerequisite of `test:int`: it refuses outright if picks exist and the draft isn't in `setup` (i.e. a real draft), and refuses if anything answers on the dev port (i.e. someone may be connected). Verified in both directions — exit 1 blocks the suite.
+- Reordered `explainRejectedBid` to check **expiry before status**. A lot that timed out may be settled by another client's poll between the failed UPDATE and the follow-up read, and "Time expired" is truthful either way, where "Bidding closed" made a normal timeout look like a fault.
+
+**Decisions:**
+- `pause()` banks `paused_remaining_ms` rather than just setting a flag, so a break mid-player restores the exact clock. Tested: pause at 17s, wait 1.5s, resume — still ~17s.
+- `editPrice()` re-checks the budget invariant by hand. It is the only path that writes a price without going through the bid rules, so it must not be able to strand a manager below $1 per empty slot. There's a test for exactly that.
+- Undoing a pick marks the lot `void` rather than deleting it — the history stays, and the player becomes nominatable again.
+
+**Watch out for:**
+- **Before Friday, point `test:int`/`smoke` at a separate Neon branch.** `check:idle` is a guard, not isolation. This is the single highest-value remaining risk.
+- `adjustClock(-300)` on a 5s lot clamps the deadline to "now", which ends the lot immediately. That's intended ("sold!"), and the test asserts it clamps rather than landing minutes in the past.
+
+**Next:** `/setup` (draft-order shuffle), then deploy to preview with `SESSION_SECRET`.

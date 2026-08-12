@@ -14,8 +14,9 @@
     "db:setup": "npm run db:push && npm run db:seed",
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
     "db:verify": "dotenv -e .env.local -- tsx scripts/verify.ts",
-    "test:int": "ALLOW_DB_RESET=1 dotenv -e .env.local -- vitest run --config vitest.integration.config.ts",
-    "smoke": "ALLOW_DB_RESET=1 dotenv -e .env.local -- tsx scripts/smoke.ts"
+    "test:int": "npm run check:idle && ALLOW_DB_RESET=1 dotenv -e .env.local -- vitest run --config vitest.integration.config.ts",
+    "smoke": "ALLOW_DB_RESET=1 dotenv -e .env.local -- tsx scripts/smoke.ts",
+    "check:idle": "dotenv -e .env.local -- tsx scripts/check-idle.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

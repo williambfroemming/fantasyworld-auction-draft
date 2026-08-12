@@ -332,8 +332,12 @@ async function explainRejectedBid(managerId: number, lotId: number, amount: numb
   const [lot] = await sql`SELECT status, high_bid, ends_at, paused_remaining_ms FROM lots WHERE id = ${lotId}`
   if (!lot) return 'That auction no longer exists'
   if (lot.paused_remaining_ms !== null) return 'Draft is paused'
-  if (lot.status !== 'open') return 'Bidding closed on this player'
+  // Expiry is checked BEFORE status. A lot that ran out of time may already have
+  // been settled by another client's poll between the failed UPDATE and this
+  // read, and "Time expired" is the truthful, useful message either way —
+  // "Bidding closed" would make a normal timeout look like something odd.
   if (new Date(lot.ends_at).getTime() <= Date.now()) return 'Time expired'
+  if (lot.status !== 'open') return 'Bidding closed on this player'
   if (amount <= lot.high_bid) return `Must beat the current bid of $${lot.high_bid}`
 
   const [totals] = await sql`SELECT budget, rostered, max_bid FROM manager_totals WHERE id = ${managerId}`
