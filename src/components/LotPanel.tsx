@@ -102,11 +102,12 @@ export function LotPanel({
             <span className="text-2xl font-bold" style={{ color: onClock?.color }}>
               {onClock?.displayName ?? '—'}
             </span>
-            <span className="text-sm text-slate-400">
-              {onClock?.id === me
-                ? 'Pick a player on the left and set your opening bid.'
-                : 'No clock runs between picks — take your time.'}
-            </span>
+            {/* Only speak up when there's something for *you* to do. */}
+            {onClock?.id === me && (
+              <span className="text-sm text-slate-400">
+                Pick a player on the left and set your opening bid.
+              </span>
+            )}
           </>
         )}
       </div>
