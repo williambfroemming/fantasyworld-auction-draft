@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { LotPanel } from '@/components/LotPanel'
 import { PlayerPool } from '@/components/PlayerPool'
 import { SidePanel } from '@/components/SidePanel'
+import { LeagueBoard } from '@/components/LeagueBoard'
 import { CommishDrawer } from '@/components/CommishDrawer'
 import { useDraft } from '@/hooks/useDraft'
 import { sounds, unlockAudio } from '@/lib/sounds'
@@ -161,9 +162,14 @@ export default function DraftPage() {
         </div>
       )}
 
-      {/* Body: pool | lot | rosters */}
-      <div className="grid gap-4 p-4 lg:grid-cols-[20rem_1fr_24rem]">
-        <div className="order-2 h-[32rem] lg:order-1 lg:h-[calc(100dvh-9rem)]">
+      {/*
+        Layout: three full-height columns. The centre column stacks the lot, the
+        recent-picks ticker, and then the league board, which expands to eat all
+        remaining vertical space — that space was previously dead, and the board
+        is the thing everyone actually stares at.
+      */}
+      <div className="grid gap-3 p-3 lg:h-[calc(100dvh-6.5rem)] lg:grid-cols-[19rem_minmax(0,1fr)_19rem]">
+        <div className="order-2 h-[28rem] min-h-0 lg:order-1 lg:h-auto">
           <PlayerPool
             pool={board?.pool ?? []}
             canNominate={myTurn && state.draft.status === 'live'}
@@ -172,31 +178,39 @@ export default function DraftPage() {
           />
         </div>
 
-        <div className="order-1 lg:order-2">
+        <div className="order-1 flex min-h-0 flex-col gap-3 lg:order-2">
           <LotPanel state={state} clock={clock} me={me} onBid={placeBid} />
 
-          {/* Recent picks ticker */}
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-            {state.recentPicks.map((p) => {
-              const m = state.managers.find((x) => x.id === p.managerId)
-              return (
-                <div
-                  key={p.pickNo}
-                  className="shrink-0 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2"
-                >
-                  <div className="text-xs text-slate-500">
-                    #{p.pickNo} · <span style={{ color: m?.color }}>{m?.displayName}</span>
+          {state.recentPicks.length > 0 && (
+            <div className="flex shrink-0 gap-2 overflow-x-auto pb-1">
+              {state.recentPicks.map((p) => {
+                const m = state.managers.find((x) => x.id === p.managerId)
+                return (
+                  <div
+                    key={p.pickNo}
+                    className="shrink-0 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5"
+                  >
+                    <div className="text-[11px] text-slate-500">
+                      #{p.pickNo} · <span style={{ color: m?.color }}>{m?.displayName}</span>
+                    </div>
+                    <div className="text-sm font-medium">
+                      {p.playerName} <span className="text-emerald-400">${p.price}</span>
+                    </div>
                   </div>
-                  <div className="text-sm font-medium">
-                    {p.playerName} <span className="text-emerald-400">${p.price}</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
+
+          <LeagueBoard
+            managers={state.managers}
+            board={board}
+            highlightManagerId={me}
+            className="min-h-[18rem] flex-1"
+          />
         </div>
 
-        <div className="order-3 h-[32rem] lg:h-[calc(100dvh-9rem)]">
+        <div className="order-3 h-[26rem] min-h-0 lg:h-auto">
           <SidePanel state={state} board={board} me={me} />
         </div>
       </div>

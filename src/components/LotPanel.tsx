@@ -90,24 +90,23 @@ export function LotPanel({
   // -------------------------------------------------------------------------
   if (!lot) {
     const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
+    // Deliberately compact: with nothing on the block this panel has no news,
+    // and the space is worth more to the league board underneath it.
     return (
-      <div className="flex min-h-[22rem] flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-slate-800 bg-slate-900/60 px-5 py-4">
         {state.draft.status === 'done' ? (
-          <>
-            <div className="text-2xl font-bold">Draft complete</div>
-            <p className="mt-2 text-slate-400">Every roster is full.</p>
-          </>
+          <div className="text-xl font-bold">Draft complete — every roster is full.</div>
         ) : (
           <>
-            <div className="text-sm uppercase tracking-widest text-slate-500">On the clock</div>
-            <div className="mt-2 text-4xl font-bold" style={{ color: onClock?.color }}>
+            <span className="text-xs uppercase tracking-widest text-slate-500">On the clock</span>
+            <span className="text-2xl font-bold" style={{ color: onClock?.color }}>
               {onClock?.displayName ?? '—'}
-            </div>
-            <p className="mt-3 max-w-sm text-slate-400">
+            </span>
+            <span className="text-sm text-slate-400">
               {onClock?.id === me
-                ? 'Pick a player from the list and set your opening bid.'
-                : 'Waiting for a nomination. No clock is running — take your time.'}
-            </p>
+                ? 'Pick a player on the left and set your opening bid.'
+                : 'No clock runs between picks — take your time.'}
+            </span>
           </>
         )}
       </div>

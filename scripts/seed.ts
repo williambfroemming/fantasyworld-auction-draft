@@ -14,6 +14,7 @@ import { drizzle } from 'drizzle-orm/neon-http'
 import { sql } from 'drizzle-orm'
 import * as schema from '../src/db/schema'
 import { draft, managers, players } from '../src/db/schema'
+import { colorForSeat } from '../src/lib/colors'
 import { parseCsvPool } from '../src/lib/sleeper'
 import { fetchPool } from '../src/lib/sleeper'
 
@@ -25,16 +26,16 @@ import { fetchPool } from '../src/lib/sleeper'
  * call each other (the order tab says "Grossman"; the grid says "Eric/Blakey").
  */
 const LEAGUE = [
-  { name: 'Gabes', displayName: 'Gabes', color: '#7c2d12' },
-  { name: 'Grossman', displayName: 'Eric/Blakey', color: '#8b7fb8' },
-  { name: 'Bolek', displayName: 'Bolek', color: '#22c55e' },
-  { name: 'Bill', displayName: 'Bill', color: '#dc2626' },
-  { name: 'Daniel', displayName: 'Daniel', color: '#86b880' },
-  { name: 'Nate', displayName: 'Nate', color: '#c9a0b4' },
-  { name: 'Mario', displayName: 'Mario', color: '#1d4ed8' },
-  { name: 'Jack', displayName: 'Jack', color: '#c2703d' },
-  { name: 'Bryan', displayName: 'Bryan', color: '#ea9a4e' },
-  { name: 'Justin', displayName: 'Justin', color: '#e879f9' },
+  { name: 'Gabes', displayName: 'Gabes' },
+  { name: 'Grossman', displayName: 'Eric/Blakey' },
+  { name: 'Bolek', displayName: 'Bolek' },
+  { name: 'Bill', displayName: 'Bill' },
+  { name: 'Daniel', displayName: 'Daniel' },
+  { name: 'Nate', displayName: 'Nate' },
+  { name: 'Mario', displayName: 'Mario' },
+  { name: 'Jack', displayName: 'Jack' },
+  { name: 'Bryan', displayName: 'Bryan' },
+  { name: 'Justin', displayName: 'Justin' },
 ]
 
 async function main() {
@@ -54,7 +55,7 @@ async function main() {
   for (const [i, m] of LEAGUE.entries()) {
     await db
       .insert(managers)
-      .values({ ...m, draftSlot: i, isCommish: m.name === 'Bill' })
+      .values({ ...m, draftSlot: i, color: colorForSeat(i), isCommish: m.name === 'Bill' })
       .onConflictDoNothing({ target: managers.name })
   }
   const mgrCount = await db.select({ n: sql<number>`count(*)::int` }).from(managers)

@@ -6,7 +6,7 @@ import type { Board, RosterPick } from '@/hooks/useDraft'
 import type { DraftState, StateManager } from '@/server/draft-service'
 import { PositionBadge } from './LotPanel'
 
-type Tab = 'me' | 'league' | 'budgets' | 'picks'
+type Tab = 'me' | 'budgets' | 'picks'
 
 export function SidePanel({
   state,
@@ -32,7 +32,6 @@ export function SidePanel({
         {(
           [
             ['me', 'My Roster'],
-            ['league', 'League'],
             ['budgets', 'Budgets'],
             ['picks', 'Picks'],
           ] as const
@@ -51,7 +50,6 @@ export function SidePanel({
 
       <div className="min-h-0 flex-1 overflow-auto">
         {tab === 'me' && <MyRoster picks={byManager.get(me ?? -1) ?? []} rosterSize={state.draft.rosterSize} />}
-        {tab === 'league' && <LeagueBoard managers={state.managers} byManager={byManager} />}
         {tab === 'budgets' && <Budgets managers={state.managers} byManager={byManager} />}
         {tab === 'picks' && <PickLog board={board} managers={state.managers} />}
       </div>
@@ -114,88 +112,6 @@ function MyRoster({ picks, rosterSize }: { picks: RosterPick[]; rosterSize: numb
           {overflow.length} extra player{overflow.length > 1 ? 's' : ''} beyond the 16 slots.
         </p>
       )}
-    </div>
-  )
-}
-
-/**
- * The grid: 16 slot rows x 10 manager columns, mirroring the league's old
- * spreadsheet. Slot labels stay pinned while the columns scroll sideways.
- */
-function LeagueBoard({
-  managers,
-  byManager,
-}: {
-  managers: StateManager[]
-  byManager: Map<number, RosterPick[]>
-}) {
-  const laid = useMemo(() => {
-    const map = new Map<number, ReturnType<typeof autoSlot>>()
-    for (const m of managers) {
-      const picks = byManager.get(m.id) ?? []
-      map.set(
-        m.id,
-        autoSlot(picks.map((p) => ({ id: p.id, position: p.position, slotOverride: p.slotOverride }))),
-      )
-    }
-    return map
-  }, [managers, byManager])
-
-  const nameById = useMemo(() => {
-    const m = new Map<number, RosterPick>()
-    for (const list of byManager.values()) for (const p of list) m.set(p.id, p)
-    return m
-  }, [byManager])
-
-  return (
-    <div className="overflow-auto">
-      <table className="border-separate border-spacing-0 text-xs">
-        <thead>
-          <tr>
-            <th className="sticky left-0 top-0 z-20 border-b border-r border-slate-800 bg-slate-900 px-2 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500">
-              Slot
-            </th>
-            {managers.map((m) => (
-              <th
-                key={m.id}
-                className="sticky top-0 z-10 border-b border-slate-800 px-2 py-2 text-left font-semibold"
-                style={{ backgroundColor: m.color, color: '#fff', minWidth: '8.5rem' }}
-              >
-                {m.displayName}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {SLOTS.map((slot) => (
-            <tr key={slot.key}>
-              <td className="sticky left-0 z-10 border-b border-r border-slate-800 bg-slate-900 px-2 py-1.5 text-[10px] uppercase tracking-wider text-slate-500">
-                {slot.label}
-              </td>
-              {managers.map((m) => {
-                const entry = laid.get(m.id)?.slots[slot.key]
-                const pick = entry ? nameById.get(entry.id) : null
-                return (
-                  <td
-                    key={m.id}
-                    className="border-b border-slate-800/60 px-2 py-1.5"
-                    style={{ backgroundColor: pick ? `${m.color}1a` : undefined }}
-                  >
-                    {pick ? (
-                      <span className="flex items-baseline justify-between gap-1">
-                        <span className="truncate">{pick.name}</span>
-                        <span className="shrink-0 tabular-nums text-slate-500">${pick.price}</span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-700">—</span>
-                    )}
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   )
 }

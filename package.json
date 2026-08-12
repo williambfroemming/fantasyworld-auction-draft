@@ -20,7 +20,8 @@
     "bots": "dotenv -e .env.local -- tsx scripts/bots.ts",
     "draft:start": "dotenv -e .env.local -- tsx scripts/start-draft.ts",
     "dev:test": "ENABLE_TEST_SEATS=1 next dev",
-    "pins": "dotenv -e .env.local -- tsx scripts/pins.ts"
+    "pins": "dotenv -e .env.local -- tsx scripts/pins.ts",
+    "recolor": "dotenv -e .env.local -- tsx scripts/recolor.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
