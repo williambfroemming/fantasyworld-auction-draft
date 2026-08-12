@@ -151,10 +151,10 @@ Zero rows = bid lost (too low / too late / over max / beaten by a millisecond). 
 
 `[ ]` todo · `[~]` in progress · `[x]` done
 
-- [~] **1.** `docs/` scaffold + root `CLAUDE.md`
-- [ ] **2.** Provision Neon via Vercel Marketplace, `vercel env pull` *(needs the user's account)*
-- [ ] **3.** Scaffold Next.js + Tailwind + shadcn; Drizzle schema, `manager_totals` view, lazy `getDb()`
-- [ ] **4.** `src/lib/draft.ts` + unit tests — **before any UI**
+- [x] **1.** `docs/` scaffold + root `CLAUDE.md`
+- [ ] **2.** Provision Neon via Vercel Marketplace, `vercel env pull` *(needs the user's account — deferred, not blocking 3/4)*
+- [x] **3.** Scaffold Next.js + Tailwind + shadcn; Drizzle schema, `manager_totals` view, lazy `getDb()`
+- [x] **4.** `src/lib/draft.ts` + unit tests — **before any UI** *(26 tests passing)*
 - [ ] **5.** Sleeper sync + CSV import + `/setup` incl. draft-order shuffle
 - [ ] **6.** Join flow + PIN cookie
 - [ ] **7.** `/api/nominate`, `/api/bid`, `/api/state`, `/api/board`
