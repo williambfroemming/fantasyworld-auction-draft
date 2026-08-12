@@ -81,3 +81,27 @@ One entry per completed build step from `PROJECT_PLAN.md` §10. The **Learned** 
 - IDP positions are in the raw payload and must stay filtered out (4,262 draftable vs 12,218 raw).
 
 **Next:** Step 2 (Neon provisioning — needs the user's Vercel account) unblocks `/setup`, the seed script, and everything after it.
+
+---
+
+## Step 5b — Node 22 upgrade + auth, clock, and version libraries
+**Date:** 2026-08-11  **Status:** done
+
+**Built:** `src/lib/auth.ts` (scrypt PIN hashing, HMAC-signed session cookie), `src/lib/clock.ts` (`ClockSync`), `src/lib/version.ts` (polling fingerprint), plus tests for each. **57 tests passing** on Node 22.
+
+**Decisions:**
+- Node upgraded to **22.23.2 LTS** via Homebrew (user approved). Tests and `next build` re-verified on it.
+- **Vitest stays on v3** even though Node 22 now satisfies rolldown's engine range. It works, and swapping test runners three days before a live draft is churn with no upside.
+- PIN uses `node:crypto` scrypt rather than bcrypt — no native dependency, so nothing else can fail an engines check the way rolldown did.
+- Sessions are **signed, not encrypted**. The manager id isn't a secret; it only needs to be unforgeable so nobody can hand-edit a cookie and bid as someone else.
+
+**Learned:**
+- `ClockSync` needs **round-trip compensation**, not just `serverNow - clientNow`. The server's timestamp reflects roughly the midpoint of the round trip, so the naive form treats network latency as clock skew and biases every countdown early by ~half the RTT. There's a test with perfectly synced clocks and a 400ms RTT asserting the offset stays under 20ms.
+- The threat model here is a **shared laptop and a misclick**, not an attacker. That's what justifies a 4-digit PIN and a week-long cookie (it has to outlive a dead phone battery mid-draft) rather than anything heavier.
+
+**Watch out for:**
+- `timingSafeEqual` **throws** on length mismatch rather than returning false. Both `verifyPin` and `verifySession` compare lengths first; there are tests for malformed stored hashes and junk tokens specifically because the natural implementation crashes instead of rejecting.
+- The clock is smoothed (α=0.2), so it takes a few polls to converge. That's deliberate — one slow response must not yank the countdown — but it means a freshly loaded client is briefly unsynced. `ClockSync.synced` reports this; the UI should not show a countdown until it's true.
+- `sessionSecret()` throws in production if `SESSION_SECRET` is unset. **Set it in Vercel before deploying**, or every session would be forgeable.
+
+**Next:** Step 2 (Neon) is still the blocker for `/setup`, the seed, and all API routes.
