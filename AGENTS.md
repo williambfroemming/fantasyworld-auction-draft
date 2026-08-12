@@ -21,7 +21,8 @@ Stack: Next.js 16.3 (App Router) · React 19.2 · TypeScript · Tailwind 4 · Ne
 |---|---|
 | `docs/PROJECT_PLAN.md` | The durable spec — context, locked decisions, rules, architecture, data model, build steps |
 | `docs/PROGRESS_LOG.md` | Append-only learnings, one entry per completed step. **Read before starting work** |
-| `docs/UAT.md` | Acceptance checklist the user runs against a preview deploy |
+| `docs/UAT.md` | Acceptance checklist the user runs against the live deploy |
+| `docs/DRAFT_NIGHT.md` | One-page runbook for the commissioner on the night |
 
 ## The working rule — follow this on every completed build step
 
@@ -44,8 +45,21 @@ These look like mistakes and are not. Read `docs/PROJECT_PLAN.md` §4 before cha
 
 ## Commands
 
+**Live:** https://fantasyworld-auction-draft.vercel.app · **Live DB:** `neondb` · **Test DB:** `neondb_test`
+
 ```bash
-npm run dev            # local dev
+npm run dev            # local dev (live database)
+npm run dev:test       # local dev against the TEST database, /test console enabled
 npm test               # unit tests for the rules engine (vitest)
-npx dotenv -e .env.local -- npx drizzle-kit push    # migrations (drizzle-kit does NOT read .env.local on its own)
+npm run db:push        # migrations + re-applies the manager_totals view
+npm run db:verify      # asserts $200 / $185 and pool health against the live DB
+npm run test:int       # integration tests -- runs against neondb_test only
+npm run draft:reset    # clear picks/lots/bids, back to setup
+npm run pins -- --clear
 ```
+
+> `drizzle-kit push` silently DROPS the `manager_totals` view, which 500s
+> `/api/state`. Always use `npm run db:push`, which re-applies it.
+>
+> An env-var prefix does not survive `&&`: `VAR=x a && b` sets VAR for `a` only.
+> Use `export VAR; a && b` in any chain that redirects the database URL.
