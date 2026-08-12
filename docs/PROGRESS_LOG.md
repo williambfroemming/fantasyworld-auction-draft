@@ -258,3 +258,27 @@ Fixed by making the reason always visible: a banner when the draft hasn't starte
 - The integration suite's `afterAll` leaves the draft in `setup`. After running tests, `npm run draft:start` (or ⚙ Commish → Start draft) is needed before anything works.
 
 **Next:** `/setup` page, then deploy to preview with `SESSION_SECRET`.
+
+---
+
+## Steps 13 + 14 — UI restructure and /setup
+**Date:** 2026-08-11  **Status:** done
+
+**Built:** `/setup` (draft-order randomizer + manual reorder + snake preview, budget/roster/timer rules, start draft, clear PINs, reset draft), `/board` page, `commish.setLeagueSettings/renameManager/resetDraft`, `src/lib/colors.ts`.
+
+**Three UI passes, driven by the user looking at it:**
+1. *Dead space below the clock* → moved the League board into the centre column.
+2. *League tab too small in the sidebar* → gave the board real width.
+3. *Too much information at once* → moved the board to its own `/board` page and made the lot the centrepiece (5xl name, 9xl countdown).
+
+The third is the one that's right, and the reason is worth recording: **bidding and studying the board are different moments.** During a lot the only things that matter are the player and the clock; between lots people want the grid. Trying to serve both in one view made both worse. `/board` keeps the live countdown pinned in its header so nobody parked there misses a lot starting.
+
+**Colours:** the seeded hexes came from the spreadsheet and several were muddy. Replaced with a 10-colour palette that must satisfy three things at once — distinct from each other, readable as *text* on near-black, and readable as a *background* behind dark text. Ten hues can't all be far apart, so the closest pairs (green/teal, sky/indigo) are never assigned to neighbouring seats. Header text colour is computed from relative luminance, so a hand-edited colour can't produce an unreadable header.
+
+**Learned:** A verification script reported three failures that were **the safety locks working correctly** — reorder refused because a draft was under way, budget/roster refused because picks exist. The first run looked like three bugs. Re-running with the context printed (`8 picks, status "live"`) made it obvious. **A check that doesn't report the state it ran against produces false alarms**, and a false alarm two days before a deadline costs as much as a real bug.
+
+**Watch out for:**
+- `setLeagueSettings` refuses whenever any picks exist — deliberately. Changing budget or roster size mid-draft would silently rewrite every manager's max bid and could retroactively strand someone below $1 per empty slot.
+- The draft order is editable while `status='setup'` even with picks present, which is what makes "reset then re-draw" work. Once live, use swap-seats instead.
+
+**Next:** Deployment Protection is ON — the app 302s to Vercel SSO, so the league cannot reach it. That's the last blocker and it needs the user in the Vercel dashboard.

@@ -28,6 +28,18 @@ const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('setDraftOrder'), managerIds: z.array(z.number().int()) }),
   z.object({ action: z.literal('swapSeats'), aId: z.number().int(), bId: z.number().int() }),
   z.object({ action: z.literal('clearPin'), managerId: z.number().int() }),
+  z.object({
+    action: z.literal('setLeagueSettings'),
+    startingBudget: z.number().int(),
+    rosterSize: z.number().int(),
+  }),
+  z.object({
+    action: z.literal('renameManager'),
+    managerId: z.number().int(),
+    displayName: z.string().max(40),
+  }),
+  // Guarded by an explicit confirm string so a mis-click cannot wipe a draft.
+  z.object({ action: z.literal('resetDraft'), confirm: z.literal('RESET') }),
 ])
 
 export async function POST(req: Request) {
@@ -63,6 +75,9 @@ export async function POST(req: Request) {
       case 'setDraftOrder': return commish.setDraftOrder(b.managerIds)
       case 'swapSeats': return commish.swapSeats(b.aId, b.bId)
       case 'clearPin': return commish.clearPin(b.managerId)
+      case 'setLeagueSettings': return commish.setLeagueSettings(b.startingBudget, b.rosterSize)
+      case 'renameManager': return commish.renameManager(b.managerId, b.displayName)
+      case 'resetDraft': return commish.resetDraft()
     }
   })()
 

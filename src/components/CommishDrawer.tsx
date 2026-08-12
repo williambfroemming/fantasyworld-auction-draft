@@ -206,6 +206,15 @@ export function CommishDrawer({
           </div>
         </Section>
 
+        <Section title="Setup">
+          <a
+            href="/setup"
+            className="inline-block rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+          >
+            Draft order, rules & reset →
+          </a>
+        </Section>
+
         <Section title="Export">
           <a
             href="/api/export"

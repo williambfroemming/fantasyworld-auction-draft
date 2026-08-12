@@ -207,3 +207,52 @@ export async function clearPin(managerId: number): Promise<ActionResult<null>> {
   await getSql()`UPDATE managers SET pin_hash = NULL WHERE id = ${managerId}`
   return { ok: true, data: null }
 }
+
+/** Budget and roster size. Locked once picks exist — both feed max bid. */
+export async function setLeagueSettings(
+  startingBudget: number,
+  rosterSize: number,
+): Promise<ActionResult<null>> {
+  if (startingBudget < 1 || startingBudget > 10_000) return { ok: false, reason: 'Budget out of range' }
+  if (rosterSize < 1 || rosterSize > 40) return { ok: false, reason: 'Roster size out of range' }
+
+  const sql = getSql()
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
+  if (Number(n) > 0) {
+    // Changing either mid-draft would silently rewrite every manager's max bid
+    // and could push someone below $1 per empty slot retroactively.
+    return { ok: false, reason: `Cannot change these after the draft starts (${n} picks made)` }
+  }
+
+  await sql`UPDATE draft SET starting_budget = ${startingBudget}, roster_size = ${rosterSize} WHERE id = 1`
+  await bumpRev()
+  return { ok: true, data: null }
+}
+
+/** Rename a manager / change what the board calls them. */
+export async function renameManager(
+  managerId: number,
+  displayName: string,
+): Promise<ActionResult<null>> {
+  const trimmed = displayName.trim()
+  if (!trimmed) return { ok: false, reason: 'Name cannot be empty' }
+  await getSql()`UPDATE managers SET display_name = ${trimmed} WHERE id = ${managerId}`
+  await bumpRev()
+  return { ok: true, data: null }
+}
+
+/**
+ * Wipe every pick, lot, and bid and return to setup.
+ *
+ * Destructive and irreversible — this is the "we ran a rehearsal, now clear it
+ * out" button. Managers, PINs, and the player pool are left alone.
+ */
+export async function resetDraft(): Promise<ActionResult<{ cleared: number }>> {
+  const sql = getSql()
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
+  await sql`DELETE FROM bids`
+  await sql`DELETE FROM picks`
+  await sql`DELETE FROM lots`
+  await sql`UPDATE draft SET status = 'setup', nomination_index = 0, rev = rev + 1 WHERE id = 1`
+  return { ok: true, data: { cleared: Number(n) } }
+}
