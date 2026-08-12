@@ -58,3 +58,26 @@ One entry per completed build step from `PROJECT_PLAN.md` §10. The **Learned** 
 - **Do not enable `cacheComponents` in `next.config.ts`.** Next 16 *removes* the `dynamic` route-segment config when it's on (confirmed in `node_modules/next/dist/docs/.../route-segment-config/index.md`), which would silently break the `force-dynamic` guarantee that `/api/state` depends on for lazy settlement. Noted in AGENTS.md as a non-negotiable.
 
 **Next:** Step 2 (Neon provisioning — blocked on the user's Vercel account), then Step 5 (Sleeper sync + `/setup`). Step 5's pure logic can proceed without the DB.
+
+---
+
+## Step 5a — Sleeper sync + CSV import (library layer)
+**Date:** 2026-08-11  **Status:** done (library); `/setup` UI still pending on the DB
+
+**Built:** `src/lib/sleeper.ts` (`normalizePool`, `sortForBoard`, `fetchPool`, `fetchLeagueUsers`, `parseCsvPool`) + `src/lib/sleeper.test.ts`. 38 tests total passing.
+
+**Decisions:** The player pool UI will lead with **position filters + search**, not rank order — forced by the data below, not a style preference.
+
+**Learned — I probed the live API instead of trusting the docs, and it changed the design:**
+- The pool is **3,228 active draftable players**, not the ~275 of the old sheet. An unfiltered scroll list is unusable at that size.
+- **`search_rank` is a weak ordering, not a ranking.** Only **660 distinct values across 3,149 players**; **318 ranks are shared** by two or more players — Josh Allen and Bijan Robinson are both rank 1, and four players share rank 5. Sorting by it alone gives an unstable, arbitrary board.
+- **Sleeper marks unranked players with `9999999`, not null.** `max(search_rank)` for both QB and RB is exactly that. My original null check missed it entirely, which would have shown "#9999999" in the UI and silently ranked those players above nothing.
+- **All 32 team defenses have no rank at all.** A naive sort put the first defense at board index **3,150 of 3,228**. This league drafts a defense every year, so that alone would have been a draft-night problem.
+- Correcting an earlier guess: I had speculated ~40% of players lack a rank. The real figure is **2.4% null** — but that was only because the 9999999 sentinel was hiding the rest. Worth stating plainly: the guess was wrong in both directions and only measuring settled it.
+
+**Watch out for:**
+- Never sort the pool by `searchRank` alone — always through `sortForBoard`, which applies the position/name tiebreak.
+- `fetchPool()` downloads ~5MB. It is setup-only. **Never call it from a request path**, and never on draft night.
+- IDP positions are in the raw payload and must stay filtered out (4,262 draftable vs 12,218 raw).
+
+**Next:** Step 2 (Neon provisioning — needs the user's Vercel account) unblocks `/setup`, the seed script, and everything after it.

@@ -142,7 +142,24 @@ Zero rows = bid lost (too low / too late / over max / beaten by a millisecond). 
 
 - `GET https://api.sleeper.app/v1/players/nfl` — public, no auth, ~5MB. Sleeper says store it yourself, ≤1 call/day.
 - Filter `active === true`, positions QB/RB/WR/TE/K/DEF. Team defenses come back with `player_id` = team abbrev (`"PHI"`), position `DEF`.
-- Sort by `search_rank`. **Caveat:** that's search popularity, not ADP — fine for lookup, mediocre for drafting. CSV import (`Name, Team, Position, Rank`) is the real answer and the fallback if Sleeper is down.
+### ⚠️ Measured against the live API 2026-08-11 — `search_rank` is not a ranking
+
+| Finding | Number |
+|---|---|
+| Raw entries returned | 12,218 |
+| Draftable positions | 4,262 |
+| Active + draftable | **3,228** |
+| Distinct `search_rank` values across 3,149 ranked players | **660** |
+| Ranks shared by 2+ players | **318** (Josh Allen and Bijan Robinson are both #1) |
+| Team defenses with a rank | **0 of 32** |
+| Unranked sentinel | `9999999`, **not** null |
+
+Three consequences, all handled in `src/lib/sleeper.ts` with tests:
+1. `9999999` is normalized to `null`, or it renders as "#9999999" and poisons any numeric sort.
+2. Ties break by position group then name, so the board order is stable rather than arbitrary.
+3. **Every team defense is unranked**, so a naive rank sort buries all 32 at the bottom of a 3,200-row list — and this league drafts defenses. The pool UI therefore leads with **position filters + search**, not with rank order.
+
+**Therefore: importing a real 2026 ranking CSV is the recommended path, not a fallback.** `parseCsvPool` accepts `Name, Team, Position, Rank`, tolerates a missing header, quoted fields, and the DS/DST/D-ST spellings of a defense.
 - Optional: `GET /v1/league/<id>/users` to auto-populate manager names.
 
 ---
