@@ -93,18 +93,21 @@ export function LotPanel({
     // Deliberately compact: with nothing on the block this panel has no news,
     // and the space is worth more to the league board underneath it.
     return (
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-slate-800 bg-slate-900/60 px-5 py-4">
+      <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center">
         {state.draft.status === 'done' ? (
-          <div className="text-xl font-bold">Draft complete — every roster is full.</div>
+          <div className="text-4xl font-bold">Draft complete</div>
         ) : (
           <>
-            <span className="text-xs uppercase tracking-widest text-slate-500">On the clock</span>
-            <span className="text-2xl font-bold" style={{ color: onClock?.color }}>
+            <span className="text-sm uppercase tracking-[0.3em] text-slate-500">On the clock</span>
+            <span
+              className="mt-3 text-7xl font-bold leading-none tracking-tight"
+              style={{ color: onClock?.color }}
+            >
               {onClock?.displayName ?? '—'}
             </span>
             {/* Only speak up when there's something for *you* to do. */}
             {onClock?.id === me && (
-              <span className="text-sm text-slate-400">
+              <span className="mt-5 text-lg text-slate-400">
                 Pick a player on the left and set your opening bid.
               </span>
             )}
@@ -146,7 +149,7 @@ export function LotPanel({
 
   return (
     <div
-      className={`rounded-2xl border bg-slate-900/60 p-5 transition-colors sm:p-6 ${
+      className={`flex h-full flex-col rounded-2xl border bg-slate-900/60 p-5 transition-colors sm:p-7 ${
         critical
           ? 'border-rose-500/70 shadow-[0_0_40px_-10px] shadow-rose-500/40'
           : urgent
@@ -163,7 +166,7 @@ export function LotPanel({
               {lot.playerByeWeek ? ` · bye ${lot.playerByeWeek}` : ''}
             </span>
           </div>
-          <h2 className="mt-1 truncate text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="mt-1 truncate text-4xl font-bold tracking-tight sm:text-5xl">
             {lot.playerName}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -175,7 +178,7 @@ export function LotPanel({
           <div
             className={`tabular-nums font-bold leading-none transition-colors ${
               critical ? 'text-rose-400' : urgent ? 'text-amber-300' : 'text-slate-100'
-            } text-6xl sm:text-7xl`}
+            } text-8xl sm:text-9xl`}
           >
             {paused ? '❚❚' : (seconds ?? '—')}
           </div>
@@ -185,11 +188,11 @@ export function LotPanel({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-800 pt-5">
+      <div className="mt-auto flex flex-wrap items-end justify-between gap-4 border-t border-slate-800 pt-6">
         <div>
           <div className="text-xs uppercase tracking-widest text-slate-500">Current bid</div>
           <div className="mt-1 flex items-baseline gap-3">
-            <span className="text-4xl font-bold tabular-nums">${lot.highBid}</span>
+            <span className="text-5xl font-bold tabular-nums">${lot.highBid}</span>
             <span
               className="rounded-full px-2.5 py-1 text-sm font-semibold"
               style={{
@@ -229,7 +232,7 @@ export function LotPanel({
               key={inc}
               disabled={!ok || pending}
               onClick={() => bid(amount)}
-              className="rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+              className="rounded-lg bg-emerald-600 px-5 py-4 text-lg font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
             >
               ${amount}
               <span className="ml-1 text-xs opacity-70">+{inc}</span>
@@ -247,12 +250,12 @@ export function LotPanel({
             }}
             onKeyDown={(e) => e.key === 'Enter' && custom && bid(Number(custom))}
             placeholder={String(nextBid)}
-            className="w-24 rounded-lg border border-slate-700 bg-slate-950 px-3 py-3 text-center tabular-nums outline-none focus:border-emerald-500"
+            className="w-24 rounded-lg border border-slate-700 bg-slate-950 px-3 py-4 text-center text-lg tabular-nums outline-none focus:border-emerald-500"
           />
           <button
             disabled={!custom || !canBidAtAll || pending}
             onClick={() => bid(Number(custom))}
-            className="rounded-lg border border-slate-700 px-4 py-3 font-semibold transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border border-slate-700 px-5 py-4 text-lg font-semibold transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Bid
           </button>

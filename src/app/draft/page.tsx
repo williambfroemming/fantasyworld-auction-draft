@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { LotPanel } from '@/components/LotPanel'
 import { PlayerPool } from '@/components/PlayerPool'
 import { SidePanel } from '@/components/SidePanel'
-import { LeagueBoard } from '@/components/LeagueBoard'
 import { CommishDrawer } from '@/components/CommishDrawer'
 import { useDraft } from '@/hooks/useDraft'
 import { sounds, unlockAudio } from '@/lib/sounds'
@@ -93,6 +93,12 @@ export default function DraftPage() {
       {/* Header */}
       <header className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-3">
         <h1 className="text-lg font-bold tracking-tight">Auction Draft</h1>
+        <Link
+          href="/board"
+          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+        >
+          League board →
+        </Link>
 
         {state.draft.status === 'paused' && (
           <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300">
@@ -179,7 +185,9 @@ export default function DraftPage() {
         </div>
 
         <div className="order-1 flex min-h-0 flex-col gap-3 lg:order-2">
-          <LotPanel state={state} clock={clock} me={me} onBid={placeBid} />
+          <div className="min-h-[24rem] flex-1">
+            <LotPanel state={state} clock={clock} me={me} onBid={placeBid} />
+          </div>
 
           {state.recentPicks.length > 0 && (
             <div className="flex shrink-0 gap-2 overflow-x-auto pb-1">
@@ -201,13 +209,6 @@ export default function DraftPage() {
               })}
             </div>
           )}
-
-          <LeagueBoard
-            managers={state.managers}
-            board={board}
-            highlightManagerId={me}
-            className="min-h-[18rem] flex-1"
-          />
         </div>
 
         <div className="order-3 h-[26rem] min-h-0 lg:h-auto">
