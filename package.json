@@ -13,7 +13,8 @@
     "db:sql": "dotenv -e .env.local -- tsx scripts/apply-sql.ts",
     "db:setup": "npm run db:push && npm run db:sql",
     "db:seed": "dotenv -e .env.local -- tsx scripts/seed.ts",
-    "db:verify": "dotenv -e .env.local -- tsx scripts/verify.ts"
+    "db:verify": "dotenv -e .env.local -- tsx scripts/verify.ts",
+    "test:int": "ALLOW_DB_RESET=1 dotenv -e .env.local -- vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

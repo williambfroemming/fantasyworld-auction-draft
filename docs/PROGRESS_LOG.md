@@ -132,3 +132,36 @@ One entry per completed build step from `PROJECT_PLAN.md` §10. The **Learned** 
 - Scripts run from outside the project directory can't resolve `node_modules` — that's why `verify.ts` lives in `scripts/` rather than a temp dir.
 
 **Next:** Step 7 — the nominate/bid/state routes, then integration tests for concurrency and the soft-close timer against real Postgres.
+
+---
+
+## Step 7 — Auction engine + API routes, verified against real Postgres
+**Date:** 2026-08-11  **Status:** done
+
+**Built:** `src/server/sql.ts`, `src/server/draft-service.ts` (settle / getState / nominate / placeBid), `src/server/session.ts`, routes `/api/state`, `/api/bid`, `/api/nominate`, `/api/session`; `vitest.config.ts` + `vitest.integration.config.ts`; `src/server/draft-service.itest.ts`.
+
+**62 unit tests + 20 integration tests against live Neon — all passing.**
+
+**What the integration suite actually proves** (these were architectural claims until now):
+- **10 simultaneous bids at the same amount → exactly one winner**, one bid row, no lost updates. The atomic conditional UPDATE holds.
+- **Soft close is exact**: a bid at 20s left leaves `ends_at` byte-identical; a bid at 3s left snaps it to within 9.0–10.1s. Five consecutive late bids each reset it, so a bidding war cannot time out early.
+- **Settlement is idempotent**: 10 concurrent `settleExpiredLots()` calls produce **one** pick, not ten. This is what makes lazy settlement-on-read safe with ten clients polling.
+- **The invariant holds under adversarial play**: driving one manager to bid their entire max 16 times in a row, every manager's budget stays ≥ their remaining slot count at every step.
+- Max bid is enforced **in the database** — a bid of $186 is rejected even though the client never sent a validation flag.
+
+**Decisions:**
+- Settlement is a **single statement with a CTE** (`WITH won AS (UPDATE … RETURNING *) INSERT INTO picks … FROM won`). The two-statement version had a crash window where a lot could be marked sold with no pick written. `repairOrphanedLots()` remains as a belt-and-braces self-heal.
+- Rejected bids return **HTTP 200 with `ok:false`**, not 4xx. Losing an auction is a normal outcome, not an error, and it keeps the console clean during a live draft.
+- The bidder is always read from the **signed session cookie**, never from the request body.
+
+**Learned:**
+- `explainRejectedBid()` runs *after* the failed UPDATE, purely to phrase the error. Checking first and then updating would reintroduce the race the single statement exists to eliminate. The database decides; we only narrate.
+- Postgres `GREATEST(ends_at, now() + interval)` expresses the entire soft-close rule in one expression — no read-modify-write, so it's correct under concurrency for free.
+- Integration tests take ~62s, dominated by network round trips to Neon (each `sql` call is an HTTP request). Fine for a pre-deploy gate, too slow for a watch loop — hence the split configs.
+
+**Watch out for:**
+- **`npm run test:int` DELETES all picks, lots, and bids.** It is guarded behind `ALLOW_DB_RESET=1` precisely so a stray run on draft night can't wipe the live draft. Do not remove that guard, and consider pointing it at a Neon branch before Friday.
+- `/api/state` must keep both `export const dynamic = 'force-dynamic'` and `Cache-Control: no-store`. A cached 204 freezes the draft for everyone and looks like a UI bug.
+- The integration suite leaves the draft in `status='setup'` on completion, by design. Re-run `npm run db:verify` after it if something looks odd.
+
+**Next:** Step 8 — join screen and `/draft` UI (pool, lot, clock, polling).
