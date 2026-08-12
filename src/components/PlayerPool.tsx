@@ -87,44 +87,32 @@ export function PlayerPool({
         {visible.length === 0 && (
           <p className="p-6 text-center text-sm text-slate-500">No players match.</p>
         )}
-        {visible.map((p, i) => {
-          const tierBreak = i > 0 && p.tier !== null && visible[i - 1].tier !== p.tier
-          return (
-            <div key={p.id}>
-              {/* A visible line where the tier changes — that's where the talent
-                  cliff is, which is exactly when to spend. */}
-              {tierBreak && (
-                <div className="flex items-center gap-2 px-3 py-1">
-                  <div className="h-px flex-1 bg-slate-800" />
-                  <span className="text-[10px] uppercase tracking-widest text-slate-600">
-                    tier {p.tier}
-                  </span>
-                  <div className="h-px flex-1 bg-slate-800" />
-                </div>
-              )}
-              <button
-                onClick={() => {
-                  setSelected(p)
-                  setError(null)
-                }}
-                disabled={!canNominate}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-left transition ${
-                  selected?.id === p.id ? 'bg-emerald-600/20' : 'hover:bg-slate-800/60'
-                } ${canNominate ? '' : 'cursor-default opacity-70'}`}
-              >
-                <span className="w-8 shrink-0 text-right text-xs tabular-nums text-slate-600">
-                  {p.rank ?? '—'}
-                </span>
-                <PositionBadge position={p.position} />
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
-                <span className="shrink-0 text-xs text-slate-500">
-                  {p.team ?? 'FA'}
-                  {p.byeWeek ? ` ·${p.byeWeek}` : ''}
-                </span>
-              </button>
-            </div>
-          )
-        })}
+        {/* Deliberately no tiers and no auction values. Both are one source's
+            opinion, and managers bring their own — the board shows facts
+            (rank, team, bye) and lets people apply their own judgement. */}
+        {visible.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => {
+              setSelected(p)
+              setError(null)
+            }}
+            disabled={!canNominate}
+            className={`flex w-full items-center gap-2 px-3 py-2 text-left transition ${
+              selected?.id === p.id ? 'bg-emerald-600/20' : 'hover:bg-slate-800/60'
+            } ${canNominate ? '' : 'cursor-default opacity-70'}`}
+          >
+            <span className="w-8 shrink-0 text-right text-xs tabular-nums text-slate-600">
+              {p.rank ?? '—'}
+            </span>
+            <PositionBadge position={p.position} />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
+            <span className="shrink-0 text-xs text-slate-500">
+              {p.team ?? 'FA'}
+              {p.byeWeek ? ` ·${p.byeWeek}` : ''}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Nomination tray */}

@@ -59,7 +59,7 @@ async function main() {
 
   console.log('\nBoard preview:')
   console.table(
-    await sql`SELECT search_rank AS rk, tier, name, team, position AS pos, pos_rank, bye_week AS bye
+    await sql`SELECT search_rank AS rk, name, team, position AS pos, pos_rank, bye_week AS bye
               FROM players ORDER BY search_rank NULLS LAST LIMIT 8`,
   )
   console.log('First defenses on the board:')

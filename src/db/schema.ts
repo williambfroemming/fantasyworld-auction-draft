@@ -55,8 +55,6 @@ export const players = pgTable(
     searchRank: integer('search_rank'),
     /** Positional rank parsed out of FantasyPros' "WR12" style POS column. */
     posRank: integer('pos_rank'),
-    /** FantasyPros tier. Shown on the board so talent cliffs are visible while bidding. */
-    tier: integer('tier'),
     /** Bye week; null for players without one in the source. */
     byeWeek: integer('bye_week'),
     active: boolean('active').notNull().default(true),

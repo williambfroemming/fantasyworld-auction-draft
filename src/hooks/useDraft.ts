@@ -11,7 +11,6 @@ export interface BoardPlayer {
   position: string
   rank: number | null
   posRank: number | null
-  tier: number | null
   byeWeek: number | null
 }
 

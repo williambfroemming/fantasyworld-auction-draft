@@ -13,7 +13,7 @@ export async function GET() {
   const sql = getSql()
 
   const [pool, rosters] = await Promise.all([
-    sql`SELECT p.id, p.name, p.team, p.position, p.search_rank, p.pos_rank, p.tier, p.bye_week
+    sql`SELECT p.id, p.name, p.team, p.position, p.search_rank, p.pos_rank, p.bye_week
         FROM players p
         WHERE NOT EXISTS (SELECT 1 FROM picks pk WHERE pk.player_id = p.id)
           AND NOT EXISTS (SELECT 1 FROM lots l WHERE l.player_id = p.id AND l.status = 'open')
@@ -33,7 +33,6 @@ export async function GET() {
         position: p.position,
         rank: p.search_rank,
         posRank: p.pos_rank,
-        tier: p.tier,
         byeWeek: p.bye_week,
       })),
       rosters: rosters.map((r) => ({

@@ -192,3 +192,18 @@ One entry per completed build step from `PROJECT_PLAN.md` §10. The **Learned** 
 - `npm run smoke` also wipes draft state and is guarded by `ALLOW_DB_RESET=1`.
 
 **Next:** `/setup` (draft-order shuffle), commissioner drawer, CSV export, then deploy.
+
+---
+
+## Step 9b — Removed tiers (and auction values) from the board
+**Date:** 2026-08-11  **Status:** done
+
+**Built:** `tier` removed from schema, CSV importer, `/api/board`, hook types, and the pool UI; column dropped from Postgres. Same treatment previously applied to `auction_value`.
+
+**Decisions:** The league does not want **any** opinionated third-party signal on the board — no auction values, no tiers. Managers bring their own rankings and cheat sheets, and a number printed next to a player anchors the room's bidding whether or not people trust it. The board now shows **facts only**: overall rank, position, team, bye week.
+
+**Learned:** Both were dropped at the **import boundary** rather than hidden in the UI. Storing-but-not-showing would have meant the data was one component prop away from reappearing, and any future `/api/board` change could leak it. A single test — "drops opinionated columns the league does not want on the board" — asserts neither key survives a CSV that contains both.
+
+**Watch out for:** FantasyPros exports still *contain* `TIERS` and sometimes `Auction Value`. The header-driven parser simply doesn't look for them, so re-importing a fresh export can't reintroduce either. If a future request adds a column, add it deliberately — don't widen the parser to "take everything".
+
+**Next:** commissioner drawer, `/setup` draft-order shuffle, CSV export, deploy.

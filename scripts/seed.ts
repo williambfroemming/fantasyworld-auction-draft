@@ -84,7 +84,6 @@ async function main() {
           position: p.position,
           searchRank: p.searchRank,
           posRank: p.posRank ?? null,
-          tier: p.tier ?? null,
           byeWeek: p.byeWeek ?? null,
           active: p.active,
         })),
@@ -97,7 +96,6 @@ async function main() {
           position: sql`excluded.position`,
           searchRank: sql`excluded.search_rank`,
           posRank: sql`excluded.pos_rank`,
-          tier: sql`excluded.tier`,
           byeWeek: sql`excluded.bye_week`,
         },
       })

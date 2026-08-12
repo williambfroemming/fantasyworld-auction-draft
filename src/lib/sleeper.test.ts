@@ -107,7 +107,7 @@ describe('parseCsvPool', () => {
       '"200",12,"Cameron Dicker",LAC,"K3","-","-","-","-","-"',
     ].join('\n')
 
-    it('reads rank, tier, team, bye and splits the positional rank out of POS', () => {
+    it('reads rank, team, bye and splits the positional rank out of POS', () => {
       const out = parseCsvPool(FP)
       expect(out[0]).toMatchObject({
         name: "Ja'Marr Chase",
@@ -115,7 +115,6 @@ describe('parseCsvPool', () => {
         position: 'WR',
         searchRank: 1,
         posRank: 1,
-        tier: 1,
         byeWeek: 6,
       })
     })
@@ -142,14 +141,19 @@ describe('parseCsvPool', () => {
       })
     })
 
-    it('ignores auction values even when the export contains them', () => {
-      // Deliberate: the league does not want published prices on the board.
-      // A suggested value anchors the bidding the same way ADP does, so the
-      // column is dropped on import rather than stored and hidden.
-      const withValues = ['"RK","PLAYER NAME",TEAM,"POS","Auction Value"', '"1","Ja\'Marr Chase",CIN,"WR1","$62"'].join('\n')
-      const parsed = parseCsvPool(withValues)[0]
+    it('drops opinionated columns the league does not want on the board', () => {
+      // Deliberate: no auction values and no tiers. Both are one source's
+      // opinion, and managers bring their own. They are dropped on import
+      // rather than stored and hidden, so they cannot leak onto the board.
+      const opinionated = [
+        '"RK",TIERS,"PLAYER NAME",TEAM,"POS","Auction Value"',
+        '"1",1,"Ja\'Marr Chase",CIN,"WR1","$62"',
+      ].join('\n')
+      const parsed = parseCsvPool(opinionated)[0]
       expect(parsed.name).toBe("Ja'Marr Chase")
+      expect(parsed.searchRank).toBe(1)
       expect(Object.keys(parsed)).not.toContain('auctionValue')
+      expect(Object.keys(parsed)).not.toContain('tier')
     })
   })
 })

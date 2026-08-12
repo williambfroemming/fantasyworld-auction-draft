@@ -33,7 +33,6 @@ export interface PoolPlayer {
   searchRank: number | null
   /** Positional rank ("WR12" -> 12), when the source provides it. */
   posRank?: number | null
-  tier?: number | null
   byeWeek?: number | null
   active: boolean
 }
@@ -202,10 +201,9 @@ export function parseCsvPool(text: string): PoolPlayer[] {
         team: findColumn(header, 'team', 'tm'),
         pos: findColumn(header, 'pos', 'position'),
         rank: findColumn(header, 'rk', 'rank', 'overall'),
-        tier: findColumn(header, 'tiers', 'tier'),
         bye: findColumn(header, 'bye week', 'bye'),
       }
-    : { name: 0, team: 1, pos: 2, rank: 3, tier: -1, bye: -1 }
+    : { name: 0, team: 1, pos: 2, rank: 3, bye: -1 }
 
   const body = hasHeader ? rows.slice(1) : rows
   const at = (r: string[], i: number) => (i === -1 ? undefined : r[i])
@@ -229,7 +227,6 @@ export function parseCsvPool(text: string): PoolPlayer[] {
       position: position as DraftablePosition,
       searchRank: num(at(r, cols.rank)) ?? i + 1,
       posRank,
-      tier: num(at(r, cols.tier)),
       byeWeek: num(at(r, cols.bye)),
       active: true,
     })
