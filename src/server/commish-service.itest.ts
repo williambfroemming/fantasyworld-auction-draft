@@ -4,8 +4,9 @@
  */
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest'
 import { getSql } from './sql'
-import { getState, nominate, placeBid, settleExpiredLots } from './draft-service'
+import { awardLot, getState, nominate } from './draft-service'
 import * as commish from './commish-service'
+import { executeTrade } from './trade-service'
 
 const ENABLED = process.env.ALLOW_DB_RESET === '1' && !!process.env.DATABASE_URL
 const d = ENABLED ? describe : describe.skip
@@ -21,79 +22,51 @@ d('commish-service (real Postgres)', () => {
   })
 
   beforeEach(async () => {
-    await sql`DELETE FROM bids`
+    await sql`DELETE FROM budget_adjustments`
+    await sql`DELETE FROM trades`
     await sql`DELETE FROM picks`
     await sql`DELETE FROM lots`
-    await sql`UPDATE draft SET status='live', nomination_index=0, rev=0,
-              timer_seconds=25, soft_close_seconds=10 WHERE id=1`
+    await sql`UPDATE draft SET status='live', nomination_index=0, rev=0 WHERE id=1`
   })
 
   afterAll(async () => {
-    await sql`DELETE FROM bids`
+    await sql`DELETE FROM budget_adjustments`
+    await sql`DELETE FROM trades`
     await sql`DELETE FROM picks`
     await sql`DELETE FROM lots`
     await sql`UPDATE draft SET status='setup', nomination_index=0 WHERE id=1`
   })
 
-  async function openLot(opening = 5) {
+  async function openLot(playerIndex = 0) {
     const s = await getState()
     const who = s.onTheClock!.managerId
-    const r = await nominate(who, players[0].id, opening)
+    const r = await nominate(who, players[playerIndex].id)
     return { lotId: (r as { ok: true; data: { lotId: number } }).data.lotId, nominator: who }
   }
 
   describe('pause / resume', () => {
-    it('banks the exact time left and restores it', async () => {
-      const { lotId } = await openLot()
-      await sql`UPDATE lots SET ends_at = now() + interval '17 seconds' WHERE id=${lotId}`
+    it('blocks awards while paused and allows them again after resume', async () => {
+      const { lotId, nominator } = await openLot()
 
       await commish.pause()
-      const [paused] = await sql`SELECT paused_remaining_ms FROM lots WHERE id=${lotId}`
-      expect(Number(paused.paused_remaining_ms)).toBeGreaterThan(16_000)
-      expect(Number(paused.paused_remaining_ms)).toBeLessThanOrEqual(17_100)
+      expect((await getState()).draft.status).toBe('paused')
+      const blocked = await awardLot(nominator, lotId, nominator, 5)
+      expect(blocked.ok).toBe(false)
+      expect(blocked.ok === false && blocked.reason).toMatch(/paused/i)
 
-      // Time passes while everyone is at the fridge.
-      await new Promise((r) => setTimeout(r, 1500))
+      // Nothing expires while paused — the player is still on the block.
+      expect((await getState()).lot).not.toBeNull()
 
       await commish.resume()
-      const [{ ms }] = await sql`
-        SELECT EXTRACT(EPOCH FROM (ends_at - now())) * 1000 AS ms FROM lots WHERE id=${lotId}`
-      // Still ~17s, NOT 15.5s — the break must not eat the clock.
-      expect(Number(ms)).toBeGreaterThan(16_000)
+      expect((await awardLot(nominator, lotId, nominator, 5)).ok).toBe(true)
     })
 
-    it('a paused lot past its deadline does not settle', async () => {
-      const { lotId } = await openLot()
+    it('blocks nominations while paused', async () => {
       await commish.pause()
-      await sql`UPDATE lots SET ends_at = now() - interval '1 minute' WHERE id=${lotId}`
-      expect(await settleExpiredLots()).toBe(false)
-      expect((await getState()).lot).not.toBeNull()
-    })
-  })
-
-  describe('clock adjustment', () => {
-    it('adds and removes time from the live lot', async () => {
-      const { lotId } = await openLot()
-      await sql`UPDATE lots SET ends_at = now() + interval '20 seconds' WHERE id=${lotId}`
-      await commish.adjustClock(30)
-      const [{ ms }] = await sql`
-        SELECT EXTRACT(EPOCH FROM (ends_at - now())) * 1000 AS ms FROM lots WHERE id=${lotId}`
-      expect(Number(ms)).toBeGreaterThan(49_000)
-    })
-
-    it('clamps a large negative adjustment to "now" rather than far in the past', async () => {
-      // Taking 300s off a 5s clock ends the lot immediately — that's a
-      // legitimate "sold!" from the commissioner. What must NOT happen is the
-      // deadline landing minutes in the past, which would make the remaining
-      // time meaningless and confuse any client mid-render.
-      const { lotId } = await openLot()
-      await sql`UPDATE lots SET ends_at = now() + interval '5 seconds' WHERE id=${lotId}`
-      await commish.adjustClock(-300)
-      const [{ ms }] = await sql`
-        SELECT EXTRACT(EPOCH FROM (ends_at - now())) * 1000 AS ms FROM lots WHERE id=${lotId}`
-      // Clamped to the moment of the update; only round-trip time has passed.
-      expect(Number(ms)).toBeLessThanOrEqual(0)
-      expect(Number(ms)).toBeGreaterThan(-5_000)
+      const s = await getState()
+      const r = await nominate(s.onTheClock!.managerId, players[0].id)
+      expect(r.ok).toBe(false)
+      expect(r.ok === false && r.reason).toMatch(/paused/i)
     })
   })
 
@@ -101,36 +74,60 @@ d('commish-service (real Postgres)', () => {
     it('refunds the money, returns the player, and rewinds the order', async () => {
       const before = await getState()
       const { lotId, nominator } = await openLot()
-      const bidder = managers.find((m) => m.id !== nominator)!
-      await placeBid(bidder.id, lotId, 42)
-      await sql`UPDATE lots SET ends_at = now() - interval '1 second' WHERE id=${lotId}`
-      await settleExpiredLots()
+      const winner = managers.find((m) => m.id !== nominator)!
+      expect((await awardLot(nominator, lotId, winner.id, 42)).ok).toBe(true)
 
       const after = await getState()
-      expect(after.managers.find((m) => m.id === bidder.id)!.budget).toBe(158)
+      expect(after.managers.find((m) => m.id === winner.id)!.budget).toBe(158)
 
       const undone = await commish.undoLastPick()
       expect(undone.ok).toBe(true)
 
       const restored = await getState()
-      expect(restored.managers.find((m) => m.id === bidder.id)!.budget).toBe(200)
-      expect(restored.managers.find((m) => m.id === bidder.id)!.rostered).toBe(0)
+      expect(restored.managers.find((m) => m.id === winner.id)!.budget).toBe(200)
+      expect(restored.managers.find((m) => m.id === winner.id)!.rostered).toBe(0)
       // Same manager is back on the clock, and the player is draftable again.
       expect(restored.onTheClock!.managerId).toBe(before.onTheClock!.managerId)
-      const re = await nominate(restored.onTheClock!.managerId, players[0].id, 1)
+      const re = await nominate(restored.onTheClock!.managerId, players[0].id)
       expect(re.ok).toBe(true)
     })
 
     it('refuses when there is nothing to undo', async () => {
       expect((await commish.undoLastPick()).ok).toBe(false)
     })
+
+    /**
+     * A traded player's salary is pinned by a pair of budget_adjustments that
+     * reference this pick. Deleting the pick would orphan them and silently
+     * shift both managers' budgets for the rest of the draft.
+     */
+    it('refuses to undo a pick that has been traded', async () => {
+      const { lotId, nominator } = await openLot()
+      const winner = managers.find((m) => m.id !== nominator)!
+      await awardLot(nominator, lotId, winner.id, 20)
+      const [pick] = await sql`SELECT id FROM picks ORDER BY pick_no DESC LIMIT 1`
+
+      const other = managers.find((m) => m.id !== winner.id)!
+      const traded = await executeTrade(winner.id, {
+        aId: winner.id,
+        bId: other.id,
+        picksAToB: [Number(pick.id)],
+        picksBToA: [],
+        cashAToB: 0,
+        cashBToA: 0,
+      })
+      expect(traded.ok).toBe(true)
+
+      const r = await commish.undoLastPick()
+      expect(r.ok).toBe(false)
+      expect(r.ok === false && r.reason).toMatch(/traded/i)
+    })
   })
 
   describe('editing a pick', () => {
     async function settleOne(price: number) {
-      const { lotId, nominator } = await openLot(price)
-      await sql`UPDATE lots SET ends_at = now() - interval '1 second' WHERE id=${lotId}`
-      await settleExpiredLots()
+      const { lotId, nominator } = await openLot()
+      expect((await awardLot(nominator, lotId, nominator, price)).ok).toBe(true)
       const [pick] = await sql`SELECT id FROM picks ORDER BY pick_no DESC LIMIT 1`
       return { pickId: pick.id as number, nominator }
     }

@@ -1,8 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ClockSync } from '@/lib/clock'
 import type { DraftState } from '@/server/draft-service'
+import type { TradeSummary } from '@/server/trade-service'
 
 export interface BoardPlayer {
   id: string
@@ -17,7 +17,9 @@ export interface BoardPlayer {
 export interface RosterPick {
   id: number
   pickNo: number
+  /** Current owner. A trade moves this; `price` stays charged to the drafter. */
   managerId: number
+  nominatorId: number
   price: number
   slotOverride: string | null
   name: string
@@ -29,6 +31,7 @@ export interface RosterPick {
 export interface Board {
   pool: BoardPlayer[]
   rosters: RosterPick[]
+  trades: TradeSummary[]
 }
 
 const POLL_MS = 400
@@ -37,19 +40,19 @@ const POLL_MS = 400
  * Live draft state.
  *
  * Polls a tiny endpoint that 204s when nothing has changed, and refetches the
- * heavy board only when the version moves. The countdown is NOT polled — it is
- * rendered from `endsAt` against a skew-corrected server clock, so it ticks
- * smoothly at 60fps regardless of poll rate.
+ * heavy board only when the version moves.
  *
- * Why polling is sufficient: any bid inside the final 10 seconds resets the
- * clock to 10, so seeing a bid up to 400ms late can never cost you a player.
+ * There is no countdown to keep smooth any more, so there is no clock sync
+ * either — nothing on screen depends on the client's clock, which removes the
+ * whole class of "someone's laptop is eight minutes fast" problems. 400ms of
+ * staleness cannot cost anyone a player: the price is agreed out loud in the
+ * room and then typed in once.
  */
 export function useDraft() {
   const [state, setState] = useState<DraftState | null>(null)
   const [board, setBoard] = useState<Board | null>(null)
   const [connected, setConnected] = useState(true)
 
-  const clockRef = useRef(new ClockSync())
   const versionRef = useRef<string | null>(null)
   const boardVersionRef = useRef<string | null>(null)
   const inFlight = useRef(false)
@@ -57,7 +60,6 @@ export function useDraft() {
   const poll = useCallback(async () => {
     if (inFlight.current) return
     inFlight.current = true
-    const sentAt = Date.now()
     try {
       const url = versionRef.current
         ? `/api/state?v=${encodeURIComponent(versionRef.current)}`
@@ -68,7 +70,6 @@ export function useDraft() {
       if (res.status === 204) return // nothing changed
 
       const next = (await res.json()) as DraftState
-      clockRef.current.sample({ serverNow: next.serverNow, sentAt, receivedAt: Date.now() })
       versionRef.current = next.version
       setState(next)
     } catch {
@@ -112,31 +113,5 @@ export function useDraft() {
     await poll()
   }, [poll])
 
-  return { state, board, clock: clockRef.current, connected, refresh }
-}
-
-/**
- * Re-render on an animation frame so the countdown is smooth.
- * Returns seconds remaining, or null when there's nothing on the clock.
- */
-export function useCountdown(endsAt: string | null | undefined, clock: ClockSync, paused: boolean) {
-  const [, force] = useState(0)
-
-  useEffect(() => {
-    if (!endsAt || paused) return
-    let raf: number
-    const loop = () => {
-      force((n) => n + 1)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [endsAt, paused])
-
-  if (!endsAt) return null
-  return {
-    seconds: clock.secondsUntil(endsAt),
-    ms: clock.msUntil(endsAt),
-    synced: clock.synced,
-  }
+  return { state, board, connected, refresh }
 }

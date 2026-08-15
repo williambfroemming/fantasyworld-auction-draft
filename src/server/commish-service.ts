@@ -16,60 +16,21 @@ async function bumpRev() {
 }
 
 /**
- * Pause: bank the milliseconds left so resuming restores the exact clock.
+ * Pause: stop nominations and awards until someone resumes.
  *
- * Storing the remainder rather than just a flag is what makes a mid-lot break
- * safe — otherwise the deadline keeps sliding past while everyone is at the
- * fridge, and the lot settles the instant you resume.
+ * There is no clock to bank any more — an open lot simply stays open. Pause
+ * exists so that a break, or an argument about a price, cannot be resolved by
+ * someone quietly typing a result in while the room isn't looking.
  */
 export async function pause(): Promise<ActionResult<null>> {
-  const sql = getSql()
-  await sql`
-    UPDATE lots
-    SET paused_remaining_ms = GREATEST(0, EXTRACT(EPOCH FROM (ends_at - now())) * 1000)::int
-    WHERE status = 'open' AND paused_remaining_ms IS NULL`
-  await sql`UPDATE draft SET status = 'paused' WHERE id = 1 AND status = 'live'`
+  await getSql()`UPDATE draft SET status = 'paused' WHERE id = 1 AND status = 'live'`
   await bumpRev()
   return { ok: true, data: null }
 }
 
 export async function resume(): Promise<ActionResult<null>> {
-  const sql = getSql()
-  await sql`
-    UPDATE lots
-    SET ends_at = now() + make_interval(secs => paused_remaining_ms / 1000.0),
-        paused_remaining_ms = NULL
-    WHERE status = 'open' AND paused_remaining_ms IS NOT NULL`
-  await sql`UPDATE draft SET status = 'live' WHERE id = 1 AND status = 'paused'`
+  await getSql()`UPDATE draft SET status = 'live' WHERE id = 1 AND status = 'paused'`
   await bumpRev()
-  return { ok: true, data: null }
-}
-
-/** Change the defaults. Applies to the next nomination, not the live lot. */
-export async function setTimers(
-  timerSeconds: number,
-  softCloseSeconds: number,
-): Promise<ActionResult<null>> {
-  if (timerSeconds < 3 || timerSeconds > 300) return { ok: false, reason: 'Timer must be 3–300s' }
-  if (softCloseSeconds < 1 || softCloseSeconds > timerSeconds) {
-    return { ok: false, reason: 'Soft close must be between 1s and the full timer' }
-  }
-  await getSql()`UPDATE draft SET timer_seconds = ${timerSeconds},
-                 soft_close_seconds = ${softCloseSeconds} WHERE id = 1`
-  await bumpRev()
-  return { ok: true, data: null }
-}
-
-/** Nudge the clock on the lot that's actually running. */
-export async function adjustClock(deltaSeconds: number): Promise<ActionResult<null>> {
-  const sql = getSql()
-  const rows = await sql`
-    UPDATE lots
-    SET ends_at = GREATEST(now(), ends_at + make_interval(secs => ${deltaSeconds})),
-        version = version + 1
-    WHERE status = 'open'
-    RETURNING id`
-  if (rows.length === 0) return { ok: false, reason: 'No lot is on the clock' }
   return { ok: true, data: null }
 }
 
@@ -85,6 +46,21 @@ export async function undoLastPick(): Promise<ActionResult<{ playerName: string 
     ORDER BY pk.pick_no DESC LIMIT 1`
   if (!last) return { ok: false, reason: 'There are no picks to undo' }
 
+  // A traded player's salary is held in place by a pair of budget_adjustments
+  // that reference this pick's price. Deleting the pick would leave those
+  // adjustments behind with nothing to cancel, quietly shifting both managers'
+  // budgets for the rest of the draft. Undo the trade first.
+  const [traded] = await sql`
+    SELECT id FROM trades
+    WHERE ${last.id}::int = ANY(picks_a_to_b) OR ${last.id}::int = ANY(picks_b_to_a)
+    LIMIT 1`
+  if (traded) {
+    return {
+      ok: false,
+      reason: `${last.name} has been traded (trade #${traded.id}) — reverse the trade before undoing the pick`,
+    }
+  }
+
   await sql`DELETE FROM picks WHERE id = ${last.id}`
   // Void the lot so the player is draftable again but the history is kept.
   await sql`UPDATE lots SET status = 'void' WHERE player_id = ${last.player_id} AND status = 'sold'`
@@ -95,25 +71,27 @@ export async function undoLastPick(): Promise<ActionResult<{ playerName: string 
 
 /** Fix a mistyped price. Budget recalculates automatically — it's derived. */
 export async function editPrice(pickId: number, price: number): Promise<ActionResult<null>> {
-  if (!Number.isInteger(price) || price < 0) return { ok: false, reason: 'Price must be a whole dollar' }
+  if (!Number.isInteger(price) || price < 1) {
+    return { ok: false, reason: 'Every player costs at least $1' }
+  }
   const sql = getSql()
 
   // Guard the invariant by hand here: this is the one path that can write a
-  // price without going through the bid rules, so it must not be able to push
+  // price without going through the award rules, so it must not be able to push
   // a manager below $1 per empty roster slot.
+  //
+  // The starting point is manager_totals rather than a SUM over picks, because
+  // that view is the only thing that also folds in budget_adjustments. Summing
+  // picks directly would ignore every trade this manager has made.
   const [check] = await sql`
-    SELECT d.starting_budget, d.roster_size,
-           COALESCE(SUM(pk.price), 0) AS spent, COUNT(pk.id) AS rostered,
-           (SELECT price FROM picks WHERE id = ${pickId}) AS old_price,
-           (SELECT manager_id FROM picks WHERE id = ${pickId}) AS manager_id
-    FROM draft d
-    LEFT JOIN picks pk ON pk.manager_id = (SELECT manager_id FROM picks WHERE id = ${pickId})
-    WHERE d.id = 1
-    GROUP BY d.starting_budget, d.roster_size`
-  if (!check?.manager_id) return { ok: false, reason: 'Unknown pick' }
+    SELECT t.budget, t.rostered, d.roster_size, pk.price AS old_price
+    FROM picks pk
+    JOIN manager_totals t ON t.id = pk.manager_id
+    CROSS JOIN draft d
+    WHERE pk.id = ${pickId} AND d.id = 1`
+  if (!check) return { ok: false, reason: 'Unknown pick' }
 
-  const newSpent = Number(check.spent) - Number(check.old_price) + price
-  const budget = Number(check.starting_budget) - newSpent
+  const budget = Number(check.budget) - (price - Number(check.old_price))
   const slotsLeft = Number(check.roster_size) - Number(check.rostered)
   if (budget < slotsLeft) {
     return {
@@ -127,7 +105,14 @@ export async function editPrice(pickId: number, price: number): Promise<ActionRe
   return { ok: true, data: null }
 }
 
-/** Give a player to a different manager. */
+/**
+ * Give a player to a different manager — "we awarded that to the wrong person".
+ *
+ * NOT a trade. This moves the charge along with the player, because the premise
+ * is that the original award was a mistake and the money was never really the
+ * first manager's to spend. A trade deliberately leaves the salary behind; see
+ * src/server/trade-service.ts.
+ */
 export async function reassignPick(pickId: number, managerId: number): Promise<ActionResult<null>> {
   const sql = getSql()
   const [pick] = await sql`SELECT price FROM picks WHERE id = ${pickId}`
@@ -242,15 +227,20 @@ export async function renameManager(
 }
 
 /**
- * Wipe every pick, lot, and bid and return to setup.
+ * Wipe every pick, lot, trade, and adjustment and return to setup.
  *
  * Destructive and irreversible — this is the "we ran a rehearsal, now clear it
  * out" button. Managers, PINs, and the player pool are left alone.
+ *
+ * budget_adjustments must go too. Leaving them would carry trade cash from the
+ * rehearsal into the real draft, and because budgets are derived nobody would
+ * see a stale number to be suspicious of — they'd just start at $190.
  */
 export async function resetDraft(): Promise<ActionResult<{ cleared: number }>> {
   const sql = getSql()
   const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
-  await sql`DELETE FROM bids`
+  await sql`DELETE FROM budget_adjustments`
+  await sql`DELETE FROM trades`
   await sql`DELETE FROM picks`
   await sql`DELETE FROM lots`
   await sql`UPDATE draft SET status = 'setup', nomination_index = 0, rev = rev + 1 WHERE id = 1`

@@ -2,7 +2,7 @@
 
 Run this on the **live deployment**, on the machine you'll use on draft night, with at least three browser sessions open side by side (use incognito / a second browser for separate cookie jars). Multi-user behaviour has to be *seen*, not assumed.
 
-> The league confirmed everyone drafts on a laptop, so mobile layout is explicitly **out of scope**. If that changes, the grid and the bid buttons are the two things to re-check.
+> The league confirmed everyone drafts on a laptop, so mobile layout is explicitly **out of scope**. If that changes, the grid and the winner buttons are the two things to re-check.
 
 Each section notes the requirement it proves.
 
@@ -28,7 +28,7 @@ Each section notes the requirement it proves.
 | ⬜ | **Randomize** draft order — result changes on re-roll | |
 | ⬜ | Drag to reorder manually — sticks after refresh | |
 | ⬜ | Round 1 / round 2 preview shows correct snake (forward, then reversed) | |
-| ⬜ | Budget $200, roster 16, timer defaults editable and persist | |
+| ⬜ | Budget $200 and roster 16 are editable before the draft and persist | |
 
 ## B. Access — *req 1*
 
@@ -49,7 +49,7 @@ Each section notes the requirement it proves.
 |---|---|---|
 | ⬜ | Nominate button live only for the manager on the clock | |
 | ⬜ | Everyone else sees whose turn it is | |
-| ⬜ | **No countdown between lots** — walk away 5 min, nothing happens | |
+| ⬜ | **Nothing is ever counting down** — walk away 5 min at any point, nothing changes | |
 | ⬜ | Nominator sets opening bid; rejected if above their max | |
 | ⬜ | On nomination the player vanishes from the pool **on every screen** | |
 | ⬜ | Player search and position filters work | |
@@ -57,23 +57,41 @@ Each section notes the requirement it proves.
 | ⬜ | At a round turn, the order reverses correctly | |
 | ⬜ | A manager at 16 players is skipped | |
 
-## D. Bidding & the clock — *req 3*
+## D. Recording a sale — *req 3*
+
+The bidding itself happens out loud. These check that the app records it correctly and
+refuses anything illegal.
 
 | ✓ | Check | Notes |
 |---|---|---|
-| ⬜ | Clock starts at the configured time on nomination | |
-| ⬜ | All screens show the same number, within ~1s | |
-| ⬜ | **Set one device's clock 10 min fast, then join** — countdown still correct | |
-| ⬜ | Leave a lot running with all browsers closed, then open one — settles immediately | |
-| ⬜ | A bid above 10s remaining does **not** extend the clock | |
-| ⬜ | A bid inside 10s remaining resets it to exactly 10s | |
-| ⬜ | Repeated late bids keep resetting — a bidding war can't time out early | |
-| ⬜ | `+$1`, `+$5`, custom amounts all work | |
-| ⬜ | A bid at or below current bid is rejected | |
-| ⬜ | Two people bidding the same instant → exactly one wins, no double-charge | |
-| ⬜ | Commissioner changes timer mid-draft — applies to next lot | |
-| ⬜ | Commissioner adds/removes 10s on the live clock | |
-| ⬜ | Audio fires at 10s and 3s; gavel on sold | |
+| ⬜ | A nominated player appears on every screen, with **no countdown anywhere** | |
+| ⬜ | The nominator sees a price box and the ten managers; nobody else does | |
+| ⬜ | The commissioner can also record a sale on someone else's lot | |
+| ⬜ | Typing a price greys out every manager who cannot afford it, live | |
+| ⬜ | **Set one device's clock 10 min fast** — nothing about the app misbehaves | |
+| ⬜ | Leave a lot up for 20 minutes — it is still there, unchanged | |
+| ⬜ | Recording a sale updates roster, budget and max bid on **every** screen | |
+| ⬜ | Double-tap **Sold** on a laggy connection → exactly one pick, no double-charge | |
+| ⬜ | A price over the winner's max is refused, **with the manager and number named** | |
+| ⬜ | …and the player is **still on the block**, so the right number can just be typed | |
+| ⬜ | $0 is refused — every player costs at least $1 | |
+| ⬜ | Gavel sound on sold; nudge when it becomes your turn | |
+
+## D2. Trades — *req 8*
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | Trade a player one way: he moves rosters, **both budgets are unchanged** | |
+| ⬜ | The giver's max bid *drops* (a slot opened) and the receiver's *rises* | |
+| ⬜ | Trade cash only: budgets move by exactly that amount, both ways | |
+| ⬜ | Players and cash both directions at once produces the right four numbers | |
+| ⬜ | The preview panel matches what actually happens after committing | |
+| ⬜ | A trade that would strand either side is refused **and writes nothing** | |
+| ⬜ | Trading a player away when nearly broke is refused, with a readable reason | |
+| ⬜ | A trade updates the League board and every other screen within a second | |
+| ⬜ | The completed-trades log lists players, direction, and cash | |
+| ⬜ | **Undo last pick** refuses on a traded player and says why | |
+| ⬜ | After several trades, `npm run db:verify` still reports all checks passed | |
 
 ## E. Budget & max bid — *req 6*
 
@@ -81,11 +99,11 @@ Each section notes the requirement it proves.
 |---|---|---|
 | ⬜ | Everyone starts at $200 budget / **$185 max bid** | |
 | ⬜ | Both update immediately after each win, on every screen | |
-| ⬜ | Bidding over max is **blocked with a clear reason** (not a silent failure) | |
+| ⬜ | Recording over max is **blocked with a clear reason** (not a silent failure) | |
 | ⬜ | Max bid falls correctly as roster fills — check the arithmetic by hand twice | |
 | ⬜ | With 15 players and money left, full remaining budget can go on the last slot | |
 | ⬜ | **No manager can reach a state where they can't afford their empty slots** | |
-| ⬜ | A manager at 16 players can no longer bid | |
+| ⬜ | A manager at 16 players can no longer be sold anyone | |
 
 ## F. Rosters — *reqs 4, 5*
 
@@ -118,7 +136,7 @@ Each section notes the requirement it proves.
 
 | ✓ | Check | Notes |
 |---|---|---|
-| ⬜ | Pause mid-lot — clock freezes everywhere; resume restores exact time | |
+| ⬜ | Pause mid-lot — nominations and sales are blocked; the player stays on the block; resume restores both | |
 | ⬜ | Undo last pick — player returns to pool, budget refunded, order rewinds | |
 | ⬜ | Edit a price after the fact — budget recalculates | |
 | ⬜ | Reassign a player — both budgets correct | |

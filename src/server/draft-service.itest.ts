@@ -1,21 +1,23 @@
 /**
  * Integration tests against a REAL Postgres database.
  *
- * ⚠️ These DELETE all picks, lots, and bids between tests. They do not touch
- * managers or players, but they will absolutely destroy a draft in progress.
+ * ⚠️ These DELETE all picks, lots, trades, and adjustments between tests. They
+ * do not touch managers or players, but they will absolutely destroy a draft in
+ * progress.
  *
- * Guarded behind ALLOW_DB_RESET=1 so that a stray `npm run test:int` on draft
- * night cannot wipe the live draft. Run with:
+ * Guarded behind ALLOW_DB_RESET=1 *and* pointed at TEST_DATABASE_URL by
+ * scripts/guard-test-db.ts, so a stray run on draft night cannot wipe the live
+ * draft. Run with:
  *
  *   npm run test:int
  *
- * These cover the claims that unit tests cannot: that concurrent bids serialize
- * correctly, that the soft close behaves exactly as specified, and that a lot
- * settles into a pick with the budget moving by precisely the price.
+ * These cover the claims unit tests cannot: that the award statement is atomic
+ * and cannot double-sell a player, that a sale moves the budget by precisely the
+ * price, and that the reserve invariant survives a full 16-round draft.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { getSql } from './sql'
-import { getState, nominate, placeBid, settleExpiredLots } from './draft-service'
+import { awardLot, getState, nominate } from './draft-service'
 
 const ENABLED = process.env.ALLOW_DB_RESET === '1' && !!process.env.DATABASE_URL
 
@@ -27,11 +29,12 @@ if (!ENABLED) {
 
 d('draft-service (real Postgres)', () => {
   const sql = getSql()
-  let managers: Array<{ id: number; draft_slot: number; name: string }> = []
+  let managers: Array<{ id: number; draft_slot: number; name: string; is_commish: boolean }> = []
   let players: Array<{ id: string; position: string }> = []
 
   beforeAll(async () => {
-    managers = (await sql`SELECT id, draft_slot, name FROM managers ORDER BY draft_slot`) as never
+    managers = (await sql`SELECT id, draft_slot, name, is_commish FROM managers
+                          ORDER BY draft_slot`) as never
     players = (await sql`SELECT id, position FROM players ORDER BY search_rank LIMIT 40`) as never
     expect(managers.length).toBe(10)
     expect(players.length).toBeGreaterThan(20)
@@ -47,17 +50,32 @@ d('draft-service (real Postgres)', () => {
   })
 
   async function resetDraft() {
-    await sql`DELETE FROM bids`
+    await sql`DELETE FROM budget_adjustments`
+    await sql`DELETE FROM trades`
     await sql`DELETE FROM picks`
     await sql`DELETE FROM lots`
-    await sql`UPDATE draft SET status='live', nomination_index=0, rev=0,
-              timer_seconds=25, soft_close_seconds=10 WHERE id = 1`
+    await sql`UPDATE draft SET status='live', nomination_index=0, rev=0 WHERE id = 1`
   }
 
   /** The manager currently on the clock, per the service's own view. */
   async function onTheClock() {
     const s = await getState()
     return s.onTheClock!.managerId
+  }
+
+  async function openLot(playerIndex = 0) {
+    const clock = await onTheClock()
+    const r = await nominate(clock, players[playerIndex].id)
+    expect(r.ok).toBe(true)
+    return { lotId: (r as { ok: true; data: { lotId: number } }).data.lotId, nominator: clock }
+  }
+
+  /** Nominate and immediately sell, to move the draft along. */
+  async function buy(playerIndex: number, winnerId: number, price: number) {
+    const { lotId, nominator } = await openLot(playerIndex)
+    const r = await awardLot(nominator, lotId, winnerId, price)
+    expect(r.ok).toBe(true)
+    return lotId
   }
 
   // -------------------------------------------------------------------------
@@ -78,34 +96,32 @@ d('draft-service (real Postgres)', () => {
       const clock = await onTheClock()
       const other = managers.find((m) => m.id !== clock)!
 
-      const bad = await nominate(other.id, players[0].id, 1)
+      const bad = await nominate(other.id, players[0].id)
       expect(bad.ok).toBe(false)
       expect(bad.ok === false && bad.reason).toMatch(/turn to nominate/i)
 
-      const good = await nominate(clock, players[0].id, 1)
-      expect(good.ok).toBe(true)
-    })
-
-    it('rejects an opening bid above the nominator max', async () => {
-      const clock = await onTheClock()
-      const r = await nominate(clock, players[0].id, 186)
-      expect(r.ok).toBe(false)
-      expect(r.ok === false && r.reason).toMatch(/max bid/i)
+      expect((await nominate(clock, players[0].id)).ok).toBe(true)
     })
 
     it('refuses a second lot while one is open', async () => {
-      const clock = await onTheClock()
-      expect((await nominate(clock, players[0].id, 1)).ok).toBe(true)
-      const second = await nominate(await onTheClock(), players[1].id, 1)
+      await openLot(0)
+      const second = await nominate(await onTheClock(), players[1].id)
       expect(second.ok).toBe(false)
     })
 
-    it('makes the nominator the standing high bidder', async () => {
-      const clock = await onTheClock()
-      await nominate(clock, players[0].id, 12)
+    it('opens with no price and no winner — the room has not bid yet', async () => {
+      const { lotId } = await openLot(0)
+      const [row] = await sql`SELECT sold_price, winner_id, status FROM lots WHERE id=${lotId}`
+      expect(row.sold_price).toBeNull()
+      expect(row.winner_id).toBeNull()
+      expect(row.status).toBe('open')
+    })
+
+    it('never expires — an open lot is still open long after any old timer', async () => {
+      const { lotId } = await openLot(0)
+      await sql`UPDATE lots SET created_at = now() - interval '2 hours' WHERE id=${lotId}`
       const s = await getState()
-      expect(s.lot?.highBidderId).toBe(clock)
-      expect(s.lot?.highBid).toBe(12)
+      expect(s.lot?.id).toBe(lotId)
     })
 
     it('advances the snake, reversing at the turn of the round', async () => {
@@ -113,9 +129,8 @@ d('draft-service (real Postgres)', () => {
       for (let i = 0; i < 12; i++) {
         const who = await onTheClock()
         seen.push(who)
-        await nominate(who, players[i].id, 1)
-        await sql`UPDATE lots SET ends_at = now() - interval '1 second' WHERE status='open'`
-        await settleExpiredLots()
+        const { lotId } = await openLot(i)
+        await awardLot(who, lotId, who, 1)
       }
       const slots = seen.map((id) => managers.find((m) => m.id === id)!.draft_slot)
       expect(slots.slice(0, 10)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
@@ -124,201 +139,113 @@ d('draft-service (real Postgres)', () => {
     })
   })
 
-  describe('bidding', () => {
-    async function openLot(opening = 1) {
-      const clock = await onTheClock()
-      const r = await nominate(clock, players[0].id, opening)
-      expect(r.ok).toBe(true)
-      return { lotId: (r as { ok: true; data: { lotId: number } }).data.lotId, nominator: clock }
-    }
+  describe('awarding', () => {
+    it('records the sale and moves the budget by exactly the price', async () => {
+      const { lotId, nominator } = await openLot(0)
+      const winner = managers.find((m) => m.id !== nominator)!
 
-    it('accepts a raise and rejects one that does not beat it', async () => {
-      const { lotId, nominator } = await openLot(5)
-      const bidder = managers.find((m) => m.id !== nominator)!
-
-      expect((await placeBid(bidder.id, lotId, 4)).ok).toBe(false)
-      expect((await placeBid(bidder.id, lotId, 5)).ok).toBe(false)
-      expect((await placeBid(bidder.id, lotId, 6)).ok).toBe(true)
-    })
-
-    it('enforces max bid in the database, not just the client', async () => {
-      const { lotId, nominator } = await openLot(1)
-      const bidder = managers.find((m) => m.id !== nominator)!
-
-      const over = await placeBid(bidder.id, lotId, 186)
-      expect(over.ok).toBe(false)
-      expect(over.ok === false && over.reason).toMatch(/max bid/i)
-
-      expect((await placeBid(bidder.id, lotId, 185)).ok).toBe(true)
-    })
-
-    it('serializes ten simultaneous bids into exactly one winner', async () => {
-      const { lotId, nominator } = await openLot(1)
-      const bidders = managers.filter((m) => m.id !== nominator)
-
-      // Everyone slams the same amount at the same instant.
-      const results = await Promise.all(bidders.map((b) => placeBid(b.id, lotId, 50)))
-      const winners = results.filter((r) => r.ok)
-      expect(winners).toHaveLength(1)
-
-      const s = await getState()
-      expect(s.lot?.highBid).toBe(50)
-      // Exactly one bid recorded at that price — no lost updates, no double charge.
-      const [{ n }] = await sql`SELECT count(*)::int AS n FROM bids WHERE lot_id=${lotId} AND amount=50`
-      expect(Number(n)).toBe(1)
-    })
-
-    it('lets an escalating race through and keeps the true maximum', async () => {
-      const { lotId, nominator } = await openLot(1)
-      const bidders = managers.filter((m) => m.id !== nominator)
-
-      const results = await Promise.all(bidders.map((b, i) => placeBid(b.id, lotId, 10 + i)))
-      const okCount = results.filter((r) => r.ok).length
-      expect(okCount).toBeGreaterThan(0)
-
-      const s = await getState()
-      // Whatever interleaving happened, the standing bid is the highest accepted.
-      const [{ max }] = await sql`SELECT COALESCE(MAX(amount),0)::int AS max FROM bids WHERE lot_id=${lotId}`
-      expect(s.lot?.highBid).toBe(Number(max))
-    })
-
-    it('rejects every bid while the draft is paused', async () => {
-      const { lotId, nominator } = await openLot(1)
-      await sql`UPDATE draft SET status='paused' WHERE id=1`
-      const bidder = managers.find((m) => m.id !== nominator)!
-      const r = await placeBid(bidder.id, lotId, 20)
-      expect(r.ok).toBe(false)
-      expect(r.ok === false && r.reason).toMatch(/paused/i)
-    })
-  })
-
-  describe('the soft close', () => {
-    async function openWithClock(secondsLeft: number) {
-      const clock = await onTheClock()
-      const r = await nominate(clock, players[0].id, 1)
-      const lotId = (r as { ok: true; data: { lotId: number } }).data.lotId
-      await sql`UPDATE lots SET ends_at = now() + make_interval(secs => ${secondsLeft}) WHERE id=${lotId}`
-      return { lotId, nominator: clock }
-    }
-
-    it('does NOT extend the clock when a bid lands outside the final 10s', async () => {
-      const { lotId, nominator } = await openWithClock(20)
-      const before = (await sql`SELECT ends_at FROM lots WHERE id=${lotId}`)[0].ends_at
-
-      const bidder = managers.find((m) => m.id !== nominator)!
-      expect((await placeBid(bidder.id, lotId, 5)).ok).toBe(true)
-
-      const after = (await sql`SELECT ends_at FROM lots WHERE id=${lotId}`)[0].ends_at
-      expect(new Date(after).getTime()).toBe(new Date(before).getTime())
-    })
-
-    it('snaps the clock back to exactly 10s when a bid lands inside it', async () => {
-      const { lotId, nominator } = await openWithClock(3)
-      const bidder = managers.find((m) => m.id !== nominator)!
-      expect((await placeBid(bidder.id, lotId, 5)).ok).toBe(true)
-
-      const [{ ms }] = await sql`
-        SELECT EXTRACT(EPOCH FROM (ends_at - now())) * 1000 AS ms FROM lots WHERE id=${lotId}`
-      expect(Number(ms)).toBeGreaterThan(9_000)
-      expect(Number(ms)).toBeLessThanOrEqual(10_100)
-    })
-
-    it('keeps resetting on repeated late bids, so a war cannot time out early', async () => {
-      const { lotId, nominator } = await openWithClock(2)
-      const bidders = managers.filter((m) => m.id !== nominator)
-      for (let i = 0; i < 5; i++) {
-        await sql`UPDATE lots SET ends_at = now() + interval '2 seconds' WHERE id=${lotId}`
-        expect((await placeBid(bidders[i].id, lotId, 5 + i)).ok).toBe(true)
-        const [{ ms }] = await sql`
-          SELECT EXTRACT(EPOCH FROM (ends_at - now())) * 1000 AS ms FROM lots WHERE id=${lotId}`
-        expect(Number(ms)).toBeGreaterThan(9_000)
-      }
-    })
-
-    it('refuses a bid once time has expired', async () => {
-      const { lotId, nominator } = await openWithClock(-1)
-      const bidder = managers.find((m) => m.id !== nominator)!
-      const r = await placeBid(bidder.id, lotId, 20)
-      expect(r.ok).toBe(false)
-      expect(r.ok === false && r.reason).toMatch(/expired/i)
-    })
-  })
-
-  describe('settlement', () => {
-    it('awards the player and moves the budget by exactly the price', async () => {
-      const clock = await onTheClock()
-      const r = await nominate(clock, players[0].id, 1)
-      const lotId = (r as { ok: true; data: { lotId: number } }).data.lotId
-      const bidder = managers.find((m) => m.id !== clock)!
-      await placeBid(bidder.id, lotId, 37)
-
-      await sql`UPDATE lots SET ends_at = now() - interval '1 second' WHERE id=${lotId}`
-      expect(await settleExpiredLots()).toBe(true)
+      expect((await awardLot(nominator, lotId, winner.id, 37)).ok).toBe(true)
 
       const s = await getState()
       expect(s.lot).toBeNull()
-      const winner = s.managers.find((m) => m.id === bidder.id)!
-      expect(winner.rostered).toBe(1)
-      expect(winner.budget).toBe(200 - 37)
-      expect(winner.maxBid).toBe(200 - 37 - 14) // 15 slots left, $1 reserved each
-      expect(s.recentPicks[0]).toMatchObject({ managerId: bidder.id, price: 37 })
+      const w = s.managers.find((m) => m.id === winner.id)!
+      expect(w.rostered).toBe(1)
+      expect(w.budget).toBe(200 - 37)
+      expect(w.maxBid).toBe(200 - 37 - 14) // 15 slots left, $1 reserved each
+      expect(s.recentPicks[0]).toMatchObject({ managerId: winner.id, price: 37 })
     })
 
-    it('is idempotent under ten concurrent settles — one pick, not ten', async () => {
-      const clock = await onTheClock()
-      const r = await nominate(clock, players[0].id, 9)
-      const lotId = (r as { ok: true; data: { lotId: number } }).data.lotId
-      await sql`UPDATE lots SET ends_at = now() - interval '1 second' WHERE id=${lotId}`
+    it('rejects a price over the winner’s max bid', async () => {
+      const { lotId, nominator } = await openLot(0)
+      const winner = managers.find((m) => m.id !== nominator)!
 
-      // Every polling client hits /api/state at once.
-      const settled = await Promise.all(Array.from({ length: 10 }, () => settleExpiredLots()))
-      expect(settled.filter(Boolean)).toHaveLength(1)
+      const over = await awardLot(nominator, lotId, winner.id, 186)
+      expect(over.ok).toBe(false)
+      expect(over.ok === false && over.reason).toMatch(/max bid/i)
+
+      // …and the lot is untouched, so the room can just call the right number.
+      const s = await getState()
+      expect(s.lot?.id).toBe(lotId)
+
+      expect((await awardLot(nominator, lotId, winner.id, 185)).ok).toBe(true)
+    })
+
+    it('rejects $0 — every player costs at least a dollar', async () => {
+      const { lotId, nominator } = await openLot(0)
+      const r = await awardLot(nominator, lotId, nominator, 0)
+      expect(r.ok).toBe(false)
+    })
+
+    it('only the nominator or the commissioner may record the sale', async () => {
+      const { lotId, nominator } = await openLot(0)
+      const stranger = managers.find((m) => m.id !== nominator && !m.is_commish)!
+
+      const bad = await awardLot(stranger.id, lotId, stranger.id, 5)
+      expect(bad.ok).toBe(false)
+      expect(bad.ok === false && bad.reason).toMatch(/nominator or the commissioner/i)
+
+      const commish = managers.find((m) => m.is_commish)!
+      expect((await awardLot(commish.id, lotId, stranger.id, 5)).ok).toBe(true)
+    })
+
+    /**
+     * The atomicity claim. Ten clients recording the same lot at once — which is
+     * what a laggy phone plus an impatient double-tap looks like — must produce
+     * exactly one pick, or somebody gets charged twice for one player.
+     */
+    it('sells exactly once under ten concurrent awards', async () => {
+      const { lotId, nominator } = await openLot(0)
+      const winner = managers.find((m) => m.id !== nominator)!
+
+      const results = await Promise.all(
+        Array.from({ length: 10 }, () => awardLot(nominator, lotId, winner.id, 25)),
+      )
+      expect(results.filter((r) => r.ok)).toHaveLength(1)
 
       const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
       expect(Number(n)).toBe(1)
+
+      const s = await getState()
+      expect(s.managers.find((m) => m.id === winner.id)!.budget).toBe(200 - 25)
     })
 
-    it('does not settle while paused, even past the deadline', async () => {
-      const clock = await onTheClock()
-      const r = await nominate(clock, players[0].id, 3)
-      const lotId = (r as { ok: true; data: { lotId: number } }).data.lotId
-      await sql`UPDATE lots SET ends_at = now() - interval '5 seconds',
-                paused_remaining_ms = 4000 WHERE id=${lotId}`
-
-      expect(await settleExpiredLots()).toBe(false)
-      const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
-      expect(Number(n)).toBe(0)
+    it('refuses to award while paused', async () => {
+      const { lotId, nominator } = await openLot(0)
+      await sql`UPDATE draft SET status='paused' WHERE id=1`
+      const r = await awardLot(nominator, lotId, nominator, 5)
+      expect(r.ok).toBe(false)
+      expect(r.ok === false && r.reason).toMatch(/paused/i)
     })
 
     it('will not let the same player be drafted twice', async () => {
-      const clock = await onTheClock()
-      const r = await nominate(clock, players[0].id, 2)
-      const lotId = (r as { ok: true; data: { lotId: number } }).data.lotId
-      await sql`UPDATE lots SET ends_at = now() - interval '1 second' WHERE id=${lotId}`
-      await settleExpiredLots()
-
-      const again = await nominate(await onTheClock(), players[0].id, 2)
+      await buy(0, managers[0].id, 2)
+      const again = await nominate(await onTheClock(), players[0].id)
       expect(again.ok).toBe(false)
       expect(again.ok === false && again.reason).toMatch(/already drafted/i)
+    })
+
+    it('cannot award to a manager whose roster is full', async () => {
+      const victim = managers[0]
+      for (let i = 0; i < 16; i++) await buy(i, victim.id, 1)
+
+      const { lotId, nominator } = await openLot(16)
+      const r = await awardLot(nominator, lotId, victim.id, 1)
+      expect(r.ok).toBe(false)
+      expect(r.ok === false && r.reason).toMatch(/full/i)
     })
   })
 
   describe('the invariant that matters', () => {
     it('never lets a manager end up unable to fill their roster', async () => {
-      // Drive one manager to the wall: always bid their entire max.
+      // Drive one manager to the wall: always sell them the player at their max.
       const victim = managers[0]
       for (let i = 0; i < 16; i++) {
-        const clock = await onTheClock()
-        const r = await nominate(clock, players[i].id, 1)
-        const lotId = (r as { ok: true; data: { lotId: number } }).data.lotId
-
+        const { lotId, nominator } = await openLot(i)
         const s = await getState()
         const me = s.managers.find((m) => m.id === victim.id)!
-        if (me.maxBid > s.lot!.highBid && me.rostered < 16) {
-          await placeBid(victim.id, lotId, me.maxBid)
-        }
-        await sql`UPDATE lots SET ends_at = now() - interval '1 second' WHERE id=${lotId}`
-        await settleExpiredLots()
+
+        const r = await awardLot(nominator, lotId, victim.id, me.maxBid)
+        expect(r.ok).toBe(true)
 
         const after = await getState()
         for (const m of after.managers) {
@@ -329,6 +256,12 @@ d('draft-service (real Postgres)', () => {
           if (m.rostered < after.draft.rosterSize) expect(m.maxBid).toBeGreaterThanOrEqual(1)
         }
       }
+
+      const end = await getState()
+      const v = end.managers.find((m) => m.id === victim.id)!
+      expect(v.rostered).toBe(16)
+      expect(v.budget).toBe(0)
+      expect(v.maxBid).toBe(0)
     })
   })
 })

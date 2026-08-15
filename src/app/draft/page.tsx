@@ -13,7 +13,7 @@ import type { BoardPlayer } from '@/hooks/useDraft'
 
 export default function DraftPage() {
   const router = useRouter()
-  const { state, board, clock, connected, refresh } = useDraft()
+  const { state, board, connected, refresh } = useDraft()
   const [me, setMe] = useState<number | null>(null)
   const [checked, setChecked] = useState(false)
 
@@ -36,22 +36,22 @@ export default function DraftPage() {
     wasMyTurn.current = !!mine
   }, [state, me])
 
-  async function placeBid(amount: number): Promise<string | null> {
-    const res = await fetch('/api/bid', {
+  async function award(winnerId: number, price: number): Promise<string | null> {
+    const res = await fetch('/api/award', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lotId: state!.lot!.id, amount }),
+      body: JSON.stringify({ lotId: state!.lot!.id, winnerId, price }),
     })
     const data = await res.json()
     await refresh()
-    return data.ok ? null : (data.reason ?? 'Bid rejected')
+    return data.ok ? null : (data.reason ?? 'Could not record that sale')
   }
 
-  async function nominate(player: BoardPlayer, openingBid: number): Promise<string | null> {
+  async function nominate(player: BoardPlayer): Promise<string | null> {
     const res = await fetch('/api/nominate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playerId: player.id, openingBid }),
+      body: JSON.stringify({ playerId: player.id }),
     })
     const data = await res.json()
     await refresh()
@@ -82,7 +82,7 @@ export default function DraftPage() {
         : state.draft.status === 'done'
           ? 'The draft is complete.'
           : state.lot
-            ? `Bidding is open on ${state.lot.playerName}.`
+            ? `${state.lot.playerName} is on the block.`
             : `It's ${onClock?.displayName ?? 'someone else'}'s turn to nominate.`
 
   return (
@@ -98,6 +98,12 @@ export default function DraftPage() {
           className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
         >
           League board →
+        </Link>
+        <Link
+          href="/trades"
+          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+        >
+          Trades →
         </Link>
 
         {state.draft.status === 'paused' && (
@@ -152,7 +158,7 @@ export default function DraftPage() {
           }`}
         >
           {myTurn ? (
-            <>You&apos;re on the clock — pick a player from the list on the left to nominate.</>
+            <>You&apos;re on the clock — pick a player from the list on the left to put up.</>
           ) : (
             <>
               On the clock:{' '}
@@ -186,7 +192,7 @@ export default function DraftPage() {
 
         <div className="order-1 flex min-h-0 flex-col gap-3 lg:order-2">
           <div className="min-h-[24rem] flex-1">
-            <LotPanel state={state} clock={clock} me={me} onBid={placeBid} />
+            <LotPanel state={state} me={me} onAward={award} />
           </div>
 
           {state.recentPicks.length > 0 && (

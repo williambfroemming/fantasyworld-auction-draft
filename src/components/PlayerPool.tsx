@@ -24,12 +24,11 @@ export function PlayerPool({
   /** Why nomination is unavailable. Shown at the top of the list — never leave
    *  someone staring at a dead button with no explanation mid-draft. */
   disabledReason?: string | null
-  onNominate: (player: BoardPlayer, openingBid: number) => Promise<string | null>
+  onNominate: (player: BoardPlayer) => Promise<string | null>
 }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('ALL')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<BoardPlayer | null>(null)
-  const [opening, setOpening] = useState('1')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
@@ -43,19 +42,13 @@ export function PlayerPool({
 
   async function nominate() {
     if (!selected) return
-    const bid = Number(opening)
-    if (!Number.isInteger(bid) || bid < 1) {
-      setError('Opening bid must be at least $1')
-      return
-    }
     setPending(true)
     setError(null)
-    const reason = await onNominate(selected, bid)
+    const reason = await onNominate(selected)
     setPending(false)
     if (reason) setError(reason)
     else {
       setSelected(null)
-      setOpening('1')
       setQuery('')
     }
   }
@@ -138,26 +131,15 @@ export function PlayerPool({
               cancel
             </button>
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="text-sm text-slate-400">Open at $</span>
-            <input
-              inputMode="numeric"
-              value={opening}
-              onChange={(e) => {
-                setOpening(e.target.value.replace(/\D/g, '').slice(0, 3))
-                setError(null)
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && nominate()}
-              className="w-20 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center tabular-nums outline-none focus:border-emerald-500"
-            />
-            <button
-              onClick={nominate}
-              disabled={pending}
-              className="flex-1 rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
-            >
-              {pending ? 'Nominating…' : 'Nominate'}
-            </button>
-          </div>
+          {/* No opening bid. The room opens the bidding out loud; the app only
+              needs to know which player everyone is looking at. */}
+          <button
+            onClick={nominate}
+            disabled={pending}
+            className="mt-2 w-full rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+          >
+            {pending ? 'Nominating…' : 'Put up for auction'}
+          </button>
           {error && <p className="mt-2 text-sm text-rose-400">{error}</p>}
         </div>
       )}

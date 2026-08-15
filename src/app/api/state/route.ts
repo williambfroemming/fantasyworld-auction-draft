@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getState, settleExpiredLots } from '@/server/draft-service'
+import { getState } from '@/server/draft-service'
 
 /**
- * ⚠️ This GET has side effects: it settles expired lots (see draft-service.ts).
+ * ⚠️ This response must never be cached.
  *
- * If this response is ever cached, the draft freezes — every client sits on a
- * stale 204 and no lot ever settles. It presents as a UI bug, so both guards
- * below are load-bearing:
+ * It no longer has side effects — there is no clock, so nothing settles on read
+ * — but the whole draft is still driven by this poll. A cached 204 would leave
+ * every client sitting on a stale board while the room carries on without them,
+ * and it presents as a UI bug rather than a caching one. Both guards below are
+ * load-bearing:
  *   - force-dynamic stops Next prerendering/caching the route
  *   - no-store stops the CDN and the browser doing the same
  *
@@ -16,7 +18,6 @@ import { getState, settleExpiredLots } from '@/server/draft-service'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  await settleExpiredLots()
   const state = await getState()
 
   // Cheap path: nothing has changed since the client's last poll.

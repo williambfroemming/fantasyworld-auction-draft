@@ -21,11 +21,9 @@ async function main() {
 
   const settings = await sql`SELECT * FROM draft WHERE id = 1`
   check('draft settings row exists', settings.length === 1)
-  const { starting_budget, roster_size, timer_seconds, soft_close_seconds } = settings[0] ?? {}
+  const { starting_budget, roster_size } = settings[0] ?? {}
   check('budget is $200', starting_budget === 200, `got ${starting_budget}`)
   check('roster is 16 slots', roster_size === 16, `got ${roster_size}`)
-  check('timer defaults', timer_seconds === 25 && soft_close_seconds === 10,
-    `${timer_seconds}s / ${soft_close_seconds}s soft close`)
 
   const mgrs = await sql`
     SELECT m.name, t.budget, t.rostered, t.max_bid
@@ -46,6 +44,29 @@ async function main() {
     'max bid never exceeds budget',
     mgrs.every((m) => Number(m.max_bid) <= Number(m.budget)),
   )
+
+  // The reserve invariant, stated directly: money left is always enough to fill
+  // the slots left. This is the -1 from the old sheet, checked against reality.
+  check(
+    'every manager can still fill their roster at $1 a slot',
+    mgrs.every((m) => Number(m.budget) >= Number(roster_size) - Number(m.rostered)),
+    mgrs
+      .filter((m) => Number(m.budget) < Number(roster_size) - Number(m.rostered))
+      .map((m) => `${m.name}: $${m.budget} for ${Number(roster_size) - Number(m.rostered)} slots`)
+      .join('; ') || 'all clear',
+  )
+
+  // Trades move money between managers but must never create or destroy any.
+  // A non-zero total means a trade half-applied, which would be invisible
+  // otherwise — every budget would just be quietly wrong.
+  const [{ total }] = await sql`SELECT COALESCE(SUM(amount), 0)::int AS total FROM budget_adjustments`
+  check('trade adjustments sum to zero across the league', Number(total) === 0, `sum = ${total}`)
+
+  const [{ n: tradeCount }] = await sql`SELECT count(*)::int AS n FROM trades`
+  const [{ n: orphanAdj }] = await sql`
+    SELECT count(*)::int AS n FROM budget_adjustments a
+    WHERE a.trade_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM trades t WHERE t.id = a.trade_id)`
+  check('no adjustments orphaned from a deleted trade', Number(orphanAdj) === 0, `${tradeCount} trades`)
 
   const [{ n: playerCount }] = await sql`SELECT count(*)::int AS n FROM players`
   check('player pool is seeded', Number(playerCount) > 100, `${playerCount} players`)

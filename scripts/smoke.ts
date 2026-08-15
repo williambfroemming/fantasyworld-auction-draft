@@ -47,11 +47,11 @@ async function main() {
     throw new Error('Refusing to run without ALLOW_DB_RESET=1 (this wipes draft state).')
   }
   const sql = neon(process.env.DATABASE_URL!)
-  await sql`DELETE FROM bids`
+  await sql`DELETE FROM budget_adjustments`
+  await sql`DELETE FROM trades`
   await sql`DELETE FROM picks`
   await sql`DELETE FROM lots`
-  await sql`UPDATE draft SET status='live', nomination_index=0, rev=0,
-            timer_seconds=25, soft_close_seconds=10 WHERE id=1`
+  await sql`UPDATE draft SET status='live', nomination_index=0, rev=0 WHERE id=1`
   console.log('reset draft to live\n')
 
   // --- pages -------------------------------------------------------------
@@ -80,7 +80,7 @@ async function main() {
 
   const anon = await http('/api/nominate', {
     method: 'POST',
-    body: JSON.stringify({ playerId: 'x', openingBid: 1 }),
+    body: JSON.stringify({ playerId: 'x' }),
   })
   check('anonymous nomination is rejected', anon.status === 401)
 
@@ -104,12 +104,12 @@ async function main() {
 
   const nom = await http('/api/nominate', {
     method: 'POST',
-    body: JSON.stringify({ playerId: top.id, openingBid: 10 }),
+    body: JSON.stringify({ playerId: top.id }),
   })
-  check(`nominated ${top.name} at $10`, nom.body?.ok === true, nom.body?.reason ?? '')
+  check(`nominated ${top.name}`, nom.body?.ok === true, nom.body?.reason ?? '')
 
   const s1 = await http('/api/state')
-  check('nominator is the standing high bidder', s1.body.lot?.highBidderId === clockId)
+  check('the lot opens with no price and no winner', s1.body.lot?.id > 0)
   check('version changed after the nomination', s1.body.version !== s0.body.version)
 
   const board2 = await http('/api/board')
@@ -118,40 +118,62 @@ async function main() {
     !board2.body.pool.some((p: { id: string }) => p.id === top.id),
   )
 
-  // --- bidding ------------------------------------------------------------
+  // --- awarding -----------------------------------------------------------
   const lotId = s1.body.lot.id
   const other = s0.body.managers.find((m: { id: number }) => m.id !== clockId)
+
+  const over = await http('/api/award', {
+    method: 'POST',
+    body: JSON.stringify({ lotId, winnerId: other.id, price: 999 }),
+  })
+  check('a price over max is rejected with a readable reason', over.body?.ok === false, over.body?.reason)
+  check('the rejection explains the max-bid rule', /max bid/i.test(over.body?.reason ?? ''))
+
+  const zero = await http('/api/award', {
+    method: 'POST',
+    body: JSON.stringify({ lotId, winnerId: other.id, price: 0 }),
+  })
+  check('$0 is rejected — every player costs at least $1', zero.status === 400 || zero.body?.ok === false)
+
+  // A stranger cannot record someone else's lot. Sign in as `other`, who is
+  // neither the nominator nor (necessarily) the commissioner.
   await sql`UPDATE managers SET pin_hash = NULL WHERE id = ${other.id}`
   await http('/api/session', {
     method: 'POST',
     body: JSON.stringify({ managerId: other.id, pin: '4321' }),
   })
+  const [{ is_commish: otherIsCommish }] =
+    await sql`SELECT is_commish FROM managers WHERE id = ${other.id}`
+  if (!otherIsCommish) {
+    const stranger = await http('/api/award', {
+      method: 'POST',
+      body: JSON.stringify({ lotId, winnerId: other.id, price: 26 }),
+    })
+    check('only the nominator or commissioner can record the sale',
+      stranger.body?.ok === false, stranger.body?.reason)
+  }
 
-  const low = await http('/api/bid', { method: 'POST', body: JSON.stringify({ lotId, amount: 10 }) })
-  check('a bid that does not beat the current bid is rejected', low.body?.ok === false,
-    low.body?.reason)
+  // Back to the nominator, who actually ran the bidding.
+  await http('/api/session', {
+    method: 'POST',
+    body: JSON.stringify({ managerId: clockId, pin: '1234' }),
+  })
 
-  const over = await http('/api/bid', { method: 'POST', body: JSON.stringify({ lotId, amount: 999 }) })
-  check('a bid over max is rejected with a readable reason', over.body?.ok === false, over.body?.reason)
-  check('the rejection explains the max-bid rule', /max bid/i.test(over.body?.reason ?? ''))
+  // Ten simultaneous recordings — an impatient double-tap on a laggy phone.
+  const races = await Promise.all(
+    Array.from({ length: 10 }, () =>
+      http('/api/award', {
+        method: 'POST',
+        body: JSON.stringify({ lotId, winnerId: other.id, price: 26 }),
+      }),
+    ),
+  )
+  check('ten concurrent awards sell the player exactly once',
+    races.filter((r) => r.body?.ok).length === 1,
+    `${races.filter((r) => r.body?.ok).length} accepted`)
 
-  const good = await http('/api/bid', { method: 'POST', body: JSON.stringify({ lotId, amount: 25 }) })
-  check(`${other.displayName} bid $25`, good.body?.ok === true, good.body?.reason ?? '')
-
-  // --- soft close ---------------------------------------------------------
-  await sql`UPDATE lots SET ends_at = now() + interval '2 seconds' WHERE id=${lotId}`
-  await http('/api/bid', { method: 'POST', body: JSON.stringify({ lotId, amount: 26 }) })
-  const [{ ms }] = await sql`
-    SELECT EXTRACT(EPOCH FROM (ends_at - now())) * 1000 AS ms FROM lots WHERE id=${lotId}`
-  check('a bid inside the final 10s pushes the clock back to 10s',
-    Number(ms) > 9000 && Number(ms) <= 10_100, `${Math.round(Number(ms))}ms left`)
-
-  // --- settlement ---------------------------------------------------------
-  await sql`UPDATE lots SET ends_at = now() - interval '1 second' WHERE id=${lotId}`
-  // Ten clients polling at once, exactly as on draft night.
-  await Promise.all(Array.from({ length: 10 }, () => http('/api/state')))
   const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
-  check('ten concurrent polls settle the lot exactly once', Number(n) === 1, `${n} picks`)
+  check('exactly one pick was written', Number(n) === 1, `${n} picks`)
 
   const s2 = await http('/api/state')
   const winner = s2.body.managers.find((m: { id: number }) => m.id === other.id)
@@ -159,6 +181,44 @@ async function main() {
   check('budget dropped by exactly the price', winner.budget === 200 - 26, `$${winner.budget}`)
   check('max bid recalculated', winner.maxBid === 200 - 26 - 14, `$${winner.maxBid}`)
   check('lot cleared and the next manager is on the clock', s2.body.lot === null && !!s2.body.onTheClock)
+
+  // --- trades -------------------------------------------------------------
+  const [pickRow] = await sql`SELECT id FROM picks ORDER BY pick_no DESC LIMIT 1`
+  const trade = await http('/api/trade', {
+    method: 'POST',
+    body: JSON.stringify({
+      aId: other.id,
+      bId: clockId,
+      picksAToB: [Number(pickRow.id)],
+      picksBToA: [],
+      cashAToB: 0,
+      cashBToA: 15,
+    }),
+  })
+  check('a trade of a player plus cash is accepted', trade.body?.ok === true, trade.body?.reason ?? '')
+
+  const s3 = await http('/api/state')
+  const a3 = s3.body.managers.find((m: { id: number }) => m.id === other.id)
+  const b3 = s3.body.managers.find((m: { id: number }) => m.id === clockId)
+  // Salary stays with the drafter, so only the $15 moves.
+  check('the traded salary stayed with the drafter', a3.budget === 200 - 26 + 15, `$${a3.budget}`)
+  check('the cash moved to the other side', b3.budget === 200 - 15, `$${b3.budget}`)
+  check('the player moved rosters', a3.rostered === 0 && b3.rostered === 1)
+  check('the trade changed the polling version', s3.body.version !== s2.body.version)
+
+  const [{ total }] = await sql`SELECT COALESCE(SUM(amount),0)::int AS total FROM budget_adjustments`
+  check('trade adjustments sum to zero across the league', Number(total) === 0, `sum = ${total}`)
+
+  const broke = await http('/api/trade', {
+    method: 'POST',
+    body: JSON.stringify({
+      aId: other.id, bId: clockId, picksAToB: [], picksBToA: [], cashAToB: 999, cashBToA: 0,
+    }),
+  })
+  check('a trade that would strand a manager is refused', broke.body?.ok === false, broke.body?.reason)
+
+  const [{ total: total2 }] = await sql`SELECT COALESCE(SUM(amount),0)::int AS total FROM budget_adjustments`
+  check('the refused trade wrote nothing', Number(total2) === 0)
 
   console.log(failures === 0 ? '\nSmoke test passed.' : `\n${failures} CHECK(S) FAILED`)
   process.exit(failures === 0 ? 0 : 1)

@@ -5,8 +5,10 @@ import {
   nominatorAt,
   randomOrder,
   snakeSlot,
-  validateBid,
-  type BidContext,
+  validateAward,
+  validateTrade,
+  type AwardContext,
+  type TradeContext,
 } from './draft'
 
 const ROSTER = 16
@@ -126,48 +128,135 @@ describe('randomOrder', () => {
   })
 })
 
-describe('validateBid', () => {
-  const base: BidContext = {
-    amount: 10,
-    currentHighBid: 5,
-    managerMaxBid: 185,
-    managerRostered: 0,
+describe('validateAward', () => {
+  const base: AwardContext = {
+    price: 10,
+    winnerMaxBid: 185,
+    winnerRostered: 0,
+    winnerName: 'Gabes',
     rosterSize: ROSTER,
     draftStatus: 'live',
     lotStatus: 'open',
-    msRemaining: 12_000,
   }
 
-  it('accepts a normal raise', () => {
-    expect(validateBid(base)).toEqual({ ok: true })
+  it('accepts a normal sale', () => {
+    expect(validateAward(base)).toEqual({ ok: true })
   })
 
-  it('rejects a bid that does not beat the current high bid', () => {
-    expect(validateBid({ ...base, amount: 5 }).ok).toBe(false)
-    expect(validateBid({ ...base, amount: 4 }).ok).toBe(false)
-  })
-
-  it('rejects going over max bid, and says why', () => {
-    const r = validateBid({ ...base, amount: 186, managerMaxBid: 185 })
+  it('rejects a price over the winner’s max bid, and says why', () => {
+    const r = validateAward({ ...base, price: 186, winnerMaxBid: 185 })
     expect(r.ok).toBe(false)
-    // The reason is shown in the UI mid-auction, so it has to be intelligible.
+    // This message is read aloud to a room waiting on an answer, so it has to
+    // name the manager and the actual number.
     expect(r.ok === false && r.reason).toContain('185')
+    expect(r.ok === false && r.reason).toContain('Gabes')
     expect(r.ok === false && r.reason).toMatch(/empty roster spot/i)
   })
 
-  it('allows a bid exactly at max', () => {
-    expect(validateBid({ ...base, amount: 185, managerMaxBid: 185 }).ok).toBe(true)
+  it('allows a sale at exactly max bid', () => {
+    expect(validateAward({ ...base, price: 185, winnerMaxBid: 185 }).ok).toBe(true)
   })
 
-  it('rejects bids while paused, expired, closed, or with a full roster', () => {
-    expect(validateBid({ ...base, draftStatus: 'paused' }).ok).toBe(false)
-    expect(validateBid({ ...base, msRemaining: 0 }).ok).toBe(false)
-    expect(validateBid({ ...base, lotStatus: 'sold' }).ok).toBe(false)
-    expect(validateBid({ ...base, managerRostered: ROSTER }).ok).toBe(false)
+  it('rejects $0 and negative prices — every player costs at least $1', () => {
+    expect(validateAward({ ...base, price: 0 }).ok).toBe(false)
+    expect(validateAward({ ...base, price: -5 }).ok).toBe(false)
+  })
+
+  it('rejects while paused, on a closed lot, or to a full roster', () => {
+    expect(validateAward({ ...base, draftStatus: 'paused' }).ok).toBe(false)
+    expect(validateAward({ ...base, draftStatus: 'setup' }).ok).toBe(false)
+    expect(validateAward({ ...base, lotStatus: 'sold' }).ok).toBe(false)
+    expect(validateAward({ ...base, winnerRostered: ROSTER, winnerMaxBid: 0 }).ok).toBe(false)
   })
 
   it('rejects fractional dollars', () => {
-    expect(validateBid({ ...base, amount: 10.5 }).ok).toBe(false)
+    expect(validateAward({ ...base, price: 10.5 }).ok).toBe(false)
+  })
+})
+
+describe('validateTrade', () => {
+  const side = (over: Partial<TradeContext['a']> = {}): TradeContext['a'] => ({
+    name: 'Someone',
+    budget: 100,
+    rostered: 8,
+    playersOut: 0,
+    playersIn: 0,
+    cashOut: 0,
+    cashIn: 0,
+    ...over,
+  })
+  const ctx = (a: Partial<TradeContext['a']>, b: Partial<TradeContext['a']>): TradeContext => ({
+    rosterSize: ROSTER,
+    a: side({ name: 'Bill', ...a }),
+    b: side({ name: 'Justin', ...b }),
+  })
+
+  it('accepts a straight one-for-one swap', () => {
+    expect(validateTrade(ctx({ playersOut: 1, playersIn: 1 }, { playersOut: 1, playersIn: 1 }))).toEqual({
+      ok: true,
+    })
+  })
+
+  it('accepts a cash-only trade', () => {
+    expect(validateTrade(ctx({ cashOut: 20 }, { cashIn: 20 })).ok).toBe(true)
+  })
+
+  it('rejects an empty trade', () => {
+    expect(validateTrade(ctx({}, {})).ok).toBe(false)
+  })
+
+  it('rejects negative or fractional cash', () => {
+    expect(validateTrade(ctx({ cashOut: -5 }, { cashIn: -5 })).ok).toBe(false)
+    expect(validateTrade(ctx({ cashOut: 2.5 }, { cashIn: 2.5 })).ok).toBe(false)
+  })
+
+  it('rejects a trade that overfills a roster', () => {
+    const r = validateTrade(
+      ctx({ rostered: 15, playersIn: 2 }, { rostered: 10, playersOut: 2 }),
+    )
+    expect(r.ok).toBe(false)
+    expect(r.ok === false && r.reason).toMatch(/16-man roster/)
+  })
+
+  it('rejects cash that would strand a manager below $1 per empty slot', () => {
+    // 8 players, 8 slots left, $100. Sending $93 leaves $7 for 8 slots.
+    const r = validateTrade(ctx({ budget: 100, rostered: 8, cashOut: 93 }, { cashIn: 93 }))
+    expect(r.ok).toBe(false)
+    expect(r.ok === false && r.reason).toMatch(/at least \$1 for each/)
+  })
+
+  it('allows cash that lands exactly on the reserve floor', () => {
+    // $100, 8 slots left: sending $92 leaves exactly $8 for 8 slots.
+    expect(validateTrade(ctx({ budget: 100, rostered: 8, cashOut: 92 }, { cashIn: 92 })).ok).toBe(true)
+  })
+
+  /**
+   * The counter-intuitive one, and the reason this is a pure function with a
+   * test rather than a check buried in SQL: giving a player away costs no money
+   * but opens a slot, and every empty slot needs $1 behind it. A nearly-broke
+   * manager can therefore be blocked from trading a player OUT.
+   */
+  it('rejects giving a player away when the freed slot cannot be funded', () => {
+    // 15 players, 1 slot left, $1 in the bank. Give one away -> 2 slots, $1.
+    const r = validateTrade(ctx({ budget: 1, rostered: 15, playersOut: 1 }, { playersIn: 1 }))
+    expect(r.ok).toBe(false)
+    expect(r.ok === false && r.reason).toMatch(/Bill/)
+  })
+
+  it('lets that same manager receive a player, which frees them up', () => {
+    // Receiving fills a slot, so the reserve requirement goes DOWN.
+    expect(
+      validateTrade(ctx({ budget: 1, rostered: 15, playersIn: 1 }, { budget: 50, playersOut: 1 })).ok,
+    ).toBe(true)
+  })
+
+  /**
+   * Salary stays with the drafter, so moving players must not move budget.
+   * If this ever starts failing, the trade SQL and this rule have diverged.
+   */
+  it('does not care what a traded player cost — only cash moves money', () => {
+    const many = validateTrade(ctx({ playersOut: 5, playersIn: 0 }, { playersIn: 5, playersOut: 0 }))
+    expect(many.ok).toBe(true)
   })
 })
 

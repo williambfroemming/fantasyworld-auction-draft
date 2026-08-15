@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getSql } from '@/server/sql'
+import { listTrades } from '@/server/trade-service'
 
 /**
- * The heavy payload: the undrafted pool plus every roster.
+ * The heavy payload: the undrafted pool, every roster, and the trade log.
  *
  * Split from /api/state so the 400ms poll stays small — clients refetch this
  * only when the state version changes.
@@ -12,16 +13,17 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   const sql = getSql()
 
-  const [pool, rosters] = await Promise.all([
+  const [pool, rosters, trades] = await Promise.all([
     sql`SELECT p.id, p.name, p.team, p.position, p.search_rank, p.pos_rank, p.bye_week
         FROM players p
         WHERE NOT EXISTS (SELECT 1 FROM picks pk WHERE pk.player_id = p.id)
           AND NOT EXISTS (SELECT 1 FROM lots l WHERE l.player_id = p.id AND l.status = 'open')
         ORDER BY p.search_rank NULLS LAST, p.name`,
-    sql`SELECT pk.id, pk.pick_no, pk.manager_id, pk.price, pk.slot_override,
+    sql`SELECT pk.id, pk.pick_no, pk.manager_id, pk.nominator_id, pk.price, pk.slot_override,
                p.name, p.team, p.position, p.bye_week
         FROM picks pk JOIN players p ON p.id = pk.player_id
         ORDER BY pk.pick_no`,
+    listTrades(),
   ])
 
   return NextResponse.json(
@@ -38,7 +40,10 @@ export async function GET() {
       rosters: rosters.map((r) => ({
         id: r.id,
         pickNo: r.pick_no,
+        // Current owner — a trade moves this. `price` stays charged to whoever
+        // bought them, via budget_adjustments; see src/server/trade-service.ts.
         managerId: r.manager_id,
+        nominatorId: r.nominator_id,
         price: Number(r.price),
         slotOverride: r.slot_override,
         name: r.name,
@@ -46,6 +51,7 @@ export async function GET() {
         position: r.position,
         byeWeek: r.bye_week,
       })),
+      trades,
     },
     { headers: { 'Cache-Control': 'no-store' } },
   )

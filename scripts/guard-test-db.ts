@@ -17,11 +17,13 @@ function die(msg: string): never {
 if (!test) die('TEST_DATABASE_URL is not set. Run `npm run db:test-setup` first.')
 if (test === prod) die('TEST_DATABASE_URL is the same as DATABASE_URL. Refusing to wipe the live draft.')
 
-const name = (u: string) => {
+// Not `name`: that collides with the DOM's global `name` under our tsconfig lib
+// and turns this file into a wall of confusing type errors.
+const dbName = (u: string) => {
   try { return new URL(u).pathname.slice(1) } catch { return '?' }
 }
-if (prod && name(test) === name(prod)) {
-  die(`Both URLs point at database "${name(test)}". Refusing.`)
+if (prod && dbName(test) === dbName(prod)) {
+  die(`Both URLs point at database "${dbName(test)}". Refusing.`)
 }
 
-console.log(`✓ destructive tests will run against "${name(test)}" (live draft is "${name(prod ?? '')}")`)
+console.log(`✓ destructive tests will run against "${dbName(test)}" (live draft is "${dbName(prod ?? '')}")`)

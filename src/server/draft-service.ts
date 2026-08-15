@@ -1,14 +1,17 @@
 /**
  * The auction engine.
  *
+ * The bidding itself happens out loud, in the room. The app's job is narrower
+ * than it looks: put a player on the block, then record who won them and for how
+ * much — and refuse to record a result that would break a budget.
+ *
  * Every mutation here is expressed as a single SQL statement whose WHERE clause
  * contains the entire rule set. That is the design, not an optimization:
  *
  *  - Neon's HTTP driver has no interactive transactions, so `SELECT … FOR UPDATE`
  *    is unavailable. Read docs/PROJECT_PLAN.md §4 before "fixing" this.
- *  - A conditional UPDATE is atomic on its own. Postgres serializes concurrent
- *    UPDATEs to the same row, so ten simultaneous bids produce exactly one
- *    winner with no lost updates and no lock held across a network round trip.
+ *  - A conditional UPDATE is atomic on its own, and a statement whose CTEs both
+ *    update the lot and insert the pick cannot half-apply.
  *  - "Zero rows affected" is the rejection signal. The reason is worked out
  *    afterwards, for the error message only — never to decide the outcome.
  */
@@ -29,6 +32,10 @@ export interface StateManager {
   maxBid: number
 }
 
+/**
+ * The player currently on the block. There is no deadline and no standing bid —
+ * an open lot is just "the room is bidding on this right now".
+ */
 export interface StateLot {
   id: number
   playerId: string
@@ -37,21 +44,13 @@ export interface StateLot {
   playerPosition: string
   playerByeWeek: number | null
   nominatorId: number
-  highBid: number
-  highBidderId: number
-  endsAt: string
-  pausedRemainingMs: number | null
-  version: number
 }
 
 export interface DraftState {
   version: string
-  serverNow: number
   draft: {
     status: 'setup' | 'live' | 'paused' | 'done'
     nominationIndex: number
-    timerSeconds: number
-    softCloseSeconds: number
     rosterSize: number
     startingBudget: number
   }
@@ -65,64 +64,6 @@ export interface DraftState {
     managerId: number
     price: number
   }>
-}
-
-// ---------------------------------------------------------------------------
-// Settlement
-// ---------------------------------------------------------------------------
-
-/**
- * Award any lot whose clock has run out.
- *
- * One statement, so it is safe to call from every polling client at once: the
- * UPDATE inside the CTE is the gate, and only the caller whose UPDATE actually
- * matched a row gets to insert the pick. Everyone else sees zero rows.
- *
- * Doing this on read is what removes the need for a cron with sub-second
- * resolution. It also means a lot settles the instant *anyone* looks, even if
- * the room walked away mid-auction.
- */
-export async function settleExpiredLots(): Promise<boolean> {
-  const sql = getSql()
-  const rows = await sql`
-    WITH won AS (
-      UPDATE lots SET status = 'sold'
-      WHERE status = 'open'
-        AND paused_remaining_ms IS NULL
-        AND now() >= ends_at
-      RETURNING *
-    ), numbered AS (
-      SELECT
-        (SELECT COALESCE(MAX(pick_no), 0) FROM picks) + 1 AS pick_no,
-        won.player_id, won.high_bidder_id, won.nominator_id, won.high_bid
-      FROM won
-    )
-    INSERT INTO picks (pick_no, player_id, manager_id, nominator_id, price)
-    SELECT pick_no, player_id, high_bidder_id, nominator_id, high_bid FROM numbered
-    ON CONFLICT (player_id) DO NOTHING
-    RETURNING id`
-  return rows.length > 0
-}
-
-/**
- * Self-heal a lot marked sold that somehow has no pick — possible only if the
- * process died between statements in an older code path. Cheap, idempotent, and
- * far preferable to a manager silently losing a player they paid for.
- */
-export async function repairOrphanedLots(): Promise<number> {
-  const sql = getSql()
-  const rows = await sql`
-    INSERT INTO picks (pick_no, player_id, manager_id, nominator_id, price)
-    SELECT
-      (SELECT COALESCE(MAX(pick_no), 0) FROM picks) + 1,
-      l.player_id, l.high_bidder_id, l.nominator_id, l.high_bid
-    FROM lots l
-    WHERE l.status = 'sold'
-      AND NOT EXISTS (SELECT 1 FROM picks p WHERE p.player_id = l.player_id)
-    LIMIT 1
-    ON CONFLICT (player_id) DO NOTHING
-    RETURNING id`
-  return rows.length
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +82,8 @@ export async function getState(): Promise<DraftState> {
                t.budget, t.rostered, t.max_bid
         FROM managers m JOIN manager_totals t ON t.id = m.id
         ORDER BY m.draft_slot`,
-    sql`SELECT l.*, p.name AS player_name, p.team AS player_team,
+    sql`SELECT l.id, l.player_id, l.nominator_id,
+               p.name AS player_name, p.team AS player_team,
                p.position AS player_position, p.bye_week AS player_bye_week
         FROM lots l JOIN players p ON p.id = l.player_id
         WHERE l.status = 'open' LIMIT 1`,
@@ -174,11 +116,6 @@ export async function getState(): Promise<DraftState> {
         playerPosition: l.player_position,
         playerByeWeek: l.player_bye_week,
         nominatorId: l.nominator_id,
-        highBid: l.high_bid,
-        highBidderId: l.high_bidder_id,
-        endsAt: new Date(l.ends_at).toISOString(),
-        pausedRemainingMs: l.paused_remaining_ms,
-        version: l.version,
       }
     : null
 
@@ -194,16 +131,12 @@ export async function getState(): Promise<DraftState> {
     version: fingerprint({
       rev: settings.rev,
       lotId: lot?.id ?? null,
-      lotVersion: lot?.version ?? null,
       pickCount: pickCount[0].n,
       draftStatus: settings.status,
     }),
-    serverNow: Date.now(),
     draft: {
       status: settings.status,
       nominationIndex: settings.nomination_index,
-      timerSeconds: settings.timer_seconds,
-      softCloseSeconds: settings.soft_close_seconds,
       rosterSize: settings.roster_size,
       startingBudget: settings.starting_budget,
     },
@@ -226,125 +159,143 @@ export async function getState(): Promise<DraftState> {
 
 export type ActionResult<T = unknown> = { ok: true; data: T } | { ok: false; reason: string }
 
+/**
+ * Put a player on the block.
+ *
+ * No opening bid: the price is whatever the room lands on, and it is recorded
+ * once, at the end, by `awardLot`. Nomination is purely "everyone look at this
+ * player now" plus advancing the snake.
+ */
 export async function nominate(
   managerId: number,
   playerId: string,
-  openingBid: number,
 ): Promise<ActionResult<{ lotId: number }>> {
   const sql = getSql()
 
-  if (!Number.isInteger(openingBid) || openingBid < 1) {
-    return { ok: false, reason: 'Opening bid must be a whole dollar of at least $1' }
-  }
-
   const state = await getState()
   if (state.draft.status !== 'live') {
-    return { ok: false, reason: state.draft.status === 'paused' ? 'Draft is paused' : 'Draft is not live' }
+    return {
+      ok: false,
+      reason: state.draft.status === 'paused' ? 'Draft is paused' : 'Draft is not live',
+    }
   }
-  if (state.lot) return { ok: false, reason: 'Bidding is still open on another player' }
+  if (state.lot) return { ok: false, reason: `${state.lot.playerName} is still on the block` }
   if (state.onTheClock?.managerId !== managerId) {
     const who = state.managers.find((m) => m.id === state.onTheClock?.managerId)
     return { ok: false, reason: `It's ${who?.displayName ?? 'someone else'}'s turn to nominate` }
   }
 
-  // Single guarded insert: no other open lot, player not already drafted, and
-  // the opening bid within this manager's live max. Racing nominations lose.
+  // Single guarded insert: no other open lot and the player is not already
+  // drafted. Two people hitting Nominate in the same instant — which happens
+  // when the order is disputed — produces one lot, not two.
   const rows = await sql`
-    INSERT INTO lots (player_id, nominator_id, high_bid, high_bidder_id, ends_at)
-    SELECT ${playerId}, ${managerId}, ${openingBid}, ${managerId},
-           now() + make_interval(secs => ${state.draft.timerSeconds})
+    INSERT INTO lots (player_id, nominator_id)
+    SELECT ${playerId}, ${managerId}
     WHERE NOT EXISTS (SELECT 1 FROM lots WHERE status = 'open')
       AND NOT EXISTS (SELECT 1 FROM picks WHERE player_id = ${playerId})
       AND EXISTS (SELECT 1 FROM players WHERE id = ${playerId})
-      AND ${openingBid} <= (SELECT max_bid FROM manager_totals WHERE id = ${managerId})
     RETURNING id`
 
   if (rows.length === 0) {
-    const mgr = state.managers.find((m) => m.id === managerId)
-    if (mgr && openingBid > mgr.maxBid) {
-      return { ok: false, reason: `Over your max bid of $${mgr.maxBid}` }
-    }
-    return { ok: false, reason: 'That player is already drafted or bidding just opened elsewhere' }
+    return { ok: false, reason: 'That player is already drafted, or another lot just opened' }
   }
 
-  const lotId = rows[0].id as number
-  await sql`INSERT INTO bids (lot_id, manager_id, amount) VALUES (${lotId}, ${managerId}, ${openingBid})`
   await sql`UPDATE draft SET nomination_index = ${state.onTheClock.index + 1} WHERE id = 1`
-
-  return { ok: true, data: { lotId } }
+  return { ok: true, data: { lotId: rows[0].id as number } }
 }
 
 // ---------------------------------------------------------------------------
-// Bid — the one that has to be right
+// Award — the one that has to be right
 // ---------------------------------------------------------------------------
 
-export async function placeBid(
-  managerId: number,
+/**
+ * Record the result of the verbal auction: this manager won this player at this
+ * price.
+ *
+ * This is the only moment the app can enforce anything, so the whole rule set
+ * lives in the WHERE clause — including the max-bid check against
+ * `manager_totals`, which means it is enforced *inside the database* and a stale
+ * or hostile client cannot get around it.
+ *
+ * The lot update and the pick insert are one statement. Two statements would
+ * leave a window where a lot reads 'sold' with no pick behind it, i.e. a manager
+ * who won a player and does not have them.
+ *
+ * `callerId` must be the nominator or the commissioner. Anyone else typing the
+ * price is how a lot gets awarded to the wrong person while ten people talk over
+ * each other.
+ */
+export async function awardLot(
+  callerId: number,
   lotId: number,
-  amount: number,
-): Promise<ActionResult<{ highBid: number; endsAt: string }>> {
+  winnerId: number,
+  price: number,
+): Promise<ActionResult<{ pickNo: number }>> {
   const sql = getSql()
 
-  if (!Number.isInteger(amount)) return { ok: false, reason: 'Bid must be a whole dollar' }
+  if (!Number.isInteger(price)) return { ok: false, reason: 'Price must be a whole dollar' }
+  if (price < 1) return { ok: false, reason: 'Every player costs at least $1' }
 
-  const [settings] = await sql`SELECT status, soft_close_seconds FROM draft WHERE id = 1`
+  const [settings] = await sql`SELECT status FROM draft WHERE id = 1`
   if (settings?.status !== 'live') {
-    return { ok: false, reason: settings?.status === 'paused' ? 'Draft is paused' : 'Draft is not live' }
+    return {
+      ok: false,
+      reason: settings?.status === 'paused' ? 'Draft is paused' : 'Draft is not live',
+    }
   }
 
-  // Everything that makes a bid legal is in this WHERE clause, including the
-  // max-bid rule via manager_totals — so it is enforced inside the database and
-  // a stale or hostile client cannot get around it.
-  //
-  // Soft close: GREATEST() means a bid outside the final N seconds leaves the
-  // clock alone, while a bid inside it pushes the end back out to exactly N.
+  const [lot] = await sql`SELECT nominator_id, status FROM lots WHERE id = ${lotId}`
+  if (!lot) return { ok: false, reason: 'That lot no longer exists' }
+  if (lot.status !== 'open') return { ok: false, reason: 'This player has already been awarded' }
+
+  const [caller] = await sql`SELECT is_commish FROM managers WHERE id = ${callerId}`
+  if (lot.nominator_id !== callerId && !caller?.is_commish) {
+    return { ok: false, reason: 'Only the nominator or the commissioner can record the sale' }
+  }
+
   const rows = await sql`
-    UPDATE lots SET
-      high_bid = ${amount},
-      high_bidder_id = ${managerId},
-      version = version + 1,
-      ends_at = GREATEST(ends_at, now() + make_interval(secs => ${settings.soft_close_seconds}))
-    WHERE id = ${lotId}
-      AND status = 'open'
-      AND paused_remaining_ms IS NULL
-      AND now() < ends_at
-      AND ${amount} > high_bid
-      AND ${amount} <= (SELECT max_bid FROM manager_totals WHERE id = ${managerId})
-    RETURNING high_bid, ends_at`
+    WITH sold AS (
+      UPDATE lots
+      SET status = 'sold', sold_price = ${price}, winner_id = ${winnerId}
+      WHERE id = ${lotId}
+        AND status = 'open'
+        AND ${price} <= (SELECT max_bid FROM manager_totals WHERE id = ${winnerId})
+        AND NOT EXISTS (SELECT 1 FROM picks pk WHERE pk.player_id = lots.player_id)
+      RETURNING player_id, nominator_id
+    )
+    INSERT INTO picks (pick_no, player_id, manager_id, nominator_id, price)
+    SELECT (SELECT COALESCE(MAX(pick_no), 0) FROM picks) + 1,
+           sold.player_id, ${winnerId}, sold.nominator_id, ${price}
+    FROM sold
+    ON CONFLICT (player_id) DO NOTHING
+    RETURNING pick_no`
 
-  if (rows.length === 0) return { ok: false, reason: await explainRejectedBid(managerId, lotId, amount) }
-
-  await sql`INSERT INTO bids (lot_id, manager_id, amount) VALUES (${lotId}, ${managerId}, ${amount})`
-  return {
-    ok: true,
-    data: { highBid: rows[0].high_bid, endsAt: new Date(rows[0].ends_at).toISOString() },
-  }
+  if (rows.length === 0) return { ok: false, reason: await explainRejectedAward(winnerId, price) }
+  return { ok: true, data: { pickNo: Number(rows[0].pick_no) } }
 }
 
 /**
- * Work out why a bid failed, for the message only.
+ * Work out why an award failed, for the message only.
  *
- * Deliberately runs *after* the fact. Checking first and then updating would be
- * a race; this way the database decides the outcome and we only narrate it.
+ * Deliberately runs *after* the fact. Checking first and then writing would be a
+ * race; this way the database decides the outcome and we only narrate it.
  */
-async function explainRejectedBid(managerId: number, lotId: number, amount: number): Promise<string> {
+async function explainRejectedAward(winnerId: number, price: number): Promise<string> {
   const sql = getSql()
-  const [lot] = await sql`SELECT status, high_bid, ends_at, paused_remaining_ms FROM lots WHERE id = ${lotId}`
-  if (!lot) return 'That auction no longer exists'
-  if (lot.paused_remaining_ms !== null) return 'Draft is paused'
-  // Expiry is checked BEFORE status. A lot that ran out of time may already have
-  // been settled by another client's poll between the failed UPDATE and this
-  // read, and "Time expired" is the truthful, useful message either way —
-  // "Bidding closed" would make a normal timeout look like something odd.
-  if (new Date(lot.ends_at).getTime() <= Date.now()) return 'Time expired'
-  if (lot.status !== 'open') return 'Bidding closed on this player'
-  if (amount <= lot.high_bid) return `Must beat the current bid of $${lot.high_bid}`
-
-  const [totals] = await sql`SELECT budget, rostered, max_bid FROM manager_totals WHERE id = ${managerId}`
+  const [totals] = await sql`
+    SELECT t.budget, t.rostered, t.max_bid, m.display_name
+    FROM manager_totals t JOIN managers m ON m.id = t.id WHERE t.id = ${winnerId}`
   if (!totals) return 'Unknown manager'
-  if (Number(totals.max_bid) <= 0) return 'Your roster is full'
-  if (amount > Number(totals.max_bid)) {
-    return `Over your max bid of $${totals.max_bid} — you must keep $1 for each empty roster spot`
+
+  const [{ roster_size }] = await sql`SELECT roster_size FROM draft WHERE id = 1`
+  if (Number(totals.rostered) >= Number(roster_size)) {
+    return `${totals.display_name}'s roster is already full`
   }
-  return 'Someone outbid you'
+  if (price > Number(totals.max_bid)) {
+    return (
+      `$${price} is over ${totals.display_name}'s max bid of $${totals.max_bid} — ` +
+      `they have $${totals.budget} and must keep $1 for each empty roster spot`
+    )
+  }
+  return 'That player has already been awarded'
 }

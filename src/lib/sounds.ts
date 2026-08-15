@@ -4,8 +4,10 @@
  * Audio cues, synthesized with WebAudio so there are no asset files to load
  * (and nothing to 404 on draft night).
  *
- * These replace the job the human countdown was doing. In a loud room a silent
- * screen is genuinely worse than someone shouting "five, four, three".
+ * Only two survive the move to a called auction: a gavel when a player is sold,
+ * and a nudge when it becomes your turn to nominate. There is no countdown to
+ * announce any more, and a room that is already talking does not need the app
+ * making noise it did not ask for.
  */
 let ctx: AudioContext | null = null
 
@@ -41,12 +43,6 @@ export function unlockAudio() {
 }
 
 export const sounds = {
-  /** Someone raised the bid. */
-  bid: () => tone(880, 90, 0.1, 'triangle'),
-  /** 10 seconds left. */
-  warn: () => tone(660, 160, 0.14),
-  /** Final 3 ticks. */
-  tick: () => tone(990, 90, 0.16),
   /** Sold — a short descending two-tone, the closest thing to a gavel. */
   sold: () => {
     tone(520, 180, 0.2, 'square')

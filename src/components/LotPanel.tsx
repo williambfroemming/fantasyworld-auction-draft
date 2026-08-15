@@ -1,11 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { ClockSync } from '@/lib/clock'
-import { validateBid } from '@/lib/draft'
+import { validateAward } from '@/lib/draft'
 import { sounds } from '@/lib/sounds'
-import { useCountdown } from '@/hooks/useDraft'
-import type { DraftState } from '@/server/draft-service'
+import type { DraftState, StateManager } from '@/server/draft-service'
 
 const POSITION_TINT: Record<string, string> = {
   QB: 'bg-rose-500/15 text-rose-300 ring-rose-500/30',
@@ -28,70 +26,50 @@ export function PositionBadge({ position }: { position: string }) {
   )
 }
 
+/**
+ * The player on the block, and the form that records what the room decided.
+ *
+ * The bidding happens out loud. This panel's whole job is to make the two facts
+ * that come out of it — who won, and for how much — fast and impossible to get
+ * wrong. Hence the layout: type the price first, and every manager who cannot
+ * afford it greys out before you can pick them. The rejection arrives while the
+ * room is still listening, not after the nominator has already moved on.
+ */
 export function LotPanel({
   state,
-  clock,
   me,
-  onBid,
+  onAward,
 }: {
   state: DraftState
-  clock: ClockSync
   me: number | null
-  onBid: (amount: number) => Promise<string | null>
-  }) {
+  onAward: (winnerId: number, price: number) => Promise<string | null>
+}) {
   const lot = state.lot
-  const paused = state.draft.status === 'paused'
-  const countdown = useCountdown(lot?.endsAt, clock, paused)
-  const [custom, setCustom] = useState('')
+  const [price, setPrice] = useState('')
+  const [winnerId, setWinnerId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
-  const myManager = state.managers.find((m) => m.id === me) ?? null
-  const highBidder = state.managers.find((m) => m.id === lot?.highBidderId)
   const nominator = state.managers.find((m) => m.id === lot?.nominatorId)
-  const iAmHigh = lot?.highBidderId === me
+  const myManager = state.managers.find((m) => m.id === me) ?? null
+  // The nominator ran the bidding, so they type the result. The commissioner can
+  // always step in — on the night, someone's phone will lock at the wrong moment.
+  const canRecord = !!lot && (lot.nominatorId === me || !!myManager?.isCommish)
 
-  const seconds = countdown?.seconds ?? null
-  const urgent = seconds !== null && seconds <= 10
-  const critical = seconds !== null && seconds <= 3
-
-  // --- audio cues ----------------------------------------------------------
-  const lastBid = useRef<number | null>(null)
-  const lastSecond = useRef<number | null>(null)
+  // Reset the form whenever a different player goes up, or the entry is cleared
+  // out from under us by someone else recording it first.
   const lastLotId = useRef<number | null>(null)
-
   useEffect(() => {
-    if (!lot) {
-      // A lot that existed a moment ago and is now gone was sold.
-      if (lastLotId.current !== null) sounds.sold()
-      lastLotId.current = null
-      lastBid.current = null
-      return
-    }
-    if (lot.id !== lastLotId.current) {
-      lastLotId.current = lot.id
-      lastBid.current = lot.highBid
-      return
-    }
-    if (lastBid.current !== null && lot.highBid > lastBid.current) sounds.bid()
-    lastBid.current = lot.highBid
+    if (lot?.id === lastLotId.current) return
+    if (lastLotId.current !== null && !lot) sounds.sold()
+    lastLotId.current = lot?.id ?? null
+    setPrice('')
+    setWinnerId(null)
+    setError(null)
   }, [lot])
 
-  useEffect(() => {
-    if (seconds === null || paused) return
-    if (lastSecond.current === seconds) return
-    const prev = lastSecond.current
-    lastSecond.current = seconds
-    if (prev === null) return
-    if (seconds === 10) sounds.warn()
-    else if (seconds <= 3 && seconds > 0 && seconds < prev) sounds.tick()
-  }, [seconds, paused])
-
-  // -------------------------------------------------------------------------
   if (!lot) {
     const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
-    // Deliberately compact: with nothing on the block this panel has no news,
-    // and the space is worth more to the league board underneath it.
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center">
         {state.draft.status === 'done' ? (
@@ -105,10 +83,9 @@ export function LotPanel({
             >
               {onClock?.displayName ?? '—'}
             </span>
-            {/* Only speak up when there's something for *you* to do. */}
             {onClock?.id === me && (
               <span className="mt-5 text-lg text-slate-400">
-                Pick a player on the left and set your opening bid.
+                Pick a player on the left to put them up for auction.
               </span>
             )}
           </>
@@ -117,46 +94,42 @@ export function LotPanel({
     )
   }
 
-  const nextBid = lot.highBid + 1
-  const maxBid = myManager?.maxBid ?? 0
-  const canBidAtAll = me !== null && !iAmHigh
+  const priceNum = price === '' ? null : Number(price)
 
-  const check = (amount: number) =>
-    validateBid({
-      amount,
-      currentHighBid: lot.highBid,
-      managerMaxBid: maxBid,
-      managerRostered: myManager?.rostered ?? 0,
+  const check = (mgr: StateManager, amount: number) =>
+    validateAward({
+      price: amount,
+      winnerMaxBid: mgr.maxBid,
+      winnerRostered: mgr.rostered,
+      winnerName: mgr.displayName,
       rosterSize: state.draft.rosterSize,
       draftStatus: state.draft.status,
       lotStatus: 'open',
-      msRemaining: countdown?.ms ?? 0,
     })
 
-  async function bid(amount: number) {
-    const pre = check(amount)
+  const winner = state.managers.find((m) => m.id === winnerId) ?? null
+  const ready = winner !== null && priceNum !== null && check(winner, priceNum).ok
+
+  async function submit() {
+    if (!winner || priceNum === null) return
+    const pre = check(winner, priceNum)
     if (!pre.ok) {
       setError(pre.reason)
       return
     }
     setPending(true)
     setError(null)
-    const reason = await onBid(amount)
-    setError(reason)
+    const reason = await onAward(winner.id, priceNum)
     setPending(false)
-    setCustom('')
+    if (reason) setError(reason)
+    else {
+      setPrice('')
+      setWinnerId(null)
+    }
   }
 
   return (
-    <div
-      className={`flex h-full flex-col rounded-2xl border bg-slate-900/60 p-5 transition-colors sm:p-7 ${
-        critical
-          ? 'border-rose-500/70 shadow-[0_0_40px_-10px] shadow-rose-500/40'
-          : urgent
-            ? 'border-amber-500/60'
-            : 'border-slate-800'
-      }`}
-    >
+    <div className="flex h-full flex-col rounded-2xl border border-emerald-600/40 bg-slate-900/60 p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -166,114 +139,109 @@ export function LotPanel({
               {lot.playerByeWeek ? ` · bye ${lot.playerByeWeek}` : ''}
             </span>
           </div>
-          <h2 className="mt-1 truncate text-4xl font-bold tracking-tight sm:text-5xl">
+          <h2 className="mt-1 truncate text-4xl font-bold tracking-tight sm:text-6xl">
             {lot.playerName}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
             nominated by {nominator?.displayName ?? '—'}
           </p>
         </div>
-
-        <div className="text-right">
-          <div
-            className={`tabular-nums font-bold leading-none transition-colors ${
-              critical ? 'text-rose-400' : urgent ? 'text-amber-300' : 'text-slate-100'
-            } text-8xl sm:text-9xl`}
-          >
-            {paused ? '❚❚' : (seconds ?? '—')}
-          </div>
-          <div className="mt-1 text-xs uppercase tracking-widest text-slate-500">
-            {paused ? 'paused' : !countdown?.synced ? 'syncing…' : 'seconds'}
-          </div>
-        </div>
+        <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-emerald-300">
+          On the block
+        </span>
       </div>
 
-      <div className="mt-auto flex flex-wrap items-end justify-between gap-4 border-t border-slate-800 pt-6">
-        <div>
-          <div className="text-xs uppercase tracking-widest text-slate-500">Current bid</div>
-          <div className="mt-1 flex items-baseline gap-3">
-            <span className="text-5xl font-bold tabular-nums">${lot.highBid}</span>
-            <span
-              className="rounded-full px-2.5 py-1 text-sm font-semibold"
-              style={{
-                backgroundColor: `${highBidder?.color ?? '#334155'}22`,
-                color: highBidder?.color ?? '#cbd5e1',
-              }}
-            >
-              {iAmHigh ? 'You' : (highBidder?.displayName ?? '—')}
-            </span>
-          </div>
-        </div>
-
-        {myManager && (
-          <div className="text-right text-sm">
-            <div className="text-slate-500">
-              Budget <span className="font-semibold text-slate-300">${myManager.budget}</span>
-            </div>
-            <div className="text-slate-500">
-              Max bid{' '}
-              <span
-                className={`font-semibold ${maxBid <= 0 ? 'text-rose-400' : 'text-emerald-400'}`}
-              >
-                ${maxBid}
+      {!canRecord ? (
+        <div className="mt-auto border-t border-slate-800 pt-6 text-slate-400">
+          <p className="text-lg">
+            Bidding is open in the room.{' '}
+            <span className="font-semibold" style={{ color: nominator?.color }}>
+              {nominator?.displayName ?? 'The nominator'}
+            </span>{' '}
+            will record the winner and price.
+          </p>
+          {myManager && (
+            <p className="mt-2 text-sm text-slate-500">
+              You have <span className="font-semibold text-slate-300">${myManager.budget}</span> and
+              can bid up to{' '}
+              <span className={`font-semibold ${myManager.maxBid <= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                ${myManager.maxBid}
               </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Bid controls */}
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        {[1, 2, 5, 10].map((inc) => {
-          const amount = lot.highBid + inc
-          const ok = canBidAtAll && check(amount).ok
-          return (
-            <button
-              key={inc}
-              disabled={!ok || pending}
-              onClick={() => bid(amount)}
-              className="rounded-lg bg-emerald-600 px-5 py-4 text-lg font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
-            >
-              ${amount}
-              <span className="ml-1 text-xs opacity-70">+{inc}</span>
-            </button>
-          )
-        })}
-
-        <div className="flex items-center gap-2">
-          <input
-            inputMode="numeric"
-            value={custom}
-            onChange={(e) => {
-              setCustom(e.target.value.replace(/\D/g, '').slice(0, 3))
-              setError(null)
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && custom && bid(Number(custom))}
-            placeholder={String(nextBid)}
-            className="w-24 rounded-lg border border-slate-700 bg-slate-950 px-3 py-4 text-center text-lg tabular-nums outline-none focus:border-emerald-500"
-          />
-          <button
-            disabled={!custom || !canBidAtAll || pending}
-            onClick={() => bid(Number(custom))}
-            className="rounded-lg border border-slate-700 px-5 py-4 text-lg font-semibold transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Bid
-          </button>
+              {myManager.maxBid <= 0 && ' — your roster is full'}.
+            </p>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="mt-auto border-t border-slate-800 pt-5">
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="text-xs uppercase tracking-widest text-slate-500">
+              Sold for
+              <div className="mt-1 flex items-center gap-1">
+                <span className="text-4xl font-bold text-slate-500">$</span>
+                <input
+                  autoFocus
+                  inputMode="numeric"
+                  value={price}
+                  onChange={(e) => {
+                    setPrice(e.target.value.replace(/\D/g, '').slice(0, 4))
+                    setError(null)
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && ready && submit()}
+                  placeholder="0"
+                  className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center text-4xl font-bold tabular-nums outline-none focus:border-emerald-500"
+                />
+              </div>
+            </label>
+            <button
+              disabled={!ready || pending}
+              onClick={submit}
+              className="rounded-lg bg-emerald-600 px-8 py-4 text-xl font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
+            >
+              {pending ? 'Recording…' : 'Sold'}
+            </button>
+          </div>
 
-      {/* Why a bid isn't allowed — never fail silently mid-auction. */}
-      {(error || iAmHigh || maxBid <= 0) && (
-        <p
-          className={`mt-3 text-sm ${
-            error ? 'text-rose-400' : iAmHigh ? 'text-emerald-400' : 'text-amber-400'
-          }`}
-        >
-          {error ??
-            (iAmHigh
-              ? "You're the high bidder."
-              : 'Your roster is full — you cannot bid.')}
-        </p>
+          <div className="mt-4 text-xs uppercase tracking-widest text-slate-500">Winner</div>
+          <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-5">
+            {state.managers.map((m) => {
+              // Before a price is typed, only a full roster rules someone out.
+              const verdict = check(m, priceNum ?? 1)
+              const selected = m.id === winnerId
+              return (
+                <button
+                  key={m.id}
+                  disabled={!verdict.ok}
+                  title={verdict.ok ? undefined : verdict.reason}
+                  onClick={() => {
+                    setWinnerId(m.id)
+                    setError(null)
+                  }}
+                  className={`rounded-lg border px-2 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-30 ${
+                    selected
+                      ? 'border-emerald-500 bg-emerald-600/20'
+                      : 'border-slate-700 hover:bg-slate-800'
+                  }`}
+                  style={selected ? { borderColor: m.color } : undefined}
+                >
+                  <div className="truncate text-sm font-semibold" style={{ color: m.color }}>
+                    {m.displayName}
+                  </div>
+                  <div className="text-[11px] tabular-nums text-slate-500">
+                    ${m.budget} · max ${m.maxBid}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Never fail silently: if a price is over someone's max, say so with
+              the number, because the room is waiting on an answer. */}
+          {(error || (winner && priceNum !== null && !check(winner, priceNum).ok)) && (
+            <p className="mt-3 text-sm font-medium text-rose-400">
+              {error ?? (winner && priceNum !== null ? (check(winner, priceNum) as { reason: string }).reason : '')}
+            </p>
+          )}
+        </div>
       )}
     </div>
   )

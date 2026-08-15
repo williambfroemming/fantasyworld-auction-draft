@@ -302,8 +302,6 @@ function Settings({
 }) {
   const [budget, setBudget] = useState(String(state.draft.startingBudget))
   const [roster, setRoster] = useState(String(state.draft.rosterSize))
-  const [timer, setTimer] = useState(String(state.draft.timerSeconds))
-  const [soft, setSoft] = useState(String(state.draft.softCloseSeconds))
 
   const maxAtStart = Number(budget) - (Number(roster) - 1)
 
@@ -331,25 +329,8 @@ function Settings({
         Save rules
       </button>
 
-      <div className="grid gap-3 border-t border-slate-800 pt-3 sm:grid-cols-2">
-        <Field label="Nomination timer (s)" value={timer} onChange={setTimer} />
-        <Field label="Soft close (s)" value={soft} onChange={setSoft} />
-      </div>
-      <p className="text-xs text-slate-500">
-        Any bid inside the last {soft || '—'}s pushes the clock back to {soft || '—'}s.
-      </p>
-      <button
-        onClick={() =>
-          act(
-            { action: 'setTimers', timerSeconds: Number(timer), softCloseSeconds: Number(soft) },
-            'Timers saved.',
-          )
-        }
-        disabled={busy}
-        className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white disabled:opacity-40"
-      >
-        Save timers
-      </button>
+      {/* There are no timer settings: the auction is called aloud in the room
+          and the nominator records the result. See docs/PROJECT_PLAN.md §3. */}
     </div>
   )
 }

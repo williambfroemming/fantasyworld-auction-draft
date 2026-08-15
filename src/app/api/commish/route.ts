@@ -12,12 +12,6 @@ const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('skipNominator') }),
   z.object({ action: z.literal('voidLot') }),
   z.object({ action: z.literal('undoLastPick') }),
-  z.object({ action: z.literal('adjustClock'), deltaSeconds: z.number().int().min(-300).max(300) }),
-  z.object({
-    action: z.literal('setTimers'),
-    timerSeconds: z.number().int(),
-    softCloseSeconds: z.number().int(),
-  }),
   z.object({ action: z.literal('editPrice'), pickId: z.number().int(), price: z.number().int() }),
   z.object({
     action: z.literal('reassignPick'),
@@ -67,8 +61,6 @@ export async function POST(req: Request) {
       case 'skipNominator': return commish.skipNominator()
       case 'voidLot': return commish.voidLot()
       case 'undoLastPick': return commish.undoLastPick()
-      case 'adjustClock': return commish.adjustClock(b.deltaSeconds)
-      case 'setTimers': return commish.setTimers(b.timerSeconds, b.softCloseSeconds)
       case 'editPrice': return commish.editPrice(b.pickId, b.price)
       case 'reassignPick': return commish.reassignPick(b.pickId, b.managerId)
       case 'setStatus': return commish.setStatus(b.status)

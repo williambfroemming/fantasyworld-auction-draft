@@ -31,9 +31,12 @@ This app keeps **one authoritative copy** of the draft. It does not need to be p
 |---|---|
 | Player pool | Sleeper API sync (league's app of choice), CSV import as override/fallback |
 | Identity | Shared link → pick your name from the 10 → 4-digit PIN on first use |
-| Nomination | Nominator names an opening bid, becomes high bidder at that price |
+| Auction | **Called aloud in the room.** The app records the result, it does not run the bidding |
+| Nomination | Nominator puts a player on the block. No opening bid — the price is entered once, at the end |
+| Recording a sale | The nominator (or commissioner) types the hammer price and taps the winner |
 | Roster rules | Hard cap 16, **no position enforcement**; position counts shown as info only |
-| Nomination clock | **None.** Only the bid clock runs (breaks happen between lots) |
+| Clocks | **None anywhere.** No nomination timer, no bid timer, no countdown, no clock sync |
+| Trades | Players and auction dollars, either direction, executed by any manager. Salary stays with the drafter |
 | Draft order | Set per-season at setup — drag to reorder, or randomize in-app |
 | Realtime | Polling, not websockets (see §4) |
 
@@ -49,9 +52,33 @@ maxBid   = budget − (rosterSize − rostered − 1)      // 200 − 15 = 185 a
 
 - **Budget and max bid are derived, never stored.** Storing them is exactly how the sheet reached −1.
 - **Invariant:** max bid reserves $1 per unfilled slot, so a manager's budget can never drop below their remaining slot count. Nobody can be stranded unable to fill a roster. This is the bug the sheet's −1 represents.
-- Timer: `endsAt = now + timerSeconds` (default 25) on nomination.
-- Soft close: on each bid, `endsAt = max(endsAt, now + softCloseSeconds)` (default 10). Bids **outside** the final 10s do not extend; bids **inside** it snap to exactly 10s.
-- A manager at 16 players cannot bid and is skipped in the nomination order.
+- A manager at 16 players cannot be sold anyone and is skipped in the nomination order.
+
+### Why there is no clock
+
+The league already had a working auction: someone calls a player, everyone shouts numbers,
+the nominator counts down from ten. That part was never broken. What was broken was the
+*bookkeeping* — three hand-writes per pick, into three places, one of which reached −1.
+
+An in-app timer replaces a thing that works with a thing that can go wrong: a phone that
+sleeps, a laptop clock eight minutes fast, a bidding war lost to 400ms of wifi. Every one
+of those is a way for the app to cost somebody a player, and none of them existed in the
+old process. So the clock came out, and with it the soft close, lazy settlement, the
+skew-corrected countdown, and the entire live-bidding path.
+
+**The app now enforces exactly one thing: that a recorded result is legal.** That is the
+one thing the sheet could not do.
+
+### Trades
+
+A trade moves players and/or auction dollars between two managers.
+
+- **Salary stays with whoever bought the player at auction.** Receiving a $50 player costs
+  nothing; giving one away refunds nothing. Only the agreed cash moves money.
+- Both sides are re-validated against the reserve invariant *after* the trade. Note that
+  **giving a player away opens a roster spot**, which then needs $1 behind it — so a broke
+  manager can be blocked from trading a player out even though no money leaves their side.
+- A refused trade writes nothing at all.
 
 ---
 
@@ -59,39 +86,57 @@ maxBid   = budget − (rosterSize − rostered − 1)      // 200 − 15 = 185 a
 
 **Next.js 16 App Router + TypeScript, Tailwind + shadcn/ui, Neon Postgres (Drizzle), deployed on Vercel.** No websockets, no pub/sub, no cron.
 
-### Polling, and why it isn't a compromise
+### Polling
 Clients `GET /api/state?v=<version>` every 400ms; `204` when unchanged. 10 clients ≈ 25 req/s — trivial.
 
-The countdown is **not** polled — the server sends an absolute `endsAt` and the client renders locally at 60fps, so it's smooth regardless of poll rate. Polling carries only *bid events*.
+Nothing on screen depends on the client's clock, so there is no clock sync and no `serverNow`.
+400ms of staleness cannot cost anyone anything: the price is agreed out loud and then typed
+in once.
 
-400ms of staleness cannot hurt anyone, because **any bid inside the final 10s resets the clock to 10s**. Seeing a bid late always leaves a fresh 10s to respond. Late information can never cost someone a player.
+> ⚠️ `/api/state` **must** stay `export const dynamic = 'force-dynamic'` with
+> `Cache-Control: no-store`. It no longer has side effects, but a cached `204` strands every
+> client on a board that has moved on, and it presents as a UI bug rather than a caching one.
 
-> ⚠️ **Clock skew must be corrected.** Every state response includes `serverNow`; the client keeps a smoothed `offset = serverNow − clientNow` and renders `endsAt − (Date.now() + offset)`. Someone's laptop clock *will* be wrong. The server clock is the only one that decides anything.
-
-### Lazy settlement — no cron
-Each `/api/state` read first attempts:
+### Recording a sale is one atomic statement
 ```sql
-UPDATE lots SET status='sold' WHERE status='open' AND now() >= ends_at RETURNING *
+WITH sold AS (
+  UPDATE lots SET status='sold', sold_price=$price, winner_id=$winner
+  WHERE id = $lot AND status = 'open'
+    AND $price <= (SELECT max_bid FROM manager_totals WHERE id = $winner)
+    AND NOT EXISTS (SELECT 1 FROM picks WHERE player_id = lots.player_id)
+  RETURNING player_id, nominator_id
+)
+INSERT INTO picks (pick_no, player_id, manager_id, nominator_id, price)
+SELECT (SELECT COALESCE(MAX(pick_no),0) FROM picks) + 1,
+       sold.player_id, $winner, sold.nominator_id, $price
+FROM sold
+ON CONFLICT (player_id) DO NOTHING
+RETURNING pick_no;
 ```
-Only the caller that wins that race writes the `picks` row — idempotent by construction. A player sells within ~400ms of zero; if nobody's watching, it settles when anyone loads the page.
-
-> ⚠️ This gives a `GET` side effects, so `/api/state` **must** be `export const dynamic = 'force-dynamic'` with `Cache-Control: no-store`. A cached `204` would silently freeze the whole draft and would look like a UI bug.
-
-### Bids are one atomic conditional UPDATE — not a transaction
-```sql
-UPDATE lots SET
-  high_bid = $amount, high_bidder_id = $mgr, version = version + 1,
-  ends_at = GREATEST(ends_at, now() + ($softClose || ' seconds')::interval)
-WHERE id = $lot AND status = 'open' AND now() < ends_at
-  AND $amount > high_bid
-  AND $amount <= (SELECT max_bid FROM manager_totals WHERE id = $mgr)
-RETURNING *;
-```
-Zero rows = bid lost (too low / too late / over max / beaten by a millisecond). Postgres serializes concurrent `UPDATE`s on the same row, so simultaneous `+$1` gives one clean winner, no lost update, no lock held across a round trip.
+Zero rows = refused (over max, roster full, already sold). The lot update and the pick insert
+are one statement, so there is no window in which a lot reads 'sold' with no pick behind it —
+i.e. a manager who won a player and does not have them.
 
 > ⚠️ **Do not "fix" this into `SELECT … FOR UPDATE`.** Neon's HTTP driver (`drizzle-orm/neon-http`) does **not** support interactive transactions — that would fail at runtime and force `Pool`-over-WebSockets with connection-lifecycle management in serverless. The single-statement form is deliberate.
 
-`manager_totals` is a SQL **view** deriving budget/rostered/max_bid from `picks`, so max bid is enforced *inside the database* and cannot be bypassed by a bad client.
+### Trades are one atomic statement too
+
+`src/server/trade-service.ts` moves both sets of picks, books both budget adjustments, and
+bumps `draft.rev` in a single statement built from data-modifying CTEs. Every check lives in
+one `ok` CTE; when it is empty, every downstream CTE writes nothing.
+
+A half-applied trade — players moved, compensating adjustments missing — would silently
+charge the wrong manager for the rest of the draft. That is the exact class of bug this app
+exists to remove, so it is made structurally impossible rather than carefully avoided.
+
+`manager_totals` is a SQL **view** deriving budget/rostered/max_bid from `picks` *and*
+`budget_adjustments`, so max bid is enforced *inside the database* and cannot be bypassed by
+a bad client.
+
+> ⚠️ The view's aggregates are scalar subqueries inside a `LATERAL`, **not joins**. The
+> original `LEFT JOIN picks … GROUP BY` was correct for one table and silently wrong for two:
+> joining `budget_adjustments` as well would multiply every pick by that manager's adjustment
+> count and inflate every budget.
 
 ---
 
@@ -101,11 +146,16 @@ Zero rows = bid lost (too low / too late / over max / beaten by a millisecond). 
 |---|---|
 | `managers` | `id, name, displayName, color, pinHash, draftSlot, isCommish` |
 | `players` | `id (sleeper_id), name, team, position, searchRank, active` |
-| `draft` | single row: `status ('setup'\|'live'\|'paused'\|'done'), nominationIndex, timerSeconds=25, softCloseSeconds=10, rosterSize=16, startingBudget=200` |
-| `lots` | `id, playerId, nominatorId, highBid, highBidderId, endsAt, pausedRemainingMs, status ('open'\|'sold'), version` |
-| `bids` | `id, lotId, managerId, amount, createdAt` — full audit trail |
+| `draft` | single row: `status ('setup'\|'live'\|'paused'\|'done'), nominationIndex, rosterSize=16, startingBudget=200, rev` |
+| `lots` | `id, playerId, nominatorId, soldPrice, winnerId, status ('open'\|'sold'\|'void'), createdAt` — price/winner null until awarded |
 | `picks` | `id, pickNo, playerId, managerId, nominatorId, price, slotOverride, createdAt` |
-| view `manager_totals` | `id, budget, rostered, max_bid` derived from `picks` |
+| `trades` | `id, managerAId, managerBId, picksAToB[], picksBToA[], cashAToB (signed), createdBy, createdAt` |
+| `budget_adjustments` | `id, managerId, amount (signed), reason, tradeId, createdAt` |
+| view `manager_totals` | `id, budget, rostered, max_bid` derived from `picks` + `budget_adjustments` |
+
+`picks.managerId` is **current ownership** — a trade moves it. The auction history is preserved
+by `nominatorId` and the trade log, and a traded player's salary is pinned in place by the
+paired `budget_adjustments` rows rather than by freezing the column.
 
 `slotOverride` is nullable and **display-only** — null means auto-slot, a value means the manager dragged the player into a specific grid row. It never affects bidding.
 
@@ -116,27 +166,30 @@ Zero rows = bid lost (too low / too late / over max / beaten by a millisecond). 
 - `maxBidFor(budget, rostered, rosterSize)`
 - `snakeOrder(managers, nominationIndex)` — round `r`, position `i`: slot `i` when `r` even, `N−1−i` when odd. Reads `draftSlot` (per-season data). Skips full managers.
 - `randomOrder(managers)` — Fisher–Yates.
-- `validateBid({ amount, manager, lot })`
+- `validateAward({ price, winnerMaxBid, winnerRostered, … })`
+- `validateTrade({ rosterSize, a, b })` — both sides re-checked against the reserve invariant
 - `autoSlot(picks)` → `Record<SlotRow, Pick|null>` — greedy best fit: `slotOverride` first, then natural position, then FLEX (RB/WR/TE), then SUPERFLEX (QB/RB/WR/TE), then bench. **Display-only; deliberately unreachable from any bid path** so it can never become a restriction by accident.
 
 ## 7. API
 
 | Route | Behaviour |
 |---|---|
-| `POST /api/nominate` | `{ playerId, openingBid }` — asserts caller's turn, validates vs max, creates lot, nominator is high bidder |
-| `POST /api/bid` | `{ lotId, amount }` — the atomic UPDATE above |
-| `GET /api/state?v=` | settles expired lots, returns `{ version, serverNow, draft, lot, managers[], recentPicks }`, `204` if unchanged |
-| `GET /api/board` | heavy payload (full pool + all rosters), fetched only when `version` changes |
+| `POST /api/nominate` | `{ playerId }` — asserts caller's turn, opens a lot with no price and no deadline |
+| `POST /api/award` | `{ lotId, winnerId, price }` — the atomic statement above; nominator or commish only |
+| `POST /api/trade` | `{ aId, bId, picksAToB[], picksBToA[], cashAToB, cashBToA }` — any signed-in manager |
+| `GET /api/state?v=` | returns `{ version, draft, lot, managers[], recentPicks }`, `204` if unchanged |
+| `GET /api/board` | heavy payload (pool + all rosters + trade log), fetched only when `version` changes |
 
 ---
 
 ## 8. Screens
 
 1. **`/` Join** — pick name, set/enter PIN, signed httpOnly cookie.
-2. **`/draft`** — center: lot + big countdown + `+$1`/`+$5`/custom, your max bid always visible, over-max disabled *with the reason shown*. Left: searchable/filterable pool, drafted players vanish, Nominate live only on your turn. Right: tabs **My Roster / League / Budgets / Pick log**. Bottom: recent-picks ticker. Audio: beep at 10s & 3s, gavel on sold.
+2. **`/draft`** — center: the player on the block, and for the nominator a price field plus a grid of the ten managers. **Type the price first and everyone who cannot afford it greys out**, so an illegal price is refused while the room is still listening. Left: searchable/filterable pool, drafted players vanish, Nominate live only on your turn. Right: tabs **My Roster / Budgets / Picks**. Bottom: recent-picks ticker. Audio: gavel on sold, nudge on your turn.
 3. **League board** — 16 slot rows × 10 manager columns, one color each, headers pinned. Auto-slotted for display; drag your own to override; empty slots greyed; winner's column flashes on sale. Mobile: horizontal scroll with pinned labels + single-manager picker.
-4. **Commissioner drawer** (`isCommish`) — pause/resume (banks `pausedRemainingMs`), adjust timer + ±10s live, undo last pick, edit price, reassign, skip nominator, reopen lot, export CSV.
-5. **`/setup`** — sync players, seed managers, budget/roster/timer defaults, and **set the season's draft order** (drag or Randomize, re-rollable, round 1/2 preview, locks when live).
+4. **Commissioner drawer** (`isCommish`) — pause/resume, undo last pick, edit price, reassign, skip nominator, cancel lot, export CSV.
+5. **`/trades`** — its own page, for the same reason the board got one: bidding, studying the board, and negotiating a trade are three different moments. Two rosters side by side, cash either way, and a live preview of both managers' budget/roster/max bid *after* the deal.
+6. **`/setup`** — sync players, seed managers, budget/roster rules, and **set the season's draft order** (drag or Randomize, re-rollable, round 1/2 preview, locks when live).
 
 ## 9. Sleeper — `src/lib/sleeper.ts`, setup only, never on draft night
 
@@ -180,6 +233,7 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 - [ ] **10.** Commissioner drawer
 - [ ] **11.** CSV export
 - [ ] **12.** Deploy to preview → dress rehearsal → full UAT
+- [x] **16.** **Called auction** — remove the clock, live bidding, soft close, lazy settlement and clock sync; `awardLot()` records the room's result. **Trades** of players and auction dollars, salary staying with the drafter.
 
 ### Timeline
 
@@ -200,6 +254,10 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 
 Running list — add to it, and mirror anything hard-won into `PROGRESS_LOG.md`.
 
+- `drizzle-kit push` cannot distinguish a new table from a rename and blocks on an interactive prompt (fatal in a non-TTY). Structural changes belong in a hand-written idempotent script — `scripts/migrate-called-auction.ts`
+- A backtick inside a `sql\`…\`` template literal terminates it; the failure surfaces as an unrelated esbuild parse error
+- `= ANY((SELECT arr FROM cte))` is the *subquery* form and fails with `operator does not exist: integer = integer[]`. Use `IN (SELECT unnest(arr) FROM cte)`
+- Next 16 refuses a second `next dev` in the same directory — stop the live-DB server before smoke-testing the test DB
 - `drizzle-kit` and `tsx` don't auto-load `.env.local` → `npx dotenv -e .env.local -- npx drizzle-kit push`
 - Never wrap the Drizzle client in a `Proxy` for lazy init — use a plain `getDb()`
 - `neon()` throws at import if `DATABASE_URL` is unset, which crashes `next build` → lazy init

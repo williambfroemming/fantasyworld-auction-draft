@@ -23,8 +23,6 @@ export function CommishDrawer({
   const [open, setOpen] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [timer, setTimer] = useState(String(state.draft.timerSeconds))
-  const [softClose, setSoftClose] = useState(String(state.draft.softCloseSeconds))
 
   async function act(body: Record<string, unknown>, confirmText?: string) {
     if (confirmText && !window.confirm(confirmText)) return
@@ -95,51 +93,8 @@ export function CommishDrawer({
             )}
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Pause banks the exact time left on the clock, so a break mid-player is safe.
-          </p>
-        </Section>
-
-        {/* Clock */}
-        <Section title="Clock">
-          <div className="flex gap-2">
-            {[-10, +10, +30].map((d) => (
-              <Btn key={d} onClick={() => act({ action: 'adjustClock', deltaSeconds: d })} disabled={busy}>
-                {d > 0 ? `+${d}s` : `${d}s`}
-              </Btn>
-            ))}
-          </div>
-          <div className="mt-3 flex items-end gap-2">
-            <label className="flex-1 text-xs text-slate-400">
-              Nomination timer
-              <input
-                value={timer}
-                onChange={(e) => setTimer(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center tabular-nums text-slate-100"
-              />
-            </label>
-            <label className="flex-1 text-xs text-slate-400">
-              Soft close
-              <input
-                value={softClose}
-                onChange={(e) => setSoftClose(e.target.value.replace(/\D/g, '').slice(0, 3))}
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center tabular-nums text-slate-100"
-              />
-            </label>
-            <Btn
-              onClick={() =>
-                act({
-                  action: 'setTimers',
-                  timerSeconds: Number(timer),
-                  softCloseSeconds: Number(softClose),
-                })
-              }
-              disabled={busy}
-            >
-              Set
-            </Btn>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            Applies to the next nomination. Shorten this as the draft drags on.
+            Pause blocks nominations and sales. Nothing expires while paused — the player on the
+            block stays up.
           </p>
         </Section>
 
@@ -161,7 +116,7 @@ export function CommishDrawer({
               Undo last pick
             </Btn>
             <Btn
-              onClick={() => act({ action: 'voidLot' }, 'Cancel the player currently on the clock?')}
+              onClick={() => act({ action: 'voidLot' }, 'Take the current player back off the block?')}
               disabled={busy || !state.lot}
               tone="danger"
             >
@@ -212,6 +167,15 @@ export function CommishDrawer({
             className="inline-block rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
           >
             Draft order, rules & reset →
+          </a>
+        </Section>
+
+        <Section title="Trades">
+          <a
+            href="/trades"
+            className="inline-block rounded-lg bg-slate-800 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700"
+          >
+            Players & auction dollars →
           </a>
         </Section>
 

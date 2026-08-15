@@ -3,7 +3,8 @@
  *
  *   npm run draft:reset
  *
- * Deletes every pick, lot, and bid, and returns the draft to `setup`.
+ * Deletes every pick, lot, trade, and budget adjustment, and returns the draft
+ * to `setup`.
  * Leaves managers, PINs, and the player pool alone — use `npm run pins --
  * --clear` for PINs.
  *
@@ -17,10 +18,10 @@ async function main() {
 
   const [{ n: picks }] = await sql`SELECT count(*)::int AS n FROM picks`
   const [{ n: lots }] = await sql`SELECT count(*)::int AS n FROM lots`
-  const [{ n: bids }] = await sql`SELECT count(*)::int AS n FROM bids`
+  const [{ n: trades }] = await sql`SELECT count(*)::int AS n FROM trades`
   const [{ status }] = await sql`SELECT status FROM draft WHERE id = 1`
 
-  console.log(`Before: ${picks} picks, ${lots} lots, ${bids} bids, status "${status}"`)
+  console.log(`Before: ${picks} picks, ${lots} lots, ${trades} trades, status "${status}"`)
 
   if (Number(picks) > 30 && !process.argv.includes('--force')) {
     console.error(
@@ -30,7 +31,11 @@ async function main() {
     process.exit(1)
   }
 
-  await sql`DELETE FROM bids`
+  // Adjustments first: leaving them behind would carry rehearsal trade cash
+  // into the real draft, and because budgets are derived nobody would see a
+  // stale number to be suspicious of.
+  await sql`DELETE FROM budget_adjustments`
+  await sql`DELETE FROM trades`
   await sql`DELETE FROM picks`
   await sql`DELETE FROM lots`
   await sql`UPDATE draft SET status = 'setup', nomination_index = 0, rev = rev + 1 WHERE id = 1`

@@ -84,42 +84,120 @@ export function randomOrder<T>(items: T[], rng: () => number = Math.random): T[]
 }
 
 // ---------------------------------------------------------------------------
-// Bid validation
+// Award validation
 // ---------------------------------------------------------------------------
 
-export interface BidContext {
-  amount: number
-  currentHighBid: number
-  managerMaxBid: number
-  managerRostered: number
+export type RuleResult = { ok: true } | { ok: false; reason: string }
+
+export interface AwardContext {
+  /** The hammer price the nominator typed in. */
+  price: number
+  /** The winning manager's live max bid, from manager_totals. */
+  winnerMaxBid: number
+  winnerRostered: number
+  winnerName: string
   rosterSize: number
   draftStatus: 'setup' | 'live' | 'paused' | 'done'
   lotStatus: 'open' | 'sold' | 'void'
-  /** ms remaining on the clock; <= 0 means expired. */
-  msRemaining: number
 }
 
-export type BidResult = { ok: true } | { ok: false; reason: string }
-
 /**
- * Client-side pre-check. The authoritative check is the WHERE clause of the bid
- * UPDATE — this exists to disable the button and, more importantly, to say *why*,
- * since "your bid was rejected" with no reason is useless mid-auction.
+ * Can this player be awarded to this manager at this price?
+ *
+ * The bidding itself happens out loud in the room — the app never sees it. This
+ * is the one moment the app gets to enforce anything, so it is also the moment
+ * the -1 bug from the old sheet would slip back in. The authoritative check is
+ * the WHERE clause of the award statement; this runs client-side so the button
+ * can be disabled *with the reason on screen* before someone types a number
+ * that a room of ten people already agreed on and then has to re-run the bidding.
  */
-export function validateBid(c: BidContext): BidResult {
+export function validateAward(c: AwardContext): RuleResult {
   if (c.draftStatus === 'paused') return { ok: false, reason: 'Draft is paused' }
   if (c.draftStatus !== 'live') return { ok: false, reason: 'Draft is not live' }
-  if (c.lotStatus !== 'open') return { ok: false, reason: 'Bidding is closed on this player' }
-  if (c.msRemaining <= 0) return { ok: false, reason: 'Time expired' }
-  if (!Number.isInteger(c.amount)) return { ok: false, reason: 'Bid must be a whole dollar' }
-  if (c.amount <= c.currentHighBid) {
-    return { ok: false, reason: `Must beat the current bid of $${c.currentHighBid}` }
+  if (c.lotStatus !== 'open') return { ok: false, reason: 'This player has already been awarded' }
+  if (!Number.isInteger(c.price)) return { ok: false, reason: 'Price must be a whole dollar' }
+  if (c.price < 1) return { ok: false, reason: 'Every player costs at least $1' }
+  if (c.winnerRostered >= c.rosterSize) {
+    return { ok: false, reason: `${c.winnerName}'s roster is full` }
   }
-  if (c.managerRostered >= c.rosterSize) return { ok: false, reason: 'Your roster is full' }
-  if (c.amount > c.managerMaxBid) {
+  if (c.price > c.winnerMaxBid) {
     return {
       ok: false,
-      reason: `Over your max bid of $${c.managerMaxBid} — you must keep $1 for each empty roster spot`,
+      reason:
+        `$${c.price} is over ${c.winnerName}'s max bid of $${c.winnerMaxBid} — ` +
+        'they must keep $1 for each empty roster spot',
+    }
+  }
+  return { ok: true }
+}
+
+// ---------------------------------------------------------------------------
+// Trade validation
+// ---------------------------------------------------------------------------
+
+/**
+ * One side of a proposed trade, as it stands *before* the trade is applied.
+ *
+ * `playersOut`/`playersIn` are counts, not prices, because the league's rule is
+ * that a traded player's salary stays charged to whoever bought them at auction.
+ * Moving a player therefore changes this manager's roster count but not their
+ * budget; only `cashOut`/`cashIn` move money.
+ */
+export interface TradeSide {
+  name: string
+  budget: number
+  rostered: number
+  playersOut: number
+  playersIn: number
+  cashOut: number
+  cashIn: number
+}
+
+export interface TradeContext {
+  rosterSize: number
+  a: TradeSide
+  b: TradeSide
+}
+
+/**
+ * Both sides must still be solvent afterwards.
+ *
+ * This is the same invariant the auction enforces — every empty roster spot
+ * keeps $1 in reserve — applied to a transaction that can move players and cash
+ * in both directions at once. Giving a player away is not free: it opens a slot
+ * that now needs a dollar behind it, so a broke manager can be blocked from
+ * trading a player out even though nothing appears to leave their wallet.
+ */
+export function validateTrade(c: TradeContext): RuleResult {
+  for (const side of [c.a, c.b]) {
+    if (!Number.isInteger(side.cashOut) || side.cashOut < 0) {
+      return { ok: false, reason: 'Cash must be a whole dollar amount of $0 or more' }
+    }
+  }
+  if (c.a.playersOut + c.b.playersOut + c.a.cashOut + c.b.cashOut === 0) {
+    return { ok: false, reason: 'A trade has to move at least one player or dollar' }
+  }
+
+  for (const side of [c.a, c.b]) {
+    const rostered = side.rostered - side.playersOut + side.playersIn
+    const budget = side.budget - side.cashOut + side.cashIn
+
+    if (rostered > c.rosterSize) {
+      return {
+        ok: false,
+        reason: `${side.name} would end up with ${rostered} players, over the ${c.rosterSize}-man roster`,
+      }
+    }
+    // Reserve $1 per empty slot — the invariant that keeps anyone from being
+    // stranded holding roster spots they cannot fill.
+    const reserve = c.rosterSize - rostered
+    if (budget < reserve) {
+      return {
+        ok: false,
+        reason:
+          `${side.name} would be left with $${budget} and ${reserve} spots to fill — ` +
+          'they need at least $1 for each',
+      }
     }
   }
   return { ok: true }
