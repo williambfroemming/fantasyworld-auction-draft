@@ -25,11 +25,16 @@ async function main() {
 
   // If a draft is genuinely under way, refuse outright — this is the check that
   // matters on draft night.
-  const [{ n: picks }] = await sql`SELECT count(*)::int AS n FROM picks`
-  const [settings] = await sql`SELECT status FROM draft WHERE id = 1`
+  //
+  // Scoped to the current season: archived picks are permanent, so an unscoped
+  // count would sit at 160+ forever and block the destructive suites for good
+  // once a season is in the books.
+  const [settings] = await sql`SELECT season, status FROM draft WHERE id = 1`
+  const [{ n: picks }] =
+    await sql`SELECT count(*)::int AS n FROM picks WHERE season = ${settings.season}`
   if (Number(picks) > 0 && settings.status !== 'setup') {
     fail(
-      `There are ${picks} picks and the draft is "${settings.status}".\n` +
+      `There are ${picks} picks in season ${settings.season} and the draft is "${settings.status}".\n` +
         `   This looks like a REAL DRAFT. Refusing to wipe it.`,
     )
   }

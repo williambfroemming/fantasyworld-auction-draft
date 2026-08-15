@@ -69,9 +69,18 @@ async function main() {
 
   if (pool.length === 0) throw new Error('Player pool came back empty — refusing to seed.')
 
-  // Replace the pool wholesale, but never orphan a player that's already been
-  // drafted: picks reference players, so drop only what nothing points at.
-  await db.execute(sql`DELETE FROM players WHERE id NOT IN (SELECT player_id FROM picks)`)
+  // Replace the pool wholesale, but never orphan a player anything points at.
+  //
+  // `picks` spans EVERY season now, so this also protects players drafted years
+  // ago: a 2026 pick must keep its `players` row, or a re-import would either
+  // be blocked by the foreign key or strand the archive. (The archive renders
+  // from the pick's own name/team/position snapshot, so it survives either way
+  // — this keeps the referential side honest too.) `lots` is included for the
+  // same reason: a voided lot references a player nobody ever drafted.
+  await db.execute(sql`
+    DELETE FROM players
+    WHERE id NOT IN (SELECT player_id FROM picks)
+      AND id NOT IN (SELECT player_id FROM lots)`)
 
   const BATCH = 200
   for (let i = 0; i < pool.length; i += BATCH) {

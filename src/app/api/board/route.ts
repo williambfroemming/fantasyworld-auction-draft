@@ -12,18 +12,31 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const sql = getSql()
+  const [{ season }] = await sql`SELECT season FROM draft WHERE id = 1`
 
   const [pool, rosters, trades] = await Promise.all([
+    // "Already drafted" is scoped to this season. Unscoped, every player taken
+    // in a previous year would be missing from the pool forever — the league
+    // would silently become a keeper league.
     sql`SELECT p.id, p.name, p.team, p.position, p.search_rank, p.pos_rank, p.bye_week
         FROM players p
-        WHERE NOT EXISTS (SELECT 1 FROM picks pk WHERE pk.player_id = p.id)
-          AND NOT EXISTS (SELECT 1 FROM lots l WHERE l.player_id = p.id AND l.status = 'open')
+        WHERE NOT EXISTS (
+                SELECT 1 FROM picks pk
+                WHERE pk.player_id = p.id AND pk.season = ${season})
+          AND NOT EXISTS (
+                SELECT 1 FROM lots l
+                WHERE l.player_id = p.id AND l.status = 'open' AND l.season = ${season})
         ORDER BY p.search_rank NULLS LAST, p.name`,
+    // Bye week still comes from the live pool — it is this season's schedule
+    // and only meaningful while the draft is running. Name, team and position
+    // come from the pick's own snapshot.
     sql`SELECT pk.id, pk.pick_no, pk.manager_id, pk.nominator_id, pk.price, pk.slot_override,
-               p.name, p.team, p.position, p.bye_week
-        FROM picks pk JOIN players p ON p.id = pk.player_id
+               pk.player_name AS name, pk.player_team AS team,
+               pk.player_position AS position, p.bye_week
+        FROM picks pk LEFT JOIN players p ON p.id = pk.player_id
+        WHERE pk.season = ${season}
         ORDER BY pk.pick_no`,
-    listTrades(),
+    listTrades(Number(season)),
   ])
 
   return NextResponse.json(

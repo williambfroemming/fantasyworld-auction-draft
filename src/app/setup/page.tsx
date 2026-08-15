@@ -269,9 +269,16 @@ export default function SetupPage() {
 
             <button
               onClick={() => {
+                // Named explicitly, because this button is one click away from
+                // erasing a real draft and its old label ("Reset draft") read
+                // like the way to prepare for a new year. It is not — that is
+                // `npm run season:new`, which keeps this season as an archive.
                 if (
                   !window.confirm(
-                    `Delete all ${picksMade} picks and every bid, and return to setup?\n\nThis cannot be undone.`,
+                    `Delete all ${picksMade} picks from the ${state.draft.season} draft and return to setup?\n\n` +
+                      `This cannot be undone. Other seasons are not affected.\n\n` +
+                      `To start a NEW season and KEEP ${state.draft.season}, run:\n` +
+                      `  npm run season:new -- ${state.draft.season + 1}`,
                   )
                 )
                   return
@@ -280,7 +287,7 @@ export default function SetupPage() {
               disabled={busy}
               className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-40"
             >
-              Reset draft ({picksMade} picks)
+              Erase {state.draft.season} draft ({picksMade} picks)
             </button>
           </div>
         </Section>

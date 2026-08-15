@@ -42,6 +42,27 @@ async function step(label: string, statement: string) {
 async function main() {
   console.log(`\nMigrating "${dbName}"\n`)
 
+  // ⚠️ This migration ends by rebuilding `manager_totals` from a copy of the
+  // view frozen at the time it was written — one with NO season filter. Running
+  // it after scripts/migrate-seasons.ts would silently replace the season-scoped
+  // view with that old copy, and every manager's budget would then carry their
+  // spend from every past draft. Nothing would error; ten managers would just
+  // start the next season hundreds of dollars negative.
+  //
+  // It is finished work against a database shape that no longer exists, so it
+  // refuses to run once seasons are in place rather than trying to stay current.
+  const [seasoned] = await sql`
+    SELECT 1 AS yes FROM information_schema.columns
+    WHERE table_name = 'draft' AND column_name = 'season'`
+  if (seasoned) {
+    console.error(
+      `✗ "${dbName}" already has seasons — this migration is superseded and would\n` +
+        `  rebuild manager_totals without its season filter.\n` +
+        `  Use: npm run db:migrate-seasons\n`,
+    )
+    process.exit(1)
+  }
+
   const [before] = await sql`SELECT status, nomination_index FROM draft WHERE id = 1`
   const [{ n: picksBefore }] = await sql`SELECT count(*)::int AS n FROM picks`
   console.log(`Before: status "${before.status}", ${picksBefore} picks\n`)

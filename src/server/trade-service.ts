@@ -93,10 +93,11 @@ export async function executeTrade(
     }
   }
 
-  const [settings] = await sql`SELECT status, roster_size FROM draft WHERE id = 1`
+  const [settings] = await sql`SELECT season, status, roster_size FROM draft WHERE id = 1`
   if (settings.status === 'setup') {
     return { ok: false, reason: 'The draft has not started — there is nothing to trade yet' }
   }
+  const season = Number(settings.season)
 
   // A readable rejection, computed up front. The database still has the final
   // say below; this exists so the message names the manager and the shortfall
@@ -139,7 +140,7 @@ export async function executeTrade(
       SELECT ${aId}::int AS a_id, ${bId}::int AS b_id,
              ${aArr}::int[] AS a_picks, ${bArr}::int[] AS b_picks,
              ${cashAToB}::int AS cash_a, ${cashBToA}::int AS cash_b,
-             ${callerId}::int AS created_by
+             ${callerId}::int AS created_by, ${season}::int AS season
     ),
     facts AS (
       SELECT i.*,
@@ -152,12 +153,20 @@ export async function executeTrade(
              -- listed player is actually on the giving manager's roster right
              -- now, and rejects a stale client trading away someone they
              -- already traded away a minute ago.
+             --
+             -- The season filter belongs here too. Pick ids are unique across
+             -- ALL seasons, so without it a client could name a pick id from a
+             -- finished draft and move a 2026 player onto a 2027 roster.
              (SELECT count(*) FROM picks p
-               WHERE p.id = ANY(i.a_picks) AND p.manager_id = i.a_id) AS a_owned,
+               WHERE p.id = ANY(i.a_picks) AND p.manager_id = i.a_id
+                 AND p.season = i.season) AS a_owned,
              (SELECT count(*) FROM picks p
-               WHERE p.id = ANY(i.b_picks) AND p.manager_id = i.b_id) AS b_owned,
-             COALESCE((SELECT sum(p.price) FROM picks p WHERE p.id = ANY(i.a_picks)), 0) AS a_salary,
-             COALESCE((SELECT sum(p.price) FROM picks p WHERE p.id = ANY(i.b_picks)), 0) AS b_salary
+               WHERE p.id = ANY(i.b_picks) AND p.manager_id = i.b_id
+                 AND p.season = i.season) AS b_owned,
+             COALESCE((SELECT sum(p.price) FROM picks p
+                        WHERE p.id = ANY(i.a_picks) AND p.season = i.season), 0) AS a_salary,
+             COALESCE((SELECT sum(p.price) FROM picks p
+                        WHERE p.id = ANY(i.b_picks) AND p.season = i.season), 0) AS b_salary
       FROM input i
       JOIN draft d ON d.id = 1
       JOIN manager_totals ta ON ta.id = i.a_id
@@ -180,9 +189,9 @@ export async function executeTrade(
         AND (f.b_budget - f.cash_b + f.cash_a) >= (f.roster_size - (f.b_rostered - f.b_n + f.a_n))
     ),
     t AS (
-      INSERT INTO trades (manager_a_id, manager_b_id, picks_a_to_b, picks_b_to_a,
+      INSERT INTO trades (season, manager_a_id, manager_b_id, picks_a_to_b, picks_b_to_a,
                           cash_a_to_b, created_by)
-      SELECT a_id, b_id, a_picks, b_picks, cash_a - cash_b, created_by FROM ok
+      SELECT season, a_id, b_id, a_picks, b_picks, cash_a - cash_b, created_by FROM ok
       RETURNING id
     ),
     -- IN (SELECT unnest(...)), not = ANY((SELECT arr ...)). Postgres reads ANY
@@ -203,12 +212,12 @@ export async function executeTrade(
     -- The compensating pair. Cancels the salary the pick move just dragged
     -- across, and applies the cash. These two amounts always sum to zero.
     adj AS (
-      INSERT INTO budget_adjustments (manager_id, amount, reason, trade_id)
-      SELECT ok.a_id, (ok.b_salary - ok.a_salary - ok.cash_a + ok.cash_b),
+      INSERT INTO budget_adjustments (season, manager_id, amount, reason, trade_id)
+      SELECT ok.season, ok.a_id, (ok.b_salary - ok.a_salary - ok.cash_a + ok.cash_b),
              'Trade #' || t.id, t.id
       FROM ok, t
       UNION ALL
-      SELECT ok.b_id, (ok.a_salary - ok.b_salary - ok.cash_b + ok.cash_a),
+      SELECT ok.season, ok.b_id, (ok.a_salary - ok.b_salary - ok.cash_b + ok.cash_a),
              'Trade #' || t.id, t.id
       FROM ok, t
       RETURNING id
@@ -229,24 +238,33 @@ export async function executeTrade(
   return { ok: true, data: { tradeId: Number(rows[0].id) } }
 }
 
-/** Trade history, newest first. Shown in the sidebar and on the board. */
-export async function listTrades(limit = 25): Promise<TradeSummary[]> {
+/**
+ * Trade history for one season, newest first. Shown in the sidebar, on the
+ * board, and in the archive.
+ *
+ * `season` defaults to whatever the league is drafting now. Pass an explicit
+ * year to read a finished season's trades.
+ */
+export async function listTrades(season?: number, limit = 25): Promise<TradeSummary[]> {
   const sql = getSql()
+  const year =
+    season ?? Number((await sql`SELECT season FROM draft WHERE id = 1`)[0].season)
   const rows = await sql`
     SELECT t.id, t.created_at, t.manager_a_id, t.manager_b_id, t.cash_a_to_b,
            t.picks_a_to_b, t.picks_b_to_a
-    FROM trades t ORDER BY t.id DESC LIMIT ${limit}`
+    FROM trades t WHERE t.season = ${year} ORDER BY t.id DESC LIMIT ${limit}`
   if (rows.length === 0) return []
 
   // One extra round trip for every player named in the window, rather than one
-  // per trade.
+  // per trade. Names come from the pick's own snapshot, so an archived trade
+  // still reads correctly after the pool has been re-imported.
   const pickIds = rows.flatMap((r) => [...(r.picks_a_to_b ?? []), ...(r.picks_b_to_a ?? [])])
   const detail =
     pickIds.length === 0
       ? []
       : await sql`
-          SELECT pk.id, pk.price, p.name, p.position
-          FROM picks pk JOIN players p ON p.id = pk.player_id
+          SELECT pk.id, pk.price, pk.player_name AS name, pk.player_position AS position
+          FROM picks pk
           WHERE pk.id = ANY(${intArrayLiteral(pickIds)}::int[])`
   const byId = new Map(detail.map((d) => [Number(d.id), d]))
 

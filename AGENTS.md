@@ -11,7 +11,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 # Fantasy Auction Draft
 
 Live auction draft app for a 10-person fantasy football league, replacing a manual Google Sheet.
-**The real draft is Friday 2026-08-14.** This is not a toy — ten people will be bidding real budgets in a room, in real time.
+**The 2026 draft was held Friday 2026-08-14 and is complete — 160 picks, all rosters full.** It is
+now an archive the league can browse, and the app keeps every season from here on. This is not a
+toy: ten people bid real budgets in a room, in real time.
 
 **The app does not run the auction.** The room calls the bidding out loud, exactly as it always
 has; the nominator then records the winner and the hammer price. There is no timer, no
@@ -42,6 +44,9 @@ Stack: Next.js 16.3 (App Router) · React 19.2 · TypeScript · Tailwind 4 · Ne
 These look like mistakes and are not. Read `docs/PROJECT_PLAN.md` §4 before changing any of them.
 
 - **Budget and max bid are derived from `picks` + `budget_adjustments`, never stored.** Storing them is exactly how the old sheet ended up with a manager at −1.
+- **Every read of `picks` or `lots` is filtered by season.** They hold every draft the league has ever run, ~160 rows a year, forever. `manager_totals` carries the filter for budgets; miss it and each manager starts the new season carrying their whole previous spend — all ten deeply negative, silently, because budgets are derived. Miss it in the pool exclusion and last year's players are undraftable, turning a redraft league into a keeper league. Read `draft.season`; never hardcode a year outside `scripts/migrate-seasons.ts`.
+- **A pick stores its own `player_name` / `player_team` / `player_position`.** The pool is re-imported every season, so joining an archived pick to `players` shows a future team on a past board. The live draft may join; the archive never does.
+- **`npm run draft:reset` is not how a new season starts.** It erases the current season. Use `npm run season:new -- <year>`, which deletes nothing and moves the finished draft into the archive.
 - **Every mutation is ONE SQL statement, not `SELECT … FOR UPDATE`.** Neon's HTTP driver has no interactive transactions; the transactional version fails at runtime. Awards and trades use data-modifying CTEs so they cannot half-apply.
 - **A traded player's salary stays with whoever drafted them.** A trade moves `picks.manager_id`, which would drag the charge along too, so it books an equal-and-opposite pair of `budget_adjustments` to cancel that out. Every trade's adjustments sum to zero — `npm run db:verify` asserts it.
 - **`GET /api/state` must stay uncached** — `export const dynamic = 'force-dynamic'` *and* an explicit `Cache-Control: no-store` header. It no longer has side effects, but a cached 204 still strands every client on a stale board and looks like a UI bug.
@@ -62,9 +67,13 @@ npm test                 # unit tests for the rules engine (vitest)
 npm run db:push          # migrations + re-applies the manager_totals view
 npm run db:verify        # $200/$185, the reserve invariant, and zero-sum trade adjustments
 npm run test:int         # integration tests -- runs against neondb_test only
-npm run draft:reset      # clear picks/lots/trades/adjustments, back to setup
-npm run db:migrate-auction        # the timed-bidding -> called-auction migration (live)
-npm run db:migrate-auction -- --test
+npm run db:backup        # full JSON snapshot of every table -> backups/
+npm run season:list      # what drafts are on record, and which is current
+npm run season:new -- 2027   # archive this season, start the next. DELETES NOTHING
+npm run draft:reset      # erase THIS season back to setup (not how you start a new year)
+npm run draft:record -- "Mario|Aaron Rodgers|1"   # record a sale outside the nomination order
+npm run db:migrate-seasons        # the one-draft -> season-per-year migration (live)
+npm run db:migrate-seasons -- --test
 npm run pins -- --clear
 ```
 
@@ -73,7 +82,13 @@ npm run pins -- --clear
 >
 > **`drizzle-kit push` cannot tell a new table from a rename** and stops to ask
 > interactively — which fails outright in a non-TTY. Structural changes go in a
-> hand-written, idempotent script instead: see `scripts/migrate-called-auction.ts`.
+> hand-written, idempotent script instead: see `scripts/migrate-seasons.ts`.
+>
+> **`scripts/migrate-called-auction.ts` is superseded and refuses to run** once
+> `draft.season` exists. It ends by rebuilding `manager_totals` from a copy frozen
+> before seasons, so running it now would silently strip the season filter and
+> bankrupt every manager. A migration that hardcodes a view definition ages into a
+> loaded gun; guard it rather than trusting the order it gets run in.
 >
 > An env-var prefix does not survive `&&`: `VAR=x a && b` sets VAR for `a` only.
 > Use `export VAR; a && b` in any chain that redirects the database URL.

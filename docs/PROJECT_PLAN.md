@@ -146,12 +146,34 @@ a bad client.
 |---|---|
 | `managers` | `id, name, displayName, color, pinHash, draftSlot, isCommish` |
 | `players` | `id (sleeper_id), name, team, position, searchRank, active` |
-| `draft` | single row: `status ('setup'\|'live'\|'paused'\|'done'), nominationIndex, rosterSize=16, startingBudget=200, rev` |
-| `lots` | `id, playerId, nominatorId, soldPrice, winnerId, status ('open'\|'sold'\|'void'), createdAt` — price/winner null until awarded |
-| `picks` | `id, pickNo, playerId, managerId, nominatorId, price, slotOverride, createdAt` |
-| `trades` | `id, managerAId, managerBId, picksAToB[], picksBToA[], cashAToB (signed), createdBy, createdAt` |
-| `budget_adjustments` | `id, managerId, amount (signed), reason, tradeId, createdAt` |
-| view `manager_totals` | `id, budget, rostered, max_bid` derived from `picks` + `budget_adjustments` |
+| `draft` | single row: `season, status ('setup'\|'live'\|'paused'\|'done'), nominationIndex, rosterSize=16, startingBudget=200, rev` |
+| `lots` | `id, season, playerId, nominatorId, soldPrice, winnerId, status ('open'\|'sold'\|'void'), createdAt` — price/winner null until awarded |
+| `picks` | `id, season, pickNo, playerId, playerName, playerTeam, playerPosition, managerId, nominatorId, price, slotOverride, createdAt` |
+| `trades` | `id, season, managerAId, managerBId, picksAToB[], picksBToA[], cashAToB (signed), createdBy, createdAt` |
+| `budget_adjustments` | `id, season, managerId, amount (signed), reason, tradeId, createdAt` |
+| `season_orders` | `season, managerId, draftSlot, displayName, color` — the seating, frozen per year |
+| view `manager_totals` | `id, budget, rostered, max_bid` derived from `picks` + `budget_adjustments`, **filtered to `draft.season`** |
+
+### Seasons
+
+Every draft the league runs is kept. `draft.season` says which year is current;
+the per-draft tables carry a matching `season`, and starting a new year
+(`npm run season:new -- 2027`) bumps that column instead of deleting anything.
+Past rows simply stop matching the current-season filter and appear in the
+read-only archive at `/board` instead.
+
+> ⚠️ **Every query against `picks` or `lots` must filter on the season.** For
+> budgets that filter lives in `manager_totals`, so there is one place to get
+> right — miss it and each manager begins the new year carrying their entire
+> previous spend, silently, because budgets are derived. Miss it in the pool
+> exclusion and last year's players stay undraftable, which turns a redraft
+> league into a keeper league. `picks` is `UNIQUE (season, player_id)`, never
+> `UNIQUE (player_id)`.
+
+> ⚠️ **`picks` stores its own `playerName` / `playerTeam` / `playerPosition`.**
+> The pool is re-imported every season, so a 2026 pick rendered by joining to
+> `players` would show a 2028 team. The live draft may join; the archive reads
+> only the snapshot. See `src/server/archive-service.ts`.
 
 `picks.managerId` is **current ownership** — a trade moves it. The auction history is preserved
 by `nominatorId` and the trade log, and a traded player's salary is pinned in place by the
@@ -178,7 +200,10 @@ paired `budget_adjustments` rows rather than by freezing the column.
 | `POST /api/award` | `{ lotId, winnerId, price }` — the atomic statement above; nominator or commish only |
 | `POST /api/trade` | `{ aId, bId, picksAToB[], picksBToA[], cashAToB, cashBToA }` — any signed-in manager |
 | `GET /api/state?v=` | returns `{ version, draft, lot, managers[], recentPicks }`, `204` if unchanged |
-| `GET /api/board` | heavy payload (pool + all rosters + trade log), fetched only when `version` changes |
+| `GET /api/board` | heavy payload (pool + all rosters + trade log) for the **current** season, fetched only when `version` changes |
+| `GET /api/archive` | the season list for the year picker |
+| `GET /api/archive?season=` | one finished season, read-only. Its own route so browsing 2026 during the 2027 draft never touches the hot path |
+| `GET /api/export?season=` | pick log as CSV; defaults to the current season |
 
 ---
 
@@ -186,7 +211,7 @@ paired `budget_adjustments` rows rather than by freezing the column.
 
 1. **`/` Join** — pick name, set/enter PIN, signed httpOnly cookie.
 2. **`/draft`** — center: the player on the block, and for the nominator a price field plus a grid of the ten managers. **Type the price first and everyone who cannot afford it greys out**, so an illegal price is refused while the room is still listening. Left: searchable/filterable pool, drafted players vanish, Nominate live only on your turn. Right: tabs **My Roster / Budgets / Picks**. Bottom: recent-picks ticker. Audio: gavel on sold, nudge on your turn.
-3. **League board** — 16 slot rows × 10 manager columns, one color each, headers pinned. Auto-slotted for display; drag your own to override; empty slots greyed; winner's column flashes on sale. Mobile: horizontal scroll with pinned labels + single-manager picker.
+3. **League board** (`/board`) — 16 slot rows × 10 manager columns, one color each, headers pinned. Auto-slotted for display; drag your own to override; empty slots greyed; winner's column flashes on sale. Mobile: horizontal scroll with pinned labels + single-manager picker. **A year picker sits in the header**: the current season is live and polling, any past season renders read-only from the archive and stops polling — a finished draft does not change.
 4. **Commissioner drawer** (`isCommish`) — pause/resume, undo last pick, edit price, reassign, skip nominator, cancel lot, export CSV.
 5. **`/trades`** — its own page, for the same reason the board got one: bidding, studying the board, and negotiating a trade are three different moments. Two rosters side by side, cash either way, and a live preview of both managers' budget/roster/max bid *after* the deal.
 6. **`/setup`** — sync players, seed managers, budget/roster rules, and **set the season's draft order** (drag or Randomize, re-rollable, round 1/2 preview, locks when live).
@@ -234,6 +259,7 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 - [ ] **11.** CSV export
 - [ ] **12.** Deploy to preview → dress rehearsal → full UAT
 - [x] **16.** **Called auction** — remove the clock, live bidding, soft close, lazy settlement and clock sync; `awardLot()` records the room's result. **Trades** of players and auction dollars, salary staying with the drafter.
+- [x] **17.** **Seasons + archive** (BACKLOG §2) — `season` on every per-draft table, season-scoped `manager_totals`, the player snapshot on `picks`, `season_orders`, `/api/archive` and the year picker on `/board`. `season:new` replaces "reset and start over". The 2026 draft's final 8 picks recorded and the draft closed at 160.
 
 ### Timeline
 
@@ -264,3 +290,7 @@ Running list — add to it, and mirror anything hard-won into `PROGRESS_LOG.md`.
 - neon-http has **no interactive transactions** (see §4)
 - `/api/state` must be `force-dynamic` + `no-store` (see §4)
 - Sleeper `/players/nfl` is 5MB — never call it from a request path
+- `picks` must be `UNIQUE (season, player_id)`. A global unique on `player_id` makes every previously drafted player undraftable forever, and `ON CONFLICT` in `awardLot` has to name the same columns
+- A migration script that hardcodes a `CREATE OR REPLACE VIEW` becomes a loaded gun the moment that view changes. `scripts/migrate-called-auction.ts` now refuses to run once `draft.season` exists
+- `@neondatabase/serverless` v1 `sql` is **tagged-template-only**; a plain call throws. Use `sql.query()` when the identifier is dynamic
+- Any "is a draft under way?" check built on `COUNT(picks)` needs the season filter, or it sticks at 160 forever once a season completes (`scripts/check-idle.ts`)

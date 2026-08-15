@@ -1,4 +1,4 @@
--- Derived budget / roster count / max bid for every manager.
+-- Derived budget / roster count / max bid for every manager, FOR THE CURRENT SEASON.
 --
 -- This is the single source of budget truth. Nothing anywhere stores a budget:
 -- the old Google Sheet did, and it drifted to -1 for one manager.
@@ -14,8 +14,17 @@
 -- is the artifact visible in the old sheet (a manager with $2 left showing a max
 -- bid of $3). A full roster can't bid at all, so it clamps to 0.
 --
+-- ⚠️ EVERY aggregate is filtered to d.season, and that filter is the whole
+-- reason this view exists rather than each caller summing picks itself.
+-- Picks accumulate across seasons now — 160 rows per year, forever. Drop the
+-- season filter and on the first nomination of 2027 every manager's budget
+-- already carries their entire 2026 spend, so all ten start hundreds of dollars
+-- negative. That is the exact -1 failure this app was built to prevent,
+-- arriving through a new door. `npm run db:verify` asserts $200/$185 for a
+-- fresh manager in the CURRENT season precisely to catch a missed filter here.
+--
 -- ⚠️ The aggregates are scalar subqueries inside a LATERAL, NOT joins. The
--- previous version was `LEFT JOIN picks ... GROUP BY`, which is correct for one
+-- original version was `LEFT JOIN picks ... GROUP BY`, which is correct for one
 -- table and silently wrong for two: joining budget_adjustments as well would
 -- multiply each pick by that manager's adjustment count and inflate every
 -- budget. A manager with 3 picks and 2 adjustments would have read as having
@@ -36,9 +45,12 @@ CROSS JOIN LATERAL (
   SELECT
     (
       d.starting_budget
-      - COALESCE((SELECT SUM(p.price) FROM picks p WHERE p.manager_id = m.id), 0)
-      + COALESCE((SELECT SUM(a.amount) FROM budget_adjustments a WHERE a.manager_id = m.id), 0)
+      - COALESCE((SELECT SUM(p.price) FROM picks p
+                   WHERE p.manager_id = m.id AND p.season = d.season), 0)
+      + COALESCE((SELECT SUM(a.amount) FROM budget_adjustments a
+                   WHERE a.manager_id = m.id AND a.season = d.season), 0)
     )::int                                                          AS budget,
-    (SELECT COUNT(*) FROM picks p WHERE p.manager_id = m.id)::int    AS rostered
+    (SELECT COUNT(*) FROM picks p
+      WHERE p.manager_id = m.id AND p.season = d.season)::int        AS rostered
 ) t
 WHERE d.id = 1;

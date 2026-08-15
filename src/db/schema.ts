@@ -74,6 +74,16 @@ export const players = pgTable(
  */
 export const draft = pgTable('draft', {
   id: integer('id').primaryKey().default(1),
+  /**
+   * The season being drafted right now — the single source of "which year is
+   * current". Every per-draft table carries a matching `season`, and starting a
+   * new year bumps this instead of deleting last year's rows
+   * (`npm run season:new`).
+   *
+   * ⚠️ Read this column; never hardcode a year in app code. The only place a
+   * literal season belongs is the backfill in scripts/migrate-seasons.ts.
+   */
+  season: integer('season').notNull().default(2026),
   status: text('status', { enum: ['setup', 'live', 'paused', 'done'] })
     .notNull()
     .default('setup'),
@@ -83,6 +93,33 @@ export const draft = pgTable('draft', {
   startingBudget: integer('starting_budget').notNull().default(200),
   rev: integer('rev').notNull().default(0),
 })
+
+/**
+ * Who sat where, in a given season — the draft order as a permanent record.
+ *
+ * `managers.draft_slot` is re-drawn and overwritten in place every year, so it
+ * only ever describes the current season. Without this table, "who picked where
+ * in 2026" is destroyed the moment 2027 is set up.
+ *
+ * `displayName` and `color` are snapshotted alongside the slot for the same
+ * reason the display fields are denormalized onto `picks`: a manager can be
+ * renamed, or a seat can change hands between seasons, and an archive that
+ * re-renders a past year with today's names is quietly rewriting history.
+ */
+export const seasonOrders = pgTable(
+  'season_orders',
+  {
+    season: integer('season').notNull(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    /** 0-indexed seat in that season's snake order. */
+    draftSlot: integer('draft_slot').notNull(),
+    displayName: text('display_name').notNull(),
+    color: text('color').notNull(),
+  },
+  (t) => [uniqueIndex('season_orders_pk').on(t.season, t.managerId)],
+)
 
 /**
  * One auction lot — a player put on the block and, once the room has finished
@@ -97,6 +134,8 @@ export const lots = pgTable(
   'lots',
   {
     id: serial('id').primaryKey(),
+    /** The season this lot belongs to. Matches `draft.season` when it is opened. */
+    season: integer('season').notNull().default(2026),
     playerId: text('player_id')
       .notNull()
       .references(() => players.id),
@@ -112,7 +151,7 @@ export const lots = pgTable(
       .default('open'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('lots_status_idx').on(t.status)],
+  (t) => [index('lots_status_idx').on(t.status), index('lots_season_idx').on(t.season)],
 )
 
 /**
@@ -135,6 +174,11 @@ export const budgetAdjustments = pgTable(
   'budget_adjustments',
   {
     id: serial('id').primaryKey(),
+    /**
+     * The season whose budget this moves. Miss this filter in `manager_totals`
+     * and last year's trade cash silently lands in this year's budgets.
+     */
+    season: integer('season').notNull().default(2026),
     managerId: integer('manager_id')
       .notNull()
       .references(() => managers.id),
@@ -145,7 +189,10 @@ export const budgetAdjustments = pgTable(
     tradeId: integer('trade_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('budget_adjustments_manager_idx').on(t.managerId)],
+  (t) => [
+    index('budget_adjustments_manager_idx').on(t.managerId),
+    index('budget_adjustments_season_idx').on(t.season),
+  ],
 )
 
 /**
@@ -157,6 +204,8 @@ export const budgetAdjustments = pgTable(
  */
 export const trades = pgTable('trades', {
   id: serial('id').primaryKey(),
+  /** The season this trade happened in. */
+  season: integer('season').notNull().default(2026),
   managerAId: integer('manager_a_id')
     .notNull()
     .references(() => managers.id),
@@ -190,10 +239,29 @@ export const picks = pgTable(
   'picks',
   {
     id: serial('id').primaryKey(),
+    /**
+     * Which draft this pick belongs to. Everything that derives a budget MUST
+     * filter on it — see the warning on `manager_totals` in
+     * src/db/sql/manager_totals.sql.
+     */
+    season: integer('season').notNull().default(2026),
+    /** 1..160 within a season; restarts each year. */
     pickNo: integer('pick_no').notNull(),
     playerId: text('player_id')
       .notNull()
       .references(() => players.id),
+    /**
+     * The player as they were THAT NIGHT, copied in at award time.
+     *
+     * The pool is re-imported from a fresh CSV every season, so `players` holds
+     * this year's truth: a player changes team, changes position, or disappears
+     * on retirement. Rendering a 2026 pick by joining to `players` would show
+     * their 2028 team and quietly rewrite the archive. These three columns are
+     * what a past season renders from — the join is for live drafts only.
+     */
+    playerName: text('player_name').notNull(),
+    playerTeam: text('player_team'),
+    playerPosition: text('player_position').notNull(),
     managerId: integer('manager_id')
       .notNull()
       .references(() => managers.id),
@@ -209,8 +277,12 @@ export const picks = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex('picks_player_idx').on(t.playerId),
+    // Per SEASON, not globally. A bare unique on player_id would make every
+    // player drafted in 2026 permanently undraftable, which is the one thing
+    // this is not — the league is not a keeper league.
+    uniqueIndex('picks_season_player_idx').on(t.season, t.playerId),
     index('picks_manager_idx').on(t.managerId),
+    index('picks_season_idx').on(t.season),
   ],
 )
 
@@ -221,3 +293,4 @@ export type Lot = typeof lots.$inferSelect
 export type Pick = typeof picks.$inferSelect
 export type Trade = typeof trades.$inferSelect
 export type BudgetAdjustment = typeof budgetAdjustments.$inferSelect
+export type SeasonOrder = typeof seasonOrders.$inferSelect

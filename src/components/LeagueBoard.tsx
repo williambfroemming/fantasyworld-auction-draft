@@ -2,9 +2,31 @@
 
 import { useMemo, useState } from 'react'
 import { SLOTS, autoSlot } from '@/lib/draft'
-import type { Board, RosterPick } from '@/hooks/useDraft'
-import type { StateManager } from '@/server/draft-service'
 import { textOn } from '@/lib/colors'
+
+/**
+ * A column header. Deliberately narrower than `StateManager` so the same grid
+ * renders a finished season out of the archive, where there is no max bid, no
+ * PIN, and no commissioner — see src/server/archive-service.ts.
+ */
+export interface BoardColumn {
+  id: number
+  displayName: string
+  color: string
+  budget: number
+  /** Omitted for an archived season: nobody is bidding in 2026 any more. */
+  maxBid?: number
+}
+
+/** A cell. Also the common subset of a live `RosterPick` and an `ArchivePick`. */
+export interface BoardCell {
+  id: number
+  managerId: number
+  price: number
+  position: string
+  slotOverride: string | null
+  name: string
+}
 
 /**
  * The grid: 16 slot rows x 10 manager columns, mirroring the league's old
@@ -18,18 +40,21 @@ export function LeagueBoard({
   managers,
   board,
   highlightManagerId,
+  title = 'League board',
   className = '',
 }: {
-  managers: StateManager[]
-  board: Board | null
+  managers: BoardColumn[]
+  board: { rosters: BoardCell[] } | null
   /** Tint this manager's column — usually you. */
   highlightManagerId?: number | null
+  /** Overridden by the archive to name the season being viewed. */
+  title?: string
   className?: string
 }) {
   const [expanded, setExpanded] = useState(false)
 
   const byManager = useMemo(() => {
-    const map = new Map<number, RosterPick[]>()
+    const map = new Map<number, BoardCell[]>()
     for (const m of managers) map.set(m.id, [])
     for (const p of board?.rosters ?? []) map.get(p.managerId)?.push(p)
     return map
@@ -48,7 +73,7 @@ export function LeagueBoard({
   }, [managers, byManager])
 
   const pickById = useMemo(() => {
-    const m = new Map<number, RosterPick>()
+    const m = new Map<number, BoardCell>()
     for (const list of byManager.values()) for (const p of list) m.set(p.id, p)
     return m
   }, [byManager])
@@ -71,7 +96,8 @@ export function LeagueBoard({
                 >
                   <div className="truncate font-semibold">{m.displayName}</div>
                   <div className="text-[10px] font-normal opacity-75">
-                    ${m.budget} left · max ${m.maxBid} · ${spent} spent
+                    ${m.budget} left ·{' '}
+                    {m.maxBid === undefined ? null : <>max ${m.maxBid} · </>}${spent} spent
                   </div>
                 </th>
               )
@@ -120,7 +146,7 @@ export function LeagueBoard({
 
   const header = (
     <div className="flex shrink-0 items-center gap-2 border-b border-slate-800 px-3 py-2">
-      <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">League board</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">{title}</h2>
       <span className="text-[11px] text-slate-600">
         {board?.rosters.length ?? 0} picks · scroll sideways for every team
       </span>

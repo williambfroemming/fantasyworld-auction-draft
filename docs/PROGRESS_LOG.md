@@ -311,3 +311,82 @@ This is worth remembering generally: **an env-var prefix does not survive `&&`.*
 - `.env.local` now carries `TEST_DATABASE_URL`. It is not set in Vercel and must not be.
 
 **Next:** Thursday's dress rehearsal. The 2026 draft order is still to be drawn — the user is doing that on Friday.
+
+---
+
+## Step 17 — The 2026 draft finished, and seasons (BACKLOG §2)
+**Date:** 2026-08-15  **Status:** done
+
+**Built:** `scripts/backup.ts` (`db:backup`), `scripts/record-picks.ts` (`draft:record`),
+`scripts/migrate-seasons.ts`, `scripts/new-season.ts` (`season:new`), `scripts/list-seasons.ts`
+(`season:list`); `season` on `draft`/`picks`/`lots`/`trades`/`budget_adjustments`; player snapshot
+columns on `picks`; new `season_orders` table; season-scoped `manager_totals`;
+`src/server/archive-service.ts` + `/api/archive`; year picker on `/board`;
+`src/server/season-archive.itest.ts`.
+
+**64 unit + 53 integration tests passing** (13 of them new), `db:verify` green, `next build` clean.
+
+**The draft is complete.** The last 8 picks were bought in the room but never entered, because of
+the P0 nomination stall in BACKLOG §9 — Mario ×3, Eric/Blakey ×1, Nate ×1, Daniel ×3, all at $1.
+Recorded through `draft:record`, which bypasses *whose turn it is* and nothing else: it opens a
+real lot and runs the same award statement, so the max-bid rule was still enforced by the database.
+160 picks, every roster at 16, status flipped to `done`.
+
+**Decisions:**
+- **A `season` integer, not a `drafts` table.** The backlog called this and it held up — ten
+  people will never run two drafts in one year, and a foreign key would have meant touching every
+  query anyway.
+- **Name/team/position are copied onto the pick at award time.** The archive reads only those, never
+  a join to `players`.
+- **`season_orders` snapshots `display_name` and `color` alongside the seat**, not just the slot.
+  Same argument as the player snapshot: `managers` is mutable, and a rename would silently
+  re-label a finished draft.
+- **`/api/archive` is its own route**, not a parameter on `/api/board`. `/api/board` is on the
+  draft-night hot path and ships the 500-row live pool; browsing 2026 during the 2027 draft must
+  not touch it.
+- **Backups are committed to git.** `backups/*.json` is a whole-database snapshot, ~200KB. The
+  archive is the feature; a copy outside Neon is the insurance, and the backlog was explicit that
+  the export should happen *before* anything else got built. Two snapshots are in the repo: one
+  taken before the migration, one after.
+
+**Learned:**
+
+- **The unique index was the load-bearing part, and it is not obvious.** `picks_player_idx` was
+  `UNIQUE (player_id)` — globally. Season columns everywhere would still have left every player
+  drafted in 2026 permanently undraftable, i.e. an accidental keeper league, and the failure would
+  have surfaced as "why can't I nominate Ja'Marr Chase" in July 2027. It has to become
+  `UNIQUE (season, player_id)`, and `awardLot`'s `ON CONFLICT (player_id)` has to move with it or
+  the award statement throws at runtime.
+- **An old migration script is a loaded gun once a view changes.** `migrate-called-auction.ts` ends
+  with a hardcoded `CREATE OR REPLACE VIEW manager_totals` — the pre-season version. Running it
+  after `migrate-seasons.ts` would have silently stripped the season filter, and *nothing would
+  error*: budgets are derived, so there is no stored number to look wrong. It now refuses to run if
+  `draft.season` exists. Any migration that hardcodes a view definition needs this guard.
+- **`check-idle.ts` counted picks globally**, so once a season is in the books it would have sat at
+  160 forever and blocked `test:int` permanently. Every "is a draft under way?" heuristic built on
+  a row count needs the season filter too — the count is no longer a proxy for "something is
+  happening now".
+- **`@neondatabase/serverless` v1 `sql` is tagged-template-only.** A plain `sql("SELECT ...")` call
+  throws with a message about placeholders that reads like a SQL problem. `sql.query()` is the
+  escape hatch when the table name is dynamic — `backup.ts` needs it to loop over tables.
+- **The three-way disagreement to watch for:** `manager_totals.rostered` summed across managers must
+  equal `COUNT(picks WHERE season = current)`. `db:verify` asserts exactly that, because it catches
+  a missed filter in *either* direction, and it is the cheapest possible check for the one bug that
+  would otherwise be invisible until draft night.
+
+**Watch out for:**
+
+- **`draft:reset` is still destructive and still exists.** It is now scoped to the current season
+  and refuses over 30 picks without `--force`, and the `/setup` button is relabelled "Erase 2026
+  draft" with the `season:new` command in the confirm dialog. It is no longer the documented way to
+  prepare for a new year — `season:new` is — but somebody who remembers the old workflow will still
+  reach for it.
+- **`season:new` does not re-import the pool or re-draw the order.** It prints both as next steps.
+  Drafting 2027 against 2026's rankings would work and be wrong.
+- **Bye weeks are null in the archive, deliberately.** They belong to a season that is over, and the
+  only place to get them is today's pool — which is the exact join the archive exists to avoid.
+- The `/board` year picker only lists seasons that have picks, plus the current one. A season rolled
+  forward and never drafted shows as the current tab and nothing else.
+
+**Next:** BACKLOG §9's P0 — `nominatorAt` runs out of index budget and stalls the draft near the
+end. It is the reason the last 8 picks needed a script, and it will recur every season.

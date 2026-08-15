@@ -14,6 +14,15 @@
  *    update the lot and insert the pick cannot half-apply.
  *  - "Zero rows affected" is the rejection signal. The reason is worked out
  *    afterwards, for the error message only — never to decide the outcome.
+ *
+ * ## Seasons
+ *
+ * `picks` and `lots` accumulate across years — 160 rows per season, kept
+ * forever, so the league can browse past drafts. EVERY query in here therefore
+ * filters on `draft.season`. An unscoped read of `picks` is a bug even when it
+ * looks harmless: it makes last year's players undraftable, last year's spend
+ * count against this year's budget, or last year's pick count leak into the
+ * polling fingerprint. See docs/BACKLOG.md §2.
  */
 import { getSql } from './sql'
 import { fingerprint } from '@/lib/version'
@@ -49,6 +58,8 @@ export interface StateLot {
 export interface DraftState {
   version: string
   draft: {
+    /** The year being drafted. Past years are read-only, at /board?season=. */
+    season: number
     status: 'setup' | 'live' | 'paused' | 'done'
     nominationIndex: number
     rosterSize: number
@@ -76,21 +87,30 @@ export async function getState(): Promise<DraftState> {
   const [settings] = await sql`SELECT * FROM draft WHERE id = 1`
   if (!settings) throw new Error('Draft is not initialized — run `npm run db:seed`.')
 
+  const season = settings.season as number
+
   const [mgrRows, lotRows, pickRows, pickCount] = await Promise.all([
     sql`SELECT m.id, m.name, m.display_name, m.color, m.draft_slot, m.is_commish,
                (m.pin_hash IS NOT NULL) AS has_pin,
                t.budget, t.rostered, t.max_bid
         FROM managers m JOIN manager_totals t ON t.id = m.id
         ORDER BY m.draft_slot`,
+    // The open lot is joined to `players` rather than read from a snapshot:
+    // this is the live pool by definition, and the lot panel wants today's
+    // team and bye week.
     sql`SELECT l.id, l.player_id, l.nominator_id,
                p.name AS player_name, p.team AS player_team,
                p.position AS player_position, p.bye_week AS player_bye_week
         FROM lots l JOIN players p ON p.id = l.player_id
-        WHERE l.status = 'open' LIMIT 1`,
-    sql`SELECT pk.pick_no, pk.manager_id, pk.price, p.name AS player_name, p.position
-        FROM picks pk JOIN players p ON p.id = pk.player_id
+        WHERE l.status = 'open' AND l.season = ${season} LIMIT 1`,
+    // Read from the pick's own snapshot, not a join — same rows the archive
+    // shows, so the ticker and the history can never disagree.
+    sql`SELECT pk.pick_no, pk.manager_id, pk.price,
+               pk.player_name, pk.player_position AS position
+        FROM picks pk
+        WHERE pk.season = ${season}
         ORDER BY pk.pick_no DESC LIMIT 12`,
-    sql`SELECT count(*)::int AS n FROM picks`,
+    sql`SELECT count(*)::int AS n FROM picks WHERE season = ${season}`,
   ])
 
   const managers: StateManager[] = mgrRows.map((m) => ({
@@ -129,12 +149,14 @@ export async function getState(): Promise<DraftState> {
 
   return {
     version: fingerprint({
+      season,
       rev: settings.rev,
       lotId: lot?.id ?? null,
       pickCount: pickCount[0].n,
       draftStatus: settings.status,
     }),
     draft: {
+      season,
       status: settings.status,
       nominationIndex: settings.nomination_index,
       rosterSize: settings.roster_size,
@@ -188,11 +210,16 @@ export async function nominate(
   // Single guarded insert: no other open lot and the player is not already
   // drafted. Two people hitting Nominate in the same instant — which happens
   // when the order is disputed — produces one lot, not two.
+  //
+  // "Already drafted" means drafted THIS season. Without that filter every
+  // player taken in a previous year would be permanently unavailable, which
+  // would turn a 10-person redraft league into an accidental keeper league.
+  const season = state.draft.season
   const rows = await sql`
-    INSERT INTO lots (player_id, nominator_id)
-    SELECT ${playerId}, ${managerId}
-    WHERE NOT EXISTS (SELECT 1 FROM lots WHERE status = 'open')
-      AND NOT EXISTS (SELECT 1 FROM picks WHERE player_id = ${playerId})
+    INSERT INTO lots (season, player_id, nominator_id)
+    SELECT ${season}, ${playerId}, ${managerId}
+    WHERE NOT EXISTS (SELECT 1 FROM lots WHERE status = 'open' AND season = ${season})
+      AND NOT EXISTS (SELECT 1 FROM picks WHERE player_id = ${playerId} AND season = ${season})
       AND EXISTS (SELECT 1 FROM players WHERE id = ${playerId})
     RETURNING id`
 
@@ -236,23 +263,31 @@ export async function awardLot(
   if (!Number.isInteger(price)) return { ok: false, reason: 'Price must be a whole dollar' }
   if (price < 1) return { ok: false, reason: 'Every player costs at least $1' }
 
-  const [settings] = await sql`SELECT status FROM draft WHERE id = 1`
+  const [settings] = await sql`SELECT season, status FROM draft WHERE id = 1`
   if (settings?.status !== 'live') {
     return {
       ok: false,
       reason: settings?.status === 'paused' ? 'Draft is paused' : 'Draft is not live',
     }
   }
+  const season = settings.season as number
 
-  const [lot] = await sql`SELECT nominator_id, status FROM lots WHERE id = ${lotId}`
+  const [lot] = await sql`SELECT nominator_id, status, season FROM lots WHERE id = ${lotId}`
   if (!lot) return { ok: false, reason: 'That lot no longer exists' }
   if (lot.status !== 'open') return { ok: false, reason: 'This player has already been awarded' }
+  if (Number(lot.season) !== season) {
+    return { ok: false, reason: `That lot belongs to the ${lot.season} draft` }
+  }
 
   const [caller] = await sql`SELECT is_commish FROM managers WHERE id = ${callerId}`
   if (lot.nominator_id !== callerId && !caller?.is_commish) {
     return { ok: false, reason: 'Only the nominator or the commissioner can record the sale' }
   }
 
+  // The player's name/team/position are copied onto the pick here, at award
+  // time. That snapshot is what the archive renders from years later, when the
+  // pool has been re-imported and this player may have changed team, changed
+  // position, or left `players` entirely. See docs/BACKLOG.md §2.
   const rows = await sql`
     WITH sold AS (
       UPDATE lots
@@ -260,14 +295,19 @@ export async function awardLot(
       WHERE id = ${lotId}
         AND status = 'open'
         AND ${price} <= (SELECT max_bid FROM manager_totals WHERE id = ${winnerId})
-        AND NOT EXISTS (SELECT 1 FROM picks pk WHERE pk.player_id = lots.player_id)
+        AND NOT EXISTS (
+          SELECT 1 FROM picks pk
+          WHERE pk.player_id = lots.player_id AND pk.season = ${season})
       RETURNING player_id, nominator_id
     )
-    INSERT INTO picks (pick_no, player_id, manager_id, nominator_id, price)
-    SELECT (SELECT COALESCE(MAX(pick_no), 0) FROM picks) + 1,
-           sold.player_id, ${winnerId}, sold.nominator_id, ${price}
-    FROM sold
-    ON CONFLICT (player_id) DO NOTHING
+    INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
+                       player_position, manager_id, nominator_id, price)
+    SELECT ${season},
+           (SELECT COALESCE(MAX(pick_no), 0) FROM picks WHERE season = ${season}) + 1,
+           sold.player_id, p.name, p.team, p.position,
+           ${winnerId}, sold.nominator_id, ${price}
+    FROM sold JOIN players p ON p.id = sold.player_id
+    ON CONFLICT (season, player_id) DO NOTHING
     RETURNING pick_no`
 
   if (rows.length === 0) return { ok: false, reason: await explainRejectedAward(winnerId, price) }

@@ -16,6 +16,39 @@ async function bumpRev() {
 }
 
 /**
+ * The year being drafted right now.
+ *
+ * Every action in this file operates on the current season only. Past seasons
+ * are an archive: undoing a pick from 2026 in 2028 would silently rewrite a
+ * finished draft, and none of these controls are reachable from the read-only
+ * archive view. See docs/BACKLOG.md §2.
+ */
+async function currentSeason(): Promise<number> {
+  const [d] = await getSql()`SELECT season FROM draft WHERE id = 1`
+  return Number(d.season)
+}
+
+/**
+ * Copy the current seating into `season_orders` for this season.
+ *
+ * `managers.draft_slot`, `display_name` and `color` are live, mutable columns —
+ * re-drawn every setup and editable all season. This snapshot is what makes
+ * "who picked where in 2026" survive the 2027 draw. Called after anything that
+ * changes seating or naming, so the current season's row always matches
+ * reality; once the season rolls over, nothing writes to it again and it is
+ * frozen for good.
+ */
+async function snapshotOrder(season: number) {
+  await getSql()`
+    INSERT INTO season_orders (season, manager_id, draft_slot, display_name, color)
+    SELECT ${season}, m.id, m.draft_slot, m.display_name, m.color FROM managers m
+    ON CONFLICT (season, manager_id)
+    DO UPDATE SET draft_slot   = EXCLUDED.draft_slot,
+                  display_name = EXCLUDED.display_name,
+                  color        = EXCLUDED.color`
+}
+
+/**
  * Pause: stop nominations and awards until someone resumes.
  *
  * There is no clock to bank any more — an open lot simply stays open. Pause
@@ -40,9 +73,10 @@ export async function resume(): Promise<ActionResult<null>> {
  */
 export async function undoLastPick(): Promise<ActionResult<{ playerName: string }>> {
   const sql = getSql()
+  const season = await currentSeason()
   const [last] = await sql`
-    SELECT pk.id, pk.player_id, p.name FROM picks pk
-    JOIN players p ON p.id = pk.player_id
+    SELECT pk.id, pk.player_id, pk.player_name AS name FROM picks pk
+    WHERE pk.season = ${season}
     ORDER BY pk.pick_no DESC LIMIT 1`
   if (!last) return { ok: false, reason: 'There are no picks to undo' }
 
@@ -63,7 +97,8 @@ export async function undoLastPick(): Promise<ActionResult<{ playerName: string 
 
   await sql`DELETE FROM picks WHERE id = ${last.id}`
   // Void the lot so the player is draftable again but the history is kept.
-  await sql`UPDATE lots SET status = 'void' WHERE player_id = ${last.player_id} AND status = 'sold'`
+  await sql`UPDATE lots SET status = 'void'
+            WHERE player_id = ${last.player_id} AND status = 'sold' AND season = ${season}`
   await sql`UPDATE draft SET nomination_index = GREATEST(0, nomination_index - 1) WHERE id = 1`
   await bumpRev()
   return { ok: true, data: { playerName: last.name } }
@@ -84,12 +119,18 @@ export async function editPrice(pickId: number, price: number): Promise<ActionRe
   // that view is the only thing that also folds in budget_adjustments. Summing
   // picks directly would ignore every trade this manager has made.
   const [check] = await sql`
-    SELECT t.budget, t.rostered, d.roster_size, pk.price AS old_price
+    SELECT t.budget, t.rostered, d.roster_size, pk.price AS old_price, pk.season
     FROM picks pk
     JOIN manager_totals t ON t.id = pk.manager_id
     CROSS JOIN draft d
     WHERE pk.id = ${pickId} AND d.id = 1`
   if (!check) return { ok: false, reason: 'Unknown pick' }
+  // manager_totals only describes the current season, so its budget is the
+  // wrong yardstick for an older pick — and a finished draft should not be
+  // edited years later regardless.
+  if (Number(check.season) !== (await currentSeason())) {
+    return { ok: false, reason: `That pick is from the ${check.season} draft and is archived` }
+  }
 
   const budget = Number(check.budget) - (price - Number(check.old_price))
   const slotsLeft = Number(check.roster_size) - Number(check.rostered)
@@ -115,8 +156,11 @@ export async function editPrice(pickId: number, price: number): Promise<ActionRe
  */
 export async function reassignPick(pickId: number, managerId: number): Promise<ActionResult<null>> {
   const sql = getSql()
-  const [pick] = await sql`SELECT price FROM picks WHERE id = ${pickId}`
+  const [pick] = await sql`SELECT price, season FROM picks WHERE id = ${pickId}`
   if (!pick) return { ok: false, reason: 'Unknown pick' }
+  if (Number(pick.season) !== (await currentSeason())) {
+    return { ok: false, reason: `That pick is from the ${pick.season} draft and is archived` }
+  }
 
   const [totals] = await sql`SELECT budget, rostered FROM manager_totals WHERE id = ${managerId}`
   const [settings] = await sql`SELECT roster_size FROM draft WHERE id = 1`
@@ -137,7 +181,8 @@ export async function reassignPick(pickId: number, managerId: number): Promise<A
 /** Skip whoever is on the clock — they've stepped away. */
 export async function skipNominator(): Promise<ActionResult<null>> {
   const sql = getSql()
-  const [open] = await sql`SELECT id FROM lots WHERE status = 'open'`
+  const season = await currentSeason()
+  const [open] = await sql`SELECT id FROM lots WHERE status = 'open' AND season = ${season}`
   if (open) return { ok: false, reason: 'Finish the current lot first' }
   await sql`UPDATE draft SET nomination_index = nomination_index + 1 WHERE id = 1`
   await bumpRev()
@@ -147,7 +192,9 @@ export async function skipNominator(): Promise<ActionResult<null>> {
 /** Cancel the lot on the clock without awarding it. */
 export async function voidLot(): Promise<ActionResult<null>> {
   const sql = getSql()
-  const rows = await sql`UPDATE lots SET status = 'void' WHERE status = 'open' RETURNING id`
+  const season = await currentSeason()
+  const rows = await sql`UPDATE lots SET status = 'void'
+                         WHERE status = 'open' AND season = ${season} RETURNING id`
   if (rows.length === 0) return { ok: false, reason: 'No lot is on the clock' }
   await sql`UPDATE draft SET nomination_index = GREATEST(0, nomination_index - 1) WHERE id = 1`
   await bumpRev()
@@ -163,14 +210,16 @@ export async function setStatus(status: 'setup' | 'live' | 'done'): Promise<Acti
 /** Re-draw the seating. Locked once the draft is live and picks exist. */
 export async function setDraftOrder(orderedManagerIds: number[]): Promise<ActionResult<null>> {
   const sql = getSql()
-  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
-  const [settings] = await sql`SELECT status FROM draft WHERE id = 1`
+  const [settings] = await sql`SELECT season, status FROM draft WHERE id = 1`
+  const season = Number(settings.season)
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks WHERE season = ${season}`
   if (Number(n) > 0 && settings.status !== 'setup') {
     return { ok: false, reason: 'The draft has started — use "swap two managers" instead' }
   }
   for (const [slot, id] of orderedManagerIds.entries()) {
     await sql`UPDATE managers SET draft_slot = ${slot} WHERE id = ${id}`
   }
+  await snapshotOrder(season)
   await bumpRev()
   return { ok: true, data: null }
 }
@@ -183,6 +232,7 @@ export async function swapSeats(aId: number, bId: number): Promise<ActionResult<
   const [a, b] = rows
   await sql`UPDATE managers SET draft_slot = ${b.draft_slot} WHERE id = ${a.id}`
   await sql`UPDATE managers SET draft_slot = ${a.draft_slot} WHERE id = ${b.id}`
+  await snapshotOrder(await currentSeason())
   await bumpRev()
   return { ok: true, data: null }
 }
@@ -202,10 +252,14 @@ export async function setLeagueSettings(
   if (rosterSize < 1 || rosterSize > 40) return { ok: false, reason: 'Roster size out of range' }
 
   const sql = getSql()
-  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
+  const season = await currentSeason()
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks WHERE season = ${season}`
   if (Number(n) > 0) {
     // Changing either mid-draft would silently rewrite every manager's max bid
     // and could push someone below $1 per empty slot retroactively.
+    //
+    // Scoped to this season on purpose: a past draft's 160 picks must not lock
+    // the league out of changing the budget for a NEW year.
     return { ok: false, reason: `Cannot change these after the draft starts (${n} picks made)` }
   }
 
@@ -222,27 +276,81 @@ export async function renameManager(
   const trimmed = displayName.trim()
   if (!trimmed) return { ok: false, reason: 'Name cannot be empty' }
   await getSql()`UPDATE managers SET display_name = ${trimmed} WHERE id = ${managerId}`
+  // Only the current season's snapshot follows the rename. Past seasons keep
+  // the name that was on the board that night.
+  await snapshotOrder(await currentSeason())
   await bumpRev()
   return { ok: true, data: null }
 }
 
 /**
- * Wipe every pick, lot, trade, and adjustment and return to setup.
+ * Wipe THIS SEASON'S picks, lots, trades, and adjustments and return to setup.
  *
  * Destructive and irreversible — this is the "we ran a rehearsal, now clear it
  * out" button. Managers, PINs, and the player pool are left alone.
+ *
+ * ⚠️ This is NOT how a new year starts. Use `startNewSeason()` /
+ * `npm run season:new` for that: it keeps the finished draft and rolls the
+ * season forward, which is the whole point of docs/BACKLOG.md §2. Reset exists
+ * to clear a *rehearsal* of the season currently being set up.
+ *
+ * Every DELETE is scoped to `draft.season`. Unscoped, this single function
+ * would erase every draft the league has ever run — which is exactly the risk
+ * §2 was written about.
  *
  * budget_adjustments must go too. Leaving them would carry trade cash from the
  * rehearsal into the real draft, and because budgets are derived nobody would
  * see a stale number to be suspicious of — they'd just start at $190.
  */
-export async function resetDraft(): Promise<ActionResult<{ cleared: number }>> {
+export async function resetDraft(): Promise<ActionResult<{ cleared: number; season: number }>> {
   const sql = getSql()
-  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks`
-  await sql`DELETE FROM budget_adjustments`
-  await sql`DELETE FROM trades`
-  await sql`DELETE FROM picks`
-  await sql`DELETE FROM lots`
+  const season = await currentSeason()
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks WHERE season = ${season}`
+  await sql`DELETE FROM budget_adjustments WHERE season = ${season}`
+  await sql`DELETE FROM trades WHERE season = ${season}`
+  await sql`DELETE FROM picks WHERE season = ${season}`
+  await sql`DELETE FROM lots WHERE season = ${season}`
   await sql`UPDATE draft SET status = 'setup', nomination_index = 0, rev = rev + 1 WHERE id = 1`
-  return { ok: true, data: { cleared: Number(n) } }
+  return { ok: true, data: { cleared: Number(n), season } }
+}
+
+/**
+ * Start a new season. The replacement for "reset and start over".
+ *
+ * Deletes nothing. The finished draft keeps its rows, tagged with the season it
+ * belonged to, and simply stops matching the current-season filter — so it
+ * drops out of every live query and appears in the archive instead.
+ *
+ * Refuses to move backwards or sideways: a season is only ever created ahead of
+ * the current one, because rolling onto a year that already has picks would
+ * merge two drafts into one and produce budgets that are the sum of both.
+ */
+export async function startNewSeason(year: number): Promise<ActionResult<{ season: number }>> {
+  const sql = getSql()
+  if (!Number.isInteger(year) || year < 2000 || year > 2999) {
+    return { ok: false, reason: 'That is not a season year' }
+  }
+
+  const [d] = await sql`SELECT season, status FROM draft WHERE id = 1`
+  const current = Number(d.season)
+  if (year <= current) {
+    return { ok: false, reason: `The league is already on ${current} — a new season must be later` }
+  }
+  const [{ n }] = await sql`SELECT count(*)::int AS n FROM picks WHERE season = ${year}`
+  if (Number(n) > 0) {
+    return { ok: false, reason: `${year} already has ${n} picks — it is not a new season` }
+  }
+
+  // Freeze the outgoing season's seating before managers.draft_slot is re-drawn
+  // for the new year. After this, nothing writes to that row again.
+  await snapshotOrder(current)
+
+  await sql`UPDATE draft
+            SET season = ${year}, status = 'setup', nomination_index = 0, rev = rev + 1
+            WHERE id = 1`
+
+  // Seed the new season's order from the seating as it stands, so the archive
+  // has a row for it even if nobody re-draws before the draft.
+  await snapshotOrder(year)
+  return { ok: true, data: { season: year } }
 }
