@@ -70,10 +70,66 @@ export function LotPanel({
 
   if (!lot) {
     const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
+    const onDeck = state.managers.find((m) => m.id === state.onDeck?.managerId)
+
+    const filled = state.managers.reduce((sum, m) => sum + m.rostered, 0)
+    const total = state.managers.length * state.draft.rosterSize
+    const slotsLeft = total - filled
+    const spent = state.managers.reduce(
+      (sum, m) => sum + (state.draft.startingBudget - m.budget),
+      0,
+    )
+
+    // Three different states used to render as the same empty clock, which is
+    // what made the 2026 stall read as a freeze: nobody could tell whether to
+    // wait or intervene. See docs/BACKLOG.md §9, P1.
+    const finished = state.draft.status === 'done' || slotsLeft === 0
+    const stuck = !finished && !onClock && state.draft.status === 'live'
+
     return (
       <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center">
-        {state.draft.status === 'done' ? (
-          <div className="text-4xl font-bold">Draft complete</div>
+        {finished ? (
+          <>
+            <div className="text-7xl">🏈</div>
+            <div className="mt-4 bg-gradient-to-r from-emerald-300 to-sky-300 bg-clip-text text-6xl font-black tracking-tight text-transparent">
+              Draft Complete!
+            </div>
+            <p className="mt-4 text-lg text-slate-300">
+              {filled} picks · ${spent} spent · {state.managers.length} rosters full
+            </p>
+            <p className="mt-1 text-sm text-slate-500">
+              The {state.draft.season} board is saved and stays browsable by year.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <a
+                href="/board"
+                className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold hover:bg-slate-700"
+              >
+                League board →
+              </a>
+              <a
+                href={`/api/export?season=${state.draft.season}`}
+                className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold hover:bg-slate-700"
+              >
+                Export CSV
+              </a>
+            </div>
+          </>
+        ) : stuck ? (
+          // Never render a bare empty clock while slots remain. That is a bug,
+          // and the screen should say so rather than looking deliberate.
+          <>
+            <span className="rounded-full bg-rose-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-rose-300">
+              Nobody on the clock
+            </span>
+            <p className="mt-4 max-w-md text-lg text-slate-300">
+              {slotsLeft} roster {slotsLeft === 1 ? 'slot is' : 'slots are'} still unfilled but the
+              app has lost track of whose turn it is. This is a fault, not the end of the draft.
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              The commissioner can use ⚙ Commish → Skip nominator to get things moving.
+            </p>
+          </>
         ) : (
           <>
             <span className="text-sm uppercase tracking-[0.3em] text-slate-500">On the clock</span>
@@ -83,11 +139,25 @@ export function LotPanel({
             >
               {onClock?.displayName ?? '—'}
             </span>
+            {/* One name, not a list. The snake turn — where the same manager
+                nominates twice in a row — is the part that confuses the room. */}
+            {onDeck && (
+              <span className="mt-4 text-sm text-slate-500">
+                On deck:{' '}
+                <span className="font-semibold" style={{ color: onDeck.color }}>
+                  {onDeck.displayName}
+                </span>
+                {onDeck.id === onClock?.id && ' (again — the order turns here)'}
+              </span>
+            )}
             {onClock?.id === me && (
               <span className="mt-5 text-lg text-slate-400">
                 Pick a player on the left to put them up for auction.
               </span>
             )}
+            <span className="mt-6 text-xs uppercase tracking-widest text-slate-600">
+              {filled} of {total} picks made · {slotsLeft} to go
+            </span>
           </>
         )}
       </div>

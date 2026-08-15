@@ -152,6 +152,7 @@ a bad client.
 | `trades` | `id, season, managerAId, managerBId, picksAToB[], picksBToA[], cashAToB (signed), createdBy, createdAt` |
 | `budget_adjustments` | `id, season, managerId, amount (signed), reason, tradeId, createdAt` |
 | `season_orders` | `season, managerId, draftSlot, displayName, color` — the seating, frozen per year |
+| `player_queue` | `id, season, managerId, playerId, sortOrder, createdAt` — **private** per-manager shortlist |
 | view `manager_totals` | `id, budget, rostered, max_bid` derived from `picks` + `budget_adjustments`, **filtered to `draft.season`** |
 
 ### Seasons
@@ -187,9 +188,12 @@ paired `budget_adjustments` rows rather than by freezing the column.
 
 - `maxBidFor(budget, rostered, rosterSize)`
 - `snakeOrder(managers, nominationIndex)` — round `r`, position `i`: slot `i` when `r` even, `N−1−i` when odd. Reads `draftSlot` (per-season data). Skips full managers.
+- `nominatorAt(managers, index, rosterSize)` — **no index cap.** Returns null only when *every* manager is at `rosterSize`; otherwise scans forward over a `2n` window (never `n` — a window of `n` straddling a snake turn can miss a seat). The old `n * rosterSize + n` bound is what stalled the 2026 draft with 32 picks still to make: `nominationIndex` is not a pick counter, because every skipped seat consumes one too. Called a second time at `index + 1` to get **on deck** — never a second copy of the snake maths.
 - `randomOrder(managers)` — Fisher–Yates.
 - `validateAward({ price, winnerMaxBid, winnerRostered, … })`
 - `validateTrade({ rosterSize, a, b })` — both sides re-checked against the reserve invariant
+- `slotRows(extraBench)` / `extraBenchRows(laid)` / `pickInRow(laid, i)` — the board's rows. **Grows extra BENCH rows so no drafted player is ever undrawn**: a manager who skips the DEFENSE slot has a 16th player with nowhere to sit, and `autoSlot`'s `overflow` used to be silently ignored by the callers
+- `positionMarket(picks, pool?)` — count / median / mean / range / remaining per position, **QB, RB, WR, TE only**. Groups on the player's real position, never their display slot
 - `autoSlot(picks)` → `Record<SlotRow, Pick|null>` — greedy best fit: `slotOverride` first, then natural position, then FLEX (RB/WR/TE), then SUPERFLEX (QB/RB/WR/TE), then bench. **Display-only; deliberately unreachable from any bid path** so it can never become a restriction by accident.
 
 ## 7. API
@@ -204,6 +208,7 @@ paired `budget_adjustments` rows rather than by freezing the column.
 | `GET /api/archive` | the season list for the year picker |
 | `GET /api/archive?season=` | one finished season, read-only. Its own route so browsing 2026 during the 2027 draft never touches the hot path |
 | `GET /api/export?season=` | pick log as CSV; defaults to the current season |
+| `GET/POST /api/queue` | the caller's **own** player queue. Manager id comes from the session cookie — there is deliberately no id field to send |
 
 ---
 
@@ -259,6 +264,7 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 - [ ] **11.** CSV export
 - [ ] **12.** Deploy to preview → dress rehearsal → full UAT
 - [x] **16.** **Called auction** — remove the clock, live bidding, soft close, lazy settlement and clock sync; `awardLot()` records the room's result. **Trades** of players and auction dollars, salary staying with the drafter.
+- [x] **18.** **§9 P0/P1 + backlog §3–§6** — `nominatorAt` no longer stalls near the end of a draft; a real "Draft Complete!" panel that distinguishes finished from stuck; the board grows bench rows so a manager with no defense doesn't lose a player; average remaining budget; on deck; market by position; the private player queue.
 - [x] **17.** **Seasons + archive** (BACKLOG §2) — `season` on every per-draft table, season-scoped `manager_totals`, the player snapshot on `picks`, `season_orders`, `/api/archive` and the year picker on `/board`. `season:new` replaces "reset and start over". The 2026 draft's final 8 picks recorded and the draft closed at 160.
 
 ### Timeline

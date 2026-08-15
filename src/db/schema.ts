@@ -286,6 +286,48 @@ export const picks = pgTable(
   ],
 )
 
+/**
+ * A manager's private list of players they are targeting.
+ *
+ * ## Privacy is the whole feature
+ *
+ * A queue anyone else can see is worse than no queue — it broadcasts your
+ * strategy to the nine people bidding against you. Two hard consequences that
+ * constrain every layer above this table:
+ *
+ *  - **It must never enter `/api/state`.** That payload is league-wide and every
+ *    client receives all of it.
+ *  - It is read through a session-scoped route that returns **only the caller's
+ *    own rows**, keyed off the PIN cookie (`src/server/session.ts`).
+ *
+ * Stored server-side rather than in `localStorage` on failure-mode grounds:
+ * localStorage is private by construction and needs no backend, but it dies when
+ * someone switches laptops or clears their browser — and it would fail on draft
+ * night, the only night it matters.
+ *
+ * Season-scoped like everything else, so last year's targets don't reappear.
+ */
+export const playerQueue = pgTable(
+  'player_queue',
+  {
+    id: serial('id').primaryKey(),
+    season: integer('season').notNull(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    playerId: text('player_id')
+      .notNull()
+      .references(() => players.id),
+    /** Ascending. Ties break on id, so the order is always total. */
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('player_queue_unique').on(t.season, t.managerId, t.playerId),
+    index('player_queue_manager_idx').on(t.season, t.managerId),
+  ],
+)
+
 export type Manager = typeof managers.$inferSelect
 export type Player = typeof players.$inferSelect
 export type Draft = typeof draft.$inferSelect
@@ -294,3 +336,4 @@ export type Pick = typeof picks.$inferSelect
 export type Trade = typeof trades.$inferSelect
 export type BudgetAdjustment = typeof budgetAdjustments.$inferSelect
 export type SeasonOrder = typeof seasonOrders.$inferSelect
+export type QueueEntry = typeof playerQueue.$inferSelect

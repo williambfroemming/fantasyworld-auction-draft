@@ -8,6 +8,7 @@ import { PlayerPool } from '@/components/PlayerPool'
 import { SidePanel } from '@/components/SidePanel'
 import { CommishDrawer } from '@/components/CommishDrawer'
 import { useDraft } from '@/hooks/useDraft'
+import { useQueue } from '@/hooks/useQueue'
 import { sounds, unlockAudio } from '@/lib/sounds'
 import type { BoardPlayer } from '@/hooks/useDraft'
 
@@ -16,6 +17,9 @@ export default function DraftPage() {
   const { state, board, connected, refresh } = useDraft()
   const [me, setMe] = useState<number | null>(null)
   const [checked, setChecked] = useState(false)
+  // Private, off the shared poll, refetched when the board moves so drafted
+  // targets get marked. See docs/BACKLOG.md §4.
+  const { queue, toggle: toggleQueue, prune: pruneQueue } = useQueue(state?.version, me !== null)
 
   useEffect(() => {
     fetch('/api/session')
@@ -69,6 +73,7 @@ export default function DraftPage() {
   const myManager = state.managers.find((m) => m.id === me)
   const myTurn = state.onTheClock?.managerId === me && !state.lot
   const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
+  const onDeck = state.managers.find((m) => m.id === state.onDeck?.managerId)
 
   // Always say WHY nominating isn't available. A dead button with no
   // explanation is the single most confusing thing that can happen mid-draft.
@@ -165,6 +170,12 @@ export default function DraftPage() {
               <span style={{ color: onClock?.color }}>{onClock?.displayName ?? '—'}</span>
             </>
           )}
+          {onDeck && (
+            <span className="ml-3 font-normal text-slate-400">
+              on deck: <span style={{ color: onDeck.color }}>{onDeck.displayName}</span>
+              {onDeck.id === me && ' (you)'}
+            </span>
+          )}
         </div>
       )}
       {state.draft.status === 'setup' && (
@@ -187,6 +198,9 @@ export default function DraftPage() {
             canNominate={myTurn && state.draft.status === 'live'}
             disabledReason={nominateBlockedBecause}
             onNominate={nominate}
+            queue={queue}
+            onToggleQueue={toggleQueue}
+            onPruneQueue={pruneQueue}
           />
         </div>
 

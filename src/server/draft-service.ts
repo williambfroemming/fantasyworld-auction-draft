@@ -67,6 +67,19 @@ export interface DraftState {
   }
   lot: StateLot | null
   onTheClock: { managerId: number; index: number } | null
+  /**
+   * Who nominates after the current nominator — one seat ahead, no further.
+   *
+   * The snake turn is the confusing part: at the end of a round the same manager
+   * nominates twice in a row, which reliably produces "wait, isn't it my turn?"
+   * in the room. One name settles that. Looking several seats ahead would be
+   * guesswork, because who nominates later depends on who fills their roster
+   * before then.
+   *
+   * Null when the draft is over, or when the current nominator is the only
+   * manager still unfilled and therefore also next.
+   */
+  onDeck: { managerId: number; index: number } | null
   managers: StateManager[]
   recentPicks: Array<{
     pickNo: number
@@ -141,11 +154,20 @@ export async function getState(): Promise<DraftState> {
 
   // Whose turn it is — recomputed each read so a manager who just filled their
   // roster is skipped immediately rather than at the next write.
-  const turn = nominatorAt(
-    managers.map((m) => ({ id: m.id, draftSlot: m.draftSlot, rosterCount: m.rostered })),
-    settings.nomination_index,
-    settings.roster_size,
-  )
+  const seats = managers.map((m) => ({
+    id: m.id,
+    draftSlot: m.draftSlot,
+    rosterCount: m.rostered,
+  }))
+  const turn = nominatorAt(seats, settings.nomination_index, settings.roster_size)
+
+  // On deck is the same function called one index later — never a second copy of
+  // the snake maths, which is how a displayed order and an enforced order drift
+  // apart. Note this can change without a nomination happening: if whoever wins
+  // the current lot thereby fills their 16th slot they get skipped, and on-deck
+  // moves on. The turn is recomputed on every read, so that corrects itself on
+  // the next poll rather than needing to be handled.
+  const next = turn ? nominatorAt(seats, turn.index + 1, settings.roster_size) : null
 
   return {
     version: fingerprint({
@@ -164,6 +186,7 @@ export async function getState(): Promise<DraftState> {
     },
     lot,
     onTheClock: turn ? { managerId: turn.manager.id, index: turn.index } : null,
+    onDeck: next ? { managerId: next.manager.id, index: next.index } : null,
     managers,
     recentPicks: pickRows.map((p) => ({
       pickNo: p.pick_no,

@@ -390,3 +390,90 @@ real lot and runs the same award statement, so the max-bid rule was still enforc
 
 **Next:** BACKLOG §9's P0 — `nominatorAt` runs out of index budget and stalls the draft near the
 end. It is the reason the last 8 picks needed a script, and it will recur every season.
+
+---
+
+## Step 18 — The P0 stall fixed, and backlog §3–§6
+**Date:** 2026-08-15  **Status:** done
+
+**Built:** `slotRows` / `extraBenchRows` / `pickInRow` and `positionMarket` in `src/lib/draft.ts`;
+rewritten `nominatorAt`; `onDeck` on `DraftState`; a real completion panel in `LotPanel`;
+`RoomMoney` in `SidePanel`; `src/components/MarketPanel.tsx`; `player_queue` +
+`src/server/queue-service.ts` + `/api/queue` + `src/hooks/useQueue.ts` + a reworked `PlayerPool`;
+`scripts/migrate-queue.ts`.
+
+**81 unit + 64 integration tests passing** (10 unit and 11 integration of them new),
+`db:verify` green, build clean.
+
+### The board was hiding players it had been paid for
+
+Nate and Mario both finished 2026 without a defense. The grid has a fixed DEFENSE row and six
+bench rows, so with 16 players and no DEF, `autoSlot` returned one player in `overflow` — and
+**`LeagueBoard` never read `overflow`.** Two managers each had a player they bought that simply was
+not on the board, and the same blind spot existed in the sidebar's My Roster. The grid now grows a
+bench row (17 rows for 2026) sized to the worst roster on screen, so every column keeps the same
+rows. Verified against the real archive: all ten managers now draw 16 of 16.
+
+`autoSlot` had returned `overflow` since step 4 specifically so a paid-for player could never be
+dropped — the value was correct and the caller ignored it. **A safe return value nobody reads is
+the same as not having one.**
+
+### P0: the draft-stalling index cap
+
+`nominatorAt` capped its search at `n * rosterSize + n` and returned "draft complete". That is the
+bug that stopped the 2026 draft with 32 picks left. Now it asks the real question — *is anybody
+unfilled?* — and scans forward with no cap, over a `2n` window.
+
+**Learned, and this is the part worth keeping:** the two draft shapes that pass under the old code
+are the two anyone would write a test for. A perfectly even draft never skips anyone and finishes
+at index 160; a mildly lumpy one finishes at exactly 170, *landing precisely on the cap*. Only the
+realistic skewed shape fails. I confirmed this by reverting the fix and re-running: 4 of the 7 new
+tests fail, and the two "obvious" ones are not among them. A test suite that only covers the tidy
+cases would have shipped this bug twice.
+
+### Backlog items
+
+- **§3 average remaining budget** — two numbers in the Budgets panel: mean budget, and dollars per
+  open slot. Both exclude full rosters, because a manager at 16 cannot bid and their money will
+  never chase another player. Pure render, no schema, no API change.
+- **§5 on deck** — one name, from a second `nominatorAt` call at `turn.index + 1`. Never a second
+  copy of the snake maths. Shown on the lot panel and in the turn banner, and it says "(again — the
+  order turns here)" when the snake doubles back, which is the case that confuses the room.
+- **§6 market by position** — QB/RB/WR/TE only, on `/board` behind a Board/Market toggle, plus a
+  compact own-spend line in My Roster. It groups on `players.position`, never the display slot.
+  Real 2026 numbers: QB median $14, RB $7, WR $7, TE $3 — the median/mean gap is large (RB mean is
+  $13.4 against a $7 median), which is exactly why the backlog called for medians.
+- **§4 private queue** — a `player_queue` table, a session-scoped route, and a star on each pool row.
+
+**Learned:**
+
+- **The star had to be a sibling of the row button, not a child.** A button cannot nest inside a
+  button, and the row is `disabled` when it isn't your turn — which is precisely when someone builds
+  a queue. The row is now a flex container holding two independent buttons, which is what makes the
+  star live while the row is dead.
+- **The queue's privacy is provable and is now proven.** Two integration tests assert the things
+  that would be invisible otherwise: that `JSON.stringify(getState())` contains no queued player id,
+  and that three queue edits leave the polling fingerprint byte-identical. The second is the one that
+  keeps a private edit from waking all ten clients.
+- Queue entries are **not** deleted when a player is drafted — they are flagged and struck through,
+  with a count and a Clear button. A list that quietly empties itself reads as a bug.
+- `react-hooks/set-state-in-effect` (Next 16's lint) rejects calling a `useCallback` that sets state
+  from an effect body, even when the set happens after an `await`. Inlining the fetch so the
+  `setState` lives in a `.then` callback satisfies it and is no worse to read.
+
+**Watch out for:**
+
+- **`extraBenchRows` is computed across the managers being displayed**, so the grid is as tall as
+  the worst roster. One manager skipping a defense adds a row for everyone. That is deliberate — a
+  ragged grid is worse — but it means the board's height is data-dependent.
+- **The queue must stay out of `/api/state` and out of `src/lib/version.ts`.** There are tests for
+  both, and they are the only thing standing between a private shortlist and a public one.
+- `positionMarket` deliberately excludes K and DEF. Adding them back would drag every median toward
+  $1 and make the table useless.
+- The completion panel keys off `status === 'done'` **or** every roster being full. `setStatus` is
+  still only called by hand and by `draft:record`, so the second condition is what actually fires in
+  practice.
+
+**Next:** §9's P2 — `voidLot` and `undoPick` decrement `nomination_index` by exactly 1, which lands
+mid-skip-run rather than back on the seat that nominated. It self-heals and did not cause the stall,
+but "undo" does not reliably hand the turn back to the right manager.

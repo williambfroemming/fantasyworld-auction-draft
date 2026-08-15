@@ -8,16 +8,19 @@
 Add to this freely. An item here costs nothing; the same item attempted in
 August costs the draft.
 
-> 🔴 **One exception: §9 holds a confirmed P0 bug from the 2026 draft** — the
-> nomination order stalls before rosters are full, and it will recur every
-> season. That one is a fix, not an idea. Read it before starting anything else
-> in this file.
-
-> ✅ **§2 (draft history) was built on 2026-08-15**, after the 2026 draft
-> finished. Seasons now exist, so `picks` and `lots` span every year the league
-> has run and **every query against them must filter on `draft.season`.** Read
-> §2's "What shipped" before touching anything else here — several items below
-> assume the old single-draft shape.
+> ✅ **§2–§6 and §9's P0/P1 were built on 2026-08-15**, after the 2026 draft
+> finished. Each section keeps its original design notes and gains a **Status**
+> line saying what shipped and what is still open. Two consequences for anyone
+> picking this up:
+>
+> - **Seasons exist.** `picks` and `lots` span every year the league has run, so
+>   **every query against them must filter on `draft.season`.** Read §2's "What
+>   shipped" first — some notes below still describe the old single-draft shape.
+> - **The private queue must never reach `/api/state` or the polling
+>   fingerprint.** There are tests for both; see §4.
+>
+> Still genuinely open: **§1** (news feed), **§7** (team spend matrix), **§8**,
+> and **§9's P2**, which is now the highest-value item in the file.
 
 ---
 
@@ -243,13 +246,17 @@ become straightforward instead of impossible.
 
 ---
 
-## 3. Average remaining budget
+## 3. ✅ Average remaining budget
 
 **Want:** show what the rest of the room has left, so a manager can tell whether
 they're rich or poor relative to the field — and whether the next twenty players
 are about to go cheap or expensive.
 
-**Status:** not started. Almost certainly the smallest item in this file.
+**Status: BUILT, 2026-08-15** — see `PROGRESS_LOG.md` step 18. It was indeed the
+smallest item here. `RoomMoney` in `SidePanel.tsx` shows **both** numbers: mean
+budget among managers who can still bid, and dollars per open slot league-wide.
+Managers with a full roster are excluded from both. Pure render — no schema, no
+query, no API change, exactly as predicted below.
 
 ### It costs nothing to compute
 
@@ -287,13 +294,26 @@ for a room that is already talking out loud — resist building a chart.
 
 ---
 
-## 4. Personal player queue
+## 4. ✅ Personal player queue
 
 **Want:** star players you're targeting and have them pinned or filtered in the
 pool, so when your nomination comes up you aren't scrolling a 500-row list with
 nine people watching you.
 
-**Status:** not started.
+**Status: BUILT, 2026-08-15** — see `PROGRESS_LOG.md` step 18. The table
+(`player_queue`, season-scoped), the session-scoped `/api/queue`, and a star on
+every pool row. **Built without §1**: the click collision is solved by making the
+star a sibling button rather than needing a detail drawer, so the two are no
+longer coupled.
+
+Two integration tests pin the privacy properties directly — that no queued player
+id appears anywhere in `getState()`, and that queue edits leave the polling
+fingerprint unchanged. Drafted targets are struck through and counted rather than
+silently removed, with a Clear button.
+
+Still open: **drag-to-reorder** (entries keep insertion order) and **"nominate
+straight from your queue"** — the ★ filter shows the list, but selecting from it
+still goes through the normal row-select.
 
 ### Privacy is the whole feature
 
@@ -344,12 +364,17 @@ Once it exists, "nominate straight from your queue" is the payoff.
 
 ---
 
-## 5. "On deck" — who nominates next
+## 5. ✅ "On deck" — who nominates next
 
 **Want:** alongside whoever is on the clock, show the single league member who
 nominates next, so everyone can see who's on deck.
 
-**Status:** not started. Deliberately scoped to **one** name, not a list.
+**Status: BUILT, 2026-08-15** — see `PROGRESS_LOG.md` step 18. One name, from a
+second `nominatorAt` call at `turn.index + 1`, carried on `/api/state` as
+`onDeck` and shown on the lot panel and in the turn banner. It calls out the
+snake turn explicitly ("again — the order turns here"), which is the case that
+actually confuses the room. **§9's P0 was fixed first**, as this section said it
+had to be.
 
 ### Why one name is the right scope
 
@@ -389,7 +414,7 @@ draft, so it would just show the failure one seat early.
 
 ---
 
-## 6. Drafted players and prices by position
+## 6. ✅ Drafted players and prices by position
 
 **Want:** filter what's already been drafted by position, and see the money that
 went to each — what the QBs actually cost, whether RBs are going over book, how
@@ -399,8 +424,17 @@ much is left on the board at a position.
 for a dollar or two, nobody's strategy turns on them, and including them drags
 every league-wide number toward the floor. Four positions, not six.
 
-**Status:** not started. **This was not previously on the backlog** — the
-draft-recap line in §8 touches prices but nothing positional.
+**Status: BUILT, 2026-08-15** — see `PROGRESS_LOG.md` step 18.
+`src/components/MarketPanel.tsx`, on `/board` behind a Board/Market toggle, plus
+a compact own-spend line in My Roster. Groups on `players.position`, leads with
+the median, and excludes K/DEF. Works for archived seasons too (without the
+"still in the pool" column, which a finished draft has no answer for).
+
+The 2026 numbers show why the median mattered: RB mean $13.4 against a **$7
+median**, QB median $14, WR $7, TE $3.
+
+§7 (the same money cut by manager) is **not** built — it is the 10 x 4 matrix,
+and it is now a regrouping of a result set that already exists.
 
 ### The data is all there
 
@@ -504,7 +538,7 @@ night or the next morning**, while it's still specific. For each one, write what
 happened and what it would take to fix — not just "nomination was confusing." A
 vague item here is an item nobody picks up.
 
-### 🔴 P0 — the draft stalled near the end with nobody on the clock
+### ✅ P0 — the draft stalled near the end with nobody on the clock — FIXED 2026-08-15
 
 **What happened:** with roughly 7 picks still needed, the board showed nobody on
 the clock and no one could nominate. Rosters were not full, so the draft could
@@ -548,6 +582,12 @@ lumpy, and the mildly-lumpy case lands on 170 precisely — meaning **a single
 with no pick behind it ([commish-service.ts:142](src/server/commish-service.ts#L142)).
 This was not bad luck; the cap has no margin at all.
 
+**FIXED** in `PROGRESS_LOG.md` step 18, exactly as specified below, with all four
+suggested tests plus a `2n`-window test. Worth recording what the regression suite
+showed when run against the *old* code: **the even and mildly-lumpy shapes still
+pass**, and they are the two anybody would have written first. Only the realistic
+skewed shape and the end-of-draft cases fail. That is why this shipped.
+
 **The fix** — `nominatorAt` should stop guessing from an index bound and ask the
 real question, "is anybody unfilled?":
 
@@ -569,12 +609,23 @@ end-of-draft coverage, which is why this shipped):
 - it returns `null` the moment the last slot fills
 - a draft with several `skipNominator()` calls still completes
 
-### 🟠 P1 — "complete" and "stuck" are the same state on screen
+### ✅ P1 — "complete" and "stuck" are the same state on screen — FIXED 2026-08-15
 
 The same `onTheClock: null` means both *the draft is finished* and *the app has
 lost track of whose turn it is*. That's why the stall read as a freeze on the
 night: there was nothing on screen to distinguish them, and no way to tell
 whether to wait or intervene.
+
+**FIXED**, mostly. `LotPanel` now renders three distinct states: a "Draft
+Complete!" panel with pick count, total spend and links to the board and CSV; an
+explicit **"Nobody on the clock — N slots still unfilled, this is a fault"**
+warning; and the normal on-the-clock view, which now also carries a
+"picks made / to go" counter.
+
+Still open: **`draft.status` is not flipped to `'done'` automatically.** The panel
+keys off "every roster is full" as well as the status, so it displays correctly
+either way, but the database still only learns the draft ended when someone says
+so by hand (or via `npm run draft:record`).
 
 Two things follow, and they're worth doing even after the P0 fix:
 
@@ -589,6 +640,8 @@ Two things follow, and they're worth doing even after the P0 fix:
   this obvious within seconds instead of near the end of the night.
 
 ### 🟡 P2 — `voidLot` and `undoPick` decrement the index by exactly 1
+
+**Still open** — this is now the top remaining item in this file.
 
 Both do `nomination_index = GREATEST(0, nomination_index - 1)`, but nomination
 may have advanced the index by more than 1 when it skipped full seats. The

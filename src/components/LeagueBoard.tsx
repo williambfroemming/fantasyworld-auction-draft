@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { SLOTS, autoSlot } from '@/lib/draft'
+import { autoSlot, extraBenchRows, pickInRow, slotRows } from '@/lib/draft'
 import { textOn } from '@/lib/colors'
 
 /**
@@ -78,6 +78,13 @@ export function LeagueBoard({
     return m
   }, [byManager])
 
+  // Grow the bench so nobody's player goes undrawn — a manager who skipped the
+  // DEFENSE slot has a 16th player with nowhere to sit. See slotRows().
+  const rows = useMemo(
+    () => slotRows(extraBenchRows([...laid.values()])),
+    [laid],
+  )
+
   const grid = (
     <div className="min-h-0 flex-1 overflow-auto">
       <table className="w-full border-separate border-spacing-0 text-xs">
@@ -105,7 +112,7 @@ export function LeagueBoard({
           </tr>
         </thead>
         <tbody>
-          {SLOTS.map((slot, rowIndex) => (
+          {rows.map((slot, rowIndex) => (
             <tr key={slot.key}>
               <td
                 className={`sticky left-0 z-10 border-b border-r border-slate-800 bg-slate-900 px-2 py-1.5 text-[10px] uppercase tracking-wider ${
@@ -115,7 +122,7 @@ export function LeagueBoard({
                 {slot.label}
               </td>
               {managers.map((m) => {
-                const entry = laid.get(m.id)?.slots[slot.key]
+                const entry = pickInRow(laid.get(m.id), rowIndex)
                 const pick = entry ? pickById.get(entry.id) : null
                 const isMine = highlightManagerId === m.id
                 return (

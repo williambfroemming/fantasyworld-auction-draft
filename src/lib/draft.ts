@@ -57,6 +57,26 @@ export interface Nominator {
  *
  * Managers must be passed in seat order (sorted by draftSlot). The snake pattern
  * is fixed; the seating is per-season data drawn at setup.
+ *
+ * ## Why there is no index cap
+ *
+ * This used to stop searching at `n * rosterSize + n` and return null — and that
+ * **stalled the live 2026 draft with 32 picks still to make** (docs/BACKLOG.md §9).
+ * The reasoning behind the cap was that 160 picks need at most 170 indices, but
+ * `nominationIndex` is not a pick counter: every *skipped* seat consumes an index
+ * too, and `skipNominator()` burns one with no pick behind it at all. Once nine
+ * managers are full, reaching the tenth can cost ~10 indices per single pick, so
+ * the 10-index margin is gone long before the draft ends. Simulation confirmed a
+ * merely lumpy draft lands on exactly 170 — meaning one commissioner skip would
+ * have stalled it too. The cap never had any margin.
+ *
+ * So the question is asked directly instead: **is anybody unfilled?** If not, the
+ * draft is complete. If so, scanning forward is guaranteed to find them, because
+ * any window of `2n` consecutive indices visits every seat.
+ *
+ * ⚠️ `2n`, not `n`. A window of `n` indices straddling a snake turn can miss a
+ * seat — with n=10 starting at index 9, the seats visited are 1..9 and slot 0
+ * never comes up. There is a test for exactly that.
  */
 export function nominatorAt<T extends Nominator>(
   managers: T[],
@@ -65,12 +85,18 @@ export function nominatorAt<T extends Nominator>(
 ): { manager: T; index: number } | null {
   const n = managers.length
   if (n === 0) return null
-  const limit = n * rosterSize + n // generous upper bound; every seat is full past this
-  for (let i = nominationIndex; i < limit; i++) {
+
+  // The one true definition of a finished draft. Anything else — an index
+  // bound, a pick count — is a proxy that can be wrong.
+  if (managers.every((m) => m.rosterCount >= rosterSize)) return null
+
+  const start = Math.max(0, nominationIndex)
+  for (let i = start; i < start + 2 * n; i++) {
     const m = managers[snakeSlot(i, n)]
     if (m.rosterCount < rosterSize) return { manager: m, index: i }
   }
-  return null // draft complete
+  /* c8 ignore next 2 -- unreachable: someone is unfilled and 2n visits every seat */
+  return null
 }
 
 /** Fisher-Yates. Returns a new array of ids in their freshly drawn seat order. */
@@ -310,6 +336,121 @@ export function autoSlot<T extends SlottablePick>(
   }
 
   return { slots, overflow: remaining }
+}
+
+export interface SlotRow {
+  key: string
+  label: string
+}
+
+/**
+ * The rows to draw for a set of rosters — the 16 fixed slots plus however many
+ * extra bench rows are needed so that **no drafted player is invisible**.
+ *
+ * The 16 rows assume a roster shaped like the sheet's: one of each position, a
+ * FLEX, a SUPERFLEX, a DEFENSE, and six bench. A manager who skips the defense
+ * entirely still has 16 players, but one of them has nowhere to go — the DEF row
+ * stays empty and `autoSlot` hands the leftover back in `overflow`. Both Nate and
+ * Mario finished 2026 without a defense, so both had a player they had paid for
+ * that the board simply did not draw.
+ *
+ * Rather than force a player into a slot they don't belong in — which would make
+ * the grid lie about roster shape — the board grows a bench row. `extraBench` is
+ * the largest overflow across the managers being shown, so every column keeps the
+ * same rows and the grid stays a grid.
+ */
+export function slotRows(extraBench: number): SlotRow[] {
+  return [
+    ...SLOTS.map((s) => ({ key: s.key, label: s.label })),
+    ...Array.from({ length: Math.max(0, extraBench) }, (_, i) => ({
+      key: `BNX${i + 1}`,
+      label: 'BENCH',
+    })),
+  ]
+}
+
+/** How many extra bench rows a set of laid-out rosters needs between them. */
+export function extraBenchRows(laid: Array<{ overflow: unknown[] }>): number {
+  return laid.reduce((max, l) => Math.max(max, l.overflow.length), 0)
+}
+
+/**
+ * The pick in a given row of `slotRows()`. Rows past the fixed 16 read from
+ * `overflow`, in draft order.
+ */
+export function pickInRow<T>(
+  laid: { slots: Record<string, T | null>; overflow: T[] } | undefined,
+  rowIndex: number,
+): T | null {
+  if (!laid) return null
+  if (rowIndex < SLOTS.length) return laid.slots[SLOTS[rowIndex].key] ?? null
+  return laid.overflow[rowIndex - SLOTS.length] ?? null
+}
+
+// ---------------------------------------------------------------------------
+// Market — what has been drafted at each position, and for how much
+// ---------------------------------------------------------------------------
+
+/**
+ * The positions the market view reports on.
+ *
+ * **K and DEF are excluded deliberately.** They go for a dollar or two, nobody's
+ * strategy turns on them, and including them drags every league-wide number
+ * toward the floor. Four positions, not six.
+ */
+export const MARKET_POSITIONS = ['QB', 'RB', 'WR', 'TE'] as const
+export type MarketPosition = (typeof MARKET_POSITIONS)[number]
+
+export interface MarketRow {
+  position: MarketPosition
+  drafted: number
+  spent: number
+  /** Median beats mean here — see the note on `positionMarket`. */
+  median: number
+  mean: number
+  min: number
+  max: number
+  /** Still in the pool at this position, if a pool was supplied. */
+  remaining: number
+}
+
+export function median(values: number[]): number {
+  if (values.length === 0) return 0
+  const s = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 === 0 ? (s[mid - 1] + s[mid]) / 2 : s[mid]
+}
+
+/**
+ * Count and price every drafted player, grouped by position.
+ *
+ * ⚠️ **Groups on the player's real position, never on their board slot.**
+ * `autoSlot()` and `slotOverride` are display-only, and a player shown in FLEX,
+ * SUPERFLEX or BENCH still *is* a WR. Grouping by grid row would scatter one
+ * position across three buckets and let a presentation concern leak into a number
+ * people make bidding decisions on.
+ *
+ * **Median is reported alongside the mean and leads the UI.** Positional spend is
+ * a small, skewed sample — one $70 panic buy drags an average far enough to
+ * mislead, which is exactly the situation medians exist for.
+ */
+export function positionMarket(
+  picks: Array<{ position: string; price: number }>,
+  pool: Array<{ position: string }> = [],
+): MarketRow[] {
+  return MARKET_POSITIONS.map((position) => {
+    const prices = picks.filter((p) => p.position === position).map((p) => p.price)
+    return {
+      position,
+      drafted: prices.length,
+      spent: prices.reduce((s, p) => s + p, 0),
+      median: median(prices),
+      mean: prices.length ? prices.reduce((s, p) => s + p, 0) / prices.length : 0,
+      min: prices.length ? Math.min(...prices) : 0,
+      max: prices.length ? Math.max(...prices) : 0,
+      remaining: pool.filter((p) => p.position === position).length,
+    }
+  })
 }
 
 /** Position counts for the info strip. Never used to restrict anything. */

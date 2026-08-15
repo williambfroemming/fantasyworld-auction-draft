@@ -52,7 +52,10 @@ These look like mistakes and are not. Read `docs/PROJECT_PLAN.md` §4 before cha
 - **`GET /api/state` must stay uncached** — `export const dynamic = 'force-dynamic'` *and* an explicit `Cache-Control: no-store` header. It no longer has side effects, but a cached 204 still strands every client on a stale board and looks like a UI bug.
 - **Do not enable `cacheComponents`** in `next.config.ts`. Next 16 *removes* the `dynamic` route-segment config when it's on, which would silently break the rule above. We are deliberately on the "previous caching model."
 - **A trade must bump `draft.rev`.** It changes no pick *count*, so it is invisible to the polling fingerprint otherwise. See `src/lib/version.ts`.
-- **`autoSlot()` is display-only** and must stay unreachable from any award path. Position slotting must never block a sale.
+- **`autoSlot()` is display-only** and must stay unreachable from any award path. Position slotting must never block a sale. Its `overflow` must always be **drawn**, not ignored: a manager who skips the DEFENSE slot has a 16th player with nowhere to sit, and the board grows a bench row for them (`slotRows`). Two managers had an invisible player on the 2026 board because the callers dropped `overflow`.
+- **The player queue is private and stays off the polling path.** It must never enter `/api/state` or the fingerprint in `src/lib/version.ts` — a league-wide payload would leak everyone's targets, and widening the fingerprint would make every client's 204 depend on one person's private edit. `/api/queue` takes the manager id from the session cookie and has no id field to send. There are integration tests for both properties.
+- **`nominatorAt` has no index cap.** It returns null only when every roster is full. The old `n * rosterSize + n` bound stalled the live 2026 draft with 32 picks left, because a skipped seat consumes an index with no pick behind it. Scan a `2n` window, never `n`.
+- **Positional stats group on `players.position`, never the display slot.** A WR shown in FLEX is still a WR, and `positionMarket` excludes K and DEF on purpose.
 - **Roster is 16 slots.** `maxBid = budget − (16 − rostered − 1)` → $185 at the start. Getting this wrong skews every bid all draft.
 - **No backticks inside the SQL template literals.** They terminate the tagged template and the error surfaces as an unrelated esbuild parse failure.
 
@@ -74,6 +77,8 @@ npm run draft:reset      # erase THIS season back to setup (not how you start a 
 npm run draft:record -- "Mario|Aaron Rodgers|1"   # record a sale outside the nomination order
 npm run db:migrate-seasons        # the one-draft -> season-per-year migration (live)
 npm run db:migrate-seasons -- --test
+npm run db:migrate-queue          # adds the private player_queue table
+npm run db:migrate-queue -- --test
 npm run pins -- --clear
 ```
 

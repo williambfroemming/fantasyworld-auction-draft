@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { LeagueBoard } from '@/components/LeagueBoard'
+import { MarketPanel } from '@/components/MarketPanel'
 import { useDraft } from '@/hooks/useDraft'
 import type { ArchiveSeason, SeasonSummary } from '@/server/archive-service'
 
@@ -24,6 +25,7 @@ export default function BoardPage() {
   const [seasons, setSeasons] = useState<SeasonSummary[]>([])
   /** null = the season being drafted now, i.e. the live board. */
   const [viewing, setViewing] = useState<number | null>(null)
+  const [view, setView] = useState<'grid' | 'market'>('grid')
 
   // Both results carry the season they belong to, so switching tabs needs no
   // "clear the old one" setState in the effect body — a stale result simply
@@ -76,9 +78,26 @@ export default function BoardPage() {
         >
           ← Back to draft
         </Link>
-        <h1 className="text-sm font-semibold uppercase tracking-widest text-slate-400">
-          League board
-        </h1>
+        {/* Grid vs market: two ways of reading the same draft. The grid is who
+            has whom; the market is what the money has been going to. */}
+        <div className="flex items-center gap-1 rounded-lg bg-slate-900 p-1">
+          {(
+            [
+              ['grid', 'Board'],
+              ['market', 'Market'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
+                view === key ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
         {/* The year picker. Shown as soon as any season is on record, even
             before there is a second one: with an archive in play, "which year
@@ -137,18 +156,30 @@ export default function BoardPage() {
 
       <div className="min-h-0 flex-1 p-3">
         {!isArchive ? (
-          <LeagueBoard managers={state.managers} board={board} className="h-full" />
+          view === 'grid' ? (
+            <LeagueBoard managers={state.managers} board={board} className="h-full" />
+          ) : (
+            <MarketPanel
+              rosters={board?.rosters ?? []}
+              pool={board?.pool ?? []}
+              className="h-full"
+            />
+          )
         ) : archiveError ? (
           <div className="grid h-full place-items-center text-slate-400">{archiveError}</div>
         ) : !archive ? (
           <div className="grid h-full place-items-center text-slate-500">Loading {viewing}…</div>
-        ) : (
+        ) : view === 'grid' ? (
           <LeagueBoard
             managers={archive.managers}
             board={archive}
             title={`${archive.season} draft`}
             className="h-full"
           />
+        ) : (
+          // No pool for a finished season — "what's left at WR" is not a
+          // question a completed draft has an answer to.
+          <MarketPanel rosters={archive.rosters} className="h-full" />
         )}
       </div>
     </main>

@@ -3,6 +3,10 @@ import {
   autoSlot,
   maxBidFor,
   nominatorAt,
+  positionMarket,
+  slotRows,
+  extraBenchRows,
+  pickInRow,
   randomOrder,
   snakeSlot,
   validateAward,
@@ -66,12 +70,13 @@ describe('maxBidFor', () => {
   })
 })
 
+// The 2025 seating, read off the sheet's pick log.
+const SEATS = [
+  'Gabes', 'Grossman', 'Bolek', 'Bill', 'Daniel',
+  'Nate', 'Mario', 'Jack', 'Bryan', 'Justin',
+]
+
 describe('snake nomination order', () => {
-  // The 2025 seating, read off the sheet's pick log.
-  const SEATS = [
-    'Gabes', 'Grossman', 'Bolek', 'Bill', 'Daniel',
-    'Nate', 'Mario', 'Jack', 'Bryan', 'Justin',
-  ]
 
   it('reproduces the real pick log from the sheet', () => {
     const order = Array.from({ length: 30 }, (_, i) => SEATS[snakeSlot(i, 10)])
@@ -111,6 +116,127 @@ describe('snake nomination order', () => {
   it('returns null once every roster is full', () => {
     const managers = SEATS.map((name, i) => ({ id: i, draftSlot: i, rosterCount: ROSTER, name }))
     expect(nominatorAt(managers, 0, ROSTER)).toBeNull()
+  })
+})
+
+/**
+ * The 2026 draft stalled with 32 picks still to make and nobody on the clock —
+ * docs/BACKLOG.md §9, P0. `nominatorAt` capped its search at `n * rosterSize + n`
+ * and gave up, because it treated `nominationIndex` as a pick counter when every
+ * skipped seat consumes an index too.
+ *
+ * These simulate whole drafts. The old implementation passes only the first of
+ * them — which is exactly why the bug shipped.
+ */
+describe('nominatorAt — end of draft (regression: the 2026 stall)', () => {
+  /**
+   * Run a whole draft to completion, choosing the winner of each lot with
+   * `pickWinner`. Returns null if it stalls, mirroring what the app does:
+   * advance nomination_index to the seat actually landed on, plus one.
+   */
+  function runDraft(
+    pickWinner: (managers: Array<{ id: number; rosterCount: number }>, nominatorId: number) => number,
+    opts: { skipsAt?: number[] } = {},
+  ): { picks: number; finalIndex: number; stalled: boolean } {
+    const managers = SEATS.map((name, i) => ({ id: i, draftSlot: i, rosterCount: 0, name }))
+    let index = 0
+    let picks = 0
+    const target = managers.length * ROSTER
+
+    while (picks < target) {
+      const turn = nominatorAt(managers, index, ROSTER)
+      if (!turn) return { picks, finalIndex: index, stalled: true }
+
+      // A commissioner skip bumps the index with no pick behind it — the case
+      // that had no margin at all under the old cap.
+      if (opts.skipsAt?.includes(picks)) {
+        index = turn.index + 1
+        opts.skipsAt = opts.skipsAt.filter((p) => p !== picks)
+        continue
+      }
+
+      const winnerId = pickWinner(managers, turn.manager.id)
+      managers[winnerId].rosterCount++
+      picks++
+      index = turn.index + 1
+    }
+    return { picks, finalIndex: index, stalled: false }
+  }
+
+  const emptiest = (mgrs: Array<{ id: number; rosterCount: number }>) =>
+    mgrs.reduce((best, m) => (m.rosterCount < best.rosterCount ? m : best)).id
+
+  it('completes when the nominator always wins their own lot (perfectly even)', () => {
+    const r = runDraft((_, nominatorId) => nominatorId)
+    expect(r).toMatchObject({ picks: 160, stalled: false })
+  })
+
+  it('completes when the emptiest roster wins each lot (mildly lumpy)', () => {
+    // This shape landed on exactly index 170 — the old cap — so it passed by
+    // luck, with zero margin.
+    const r = runDraft((mgrs) => emptiest(mgrs))
+    expect(r).toMatchObject({ picks: 160, stalled: false })
+  })
+
+  it('completes when three managers buy heavily early (realistic, and what stalled)', () => {
+    // The reproduction from the backlog: under the old cap this stopped at
+    // index 170 after 128 picks, 32 short across 7 managers.
+    let n = 0
+    const r = runDraft((mgrs) => {
+      n++
+      const hogs = [0, 1, 2].filter((i) => mgrs[i].rosterCount < ROSTER)
+      if (n < 60 && hogs.length) return hogs[n % hogs.length]
+      return emptiest(mgrs)
+    })
+    expect(r).toMatchObject({ picks: 160, stalled: false })
+  })
+
+  it('completes even with several commissioner skips', () => {
+    const r = runDraft((mgrs) => emptiest(mgrs), { skipsAt: [3, 40, 77, 120, 155] })
+    expect(r).toMatchObject({ picks: 160, stalled: false })
+  })
+
+  it('never returns null while any manager is below the roster size', () => {
+    // Nine managers full, one with a single slot left, and the index parked
+    // well past the old cap.
+    const managers = SEATS.map((name, i) => ({
+      id: i,
+      draftSlot: i,
+      rosterCount: i === 4 ? ROSTER - 1 : ROSTER,
+      name,
+    }))
+    for (const index of [0, 9, 17, 160, 169, 170, 171, 500, 5000]) {
+      const turn = nominatorAt(managers, index, ROSTER)
+      expect(turn?.manager.name).toBe(SEATS[4])
+    }
+  })
+
+  it('returns null the moment the last slot fills', () => {
+    const managers = SEATS.map((name, i) => ({
+      id: i,
+      draftSlot: i,
+      rosterCount: i === 4 ? ROSTER - 1 : ROSTER,
+      name,
+    }))
+    expect(nominatorAt(managers, 170, ROSTER)).not.toBeNull()
+    managers[4].rosterCount = ROSTER
+    expect(nominatorAt(managers, 170, ROSTER)).toBeNull()
+  })
+
+  it('scans a full 2n window — a window of n can straddle the snake turn and miss a seat', () => {
+    // Only seat 0 is unfilled, and index 9 is the last of round 0. A window of
+    // n=10 from there covers round 1's positions, which are slots 9..0 — it
+    // reaches slot 0 only at the very last index. Starting at 10 it would be
+    // missed entirely by an n-wide scan.
+    const managers = SEATS.map((name, i) => ({
+      id: i,
+      draftSlot: i,
+      rosterCount: i === 0 ? 0 : ROSTER,
+      name,
+    }))
+    for (let start = 0; start < 40; start++) {
+      expect(nominatorAt(managers, start, ROSTER)?.manager.draftSlot).toBe(0)
+    }
   })
 })
 
@@ -359,3 +485,113 @@ function mulberry(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296
   }
 }
+
+describe('positionMarket', () => {
+  const picks = [
+    { position: 'RB', price: 50 },
+    { position: 'RB', price: 10 },
+    { position: 'RB', price: 12 },
+    { position: 'WR', price: 20 },
+    { position: 'WR', price: 30 },
+    { position: 'QB', price: 5 },
+    { position: 'K', price: 1 },
+    { position: 'DEF', price: 2 },
+  ]
+
+  it('reports only QB/RB/WR/TE — K and DEF drag every figure to the floor', () => {
+    const rows = positionMarket(picks)
+    expect(rows.map((r) => r.position)).toEqual(['QB', 'RB', 'WR', 'TE'])
+    expect(rows.reduce((s, r) => s + r.spent, 0)).toBe(127) // 3 excluded dollars
+  })
+
+  it('reports a position nobody drafted as zeroes rather than omitting it', () => {
+    const te = positionMarket(picks).find((r) => r.position === 'TE')!
+    expect(te).toMatchObject({ drafted: 0, spent: 0, median: 0, mean: 0, min: 0, max: 0 })
+  })
+
+  it('medians resist the one panic buy that skews the mean', () => {
+    const rb = positionMarket(picks).find((r) => r.position === 'RB')!
+    expect(rb.median).toBe(12)
+    expect(rb.mean).toBeCloseTo(24)
+    expect({ min: rb.min, max: rb.max }).toEqual({ min: 10, max: 50 })
+  })
+
+  it('averages the middle pair on an even sample', () => {
+    const wr = positionMarket(picks).find((r) => r.position === 'WR')!
+    expect(wr.median).toBe(25)
+  })
+
+  it('groups on the real position, never the display slot', () => {
+    // A WR sitting in FLEX or SUPERFLEX is still a WR. autoSlot is display-only,
+    // so slotOverride must not reach this calculation at all.
+    const scattered = [
+      { position: 'WR', price: 40, slotOverride: 'FLEX' },
+      { position: 'WR', price: 20, slotOverride: 'SUPERFLEX' },
+      { position: 'WR', price: 30, slotOverride: 'BN1' },
+    ]
+    const rows = positionMarket(scattered)
+    expect(rows.find((r) => r.position === 'WR')).toMatchObject({ drafted: 3, spent: 90 })
+  })
+
+  it('counts what is left in the pool when one is supplied', () => {
+    const rows = positionMarket(picks, [
+      { position: 'RB' }, { position: 'RB' }, { position: 'TE' }, { position: 'K' },
+    ])
+    expect(rows.find((r) => r.position === 'RB')!.remaining).toBe(2)
+    expect(rows.find((r) => r.position === 'TE')!.remaining).toBe(1)
+    expect(rows.find((r) => r.position === 'QB')!.remaining).toBe(0)
+  })
+
+  it('handles an empty draft without dividing by zero', () => {
+    for (const r of positionMarket([])) {
+      expect(r).toMatchObject({ drafted: 0, mean: 0, median: 0 })
+      expect(Number.isNaN(r.mean)).toBe(false)
+    }
+  })
+})
+
+describe('slotRows / pickInRow — nobody drops off the board', () => {
+  const roster = (positions: string[]) =>
+    positions.map((position, i) => ({ id: i + 1, position }))
+
+  it('draws an extra bench row for a 16-man roster with no defense', () => {
+    // Nate's and Mario's 2026 rosters: 16 players, no DEF, so the DEFENSE slot
+    // sits empty and one player has nowhere to go.
+    const laid = autoSlot(
+      roster([
+        'QB', 'QB', 'QB', 'RB', 'RB', 'RB', 'RB', 'RB', 'RB', 'RB',
+        'WR', 'WR', 'WR', 'WR', 'TE', 'TE',
+      ]),
+    )
+    expect(laid.overflow).toHaveLength(1)
+
+    const rows = slotRows(extraBenchRows([laid]))
+    expect(rows).toHaveLength(17)
+    expect(rows[16].label).toBe('BENCH')
+
+    // Every one of the 16 players appears in exactly one row.
+    const shown = rows.map((_, i) => pickInRow(laid, i)).filter(Boolean)
+    expect(shown).toHaveLength(16)
+    expect(new Set(shown.map((p) => p!.id)).size).toBe(16)
+  })
+
+  it('adds no extra rows for a roster that fills every named slot', () => {
+    const laid = autoSlot(
+      roster([
+        'QB', 'QB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'WR', 'TE',
+        'DEF', 'RB', 'WR', 'QB', 'TE', 'K',
+      ]),
+    )
+    expect(laid.overflow).toHaveLength(0)
+    expect(slotRows(extraBenchRows([laid]))).toHaveLength(16)
+  })
+
+  it('sizes the grid to the worst roster so every column keeps the same rows', () => {
+    const noDef = autoSlot(roster(['QB', 'RB', 'WR', 'TE', 'QB', 'RB', 'WR', 'TE', 'QB', 'RB', 'WR', 'TE', 'QB', 'RB', 'WR', 'TE']))
+    const normal = autoSlot(roster(['QB', 'RB', 'WR', 'TE', 'DEF']))
+    const rows = slotRows(extraBenchRows([noDef, normal]))
+    expect(rows.length).toBe(16 + noDef.overflow.length)
+    // The shorter roster simply has empty cells in the extra rows.
+    expect(pickInRow(normal, rows.length - 1)).toBeNull()
+  })
+})
