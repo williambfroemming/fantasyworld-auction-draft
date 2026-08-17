@@ -147,10 +147,11 @@ async function main() {
         RETURNING player_id, nominator_id
       )
       INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
-                         player_position, manager_id, nominator_id, price)
+                         player_position, player_rank, player_pos_rank,
+                         manager_id, nominator_id, price)
       SELECT ${season},
              (SELECT COALESCE(MAX(pick_no), 0) FROM picks WHERE season = ${season}) + 1,
-             sold.player_id, p.name, p.team, p.position,
+             sold.player_id, p.name, p.team, p.position, p.search_rank, p.pos_rank,
              ${r.manager.id}, sold.nominator_id, ${r.price}
       FROM sold JOIN players p ON p.id = sold.player_id
       ON CONFLICT (season, player_id) DO NOTHING

@@ -153,6 +153,11 @@ a bad client.
 | `budget_adjustments` | `id, season, managerId, amount (signed), reason, tradeId, createdAt` |
 | `season_orders` | `season, managerId, draftSlot, displayName, color` — the seating, frozen per year |
 | `player_queue` | `id, season, managerId, playerId, sortOrder, createdAt` — **private** per-manager shortlist |
+
+`picks` also snapshots `playerRank` / `playerPosRank` at award time, nullable. Rank is otherwise
+recoverable only by joining `players`, and that join dies the moment the next season's rankings CSV
+replaces the pool — so a finished season could never be scored again. Same argument as the
+name/team/position snapshot.
 | view `manager_totals` | `id, budget, rostered, max_bid` derived from `picks` + `budget_adjustments`, **filtered to `draft.season`** |
 
 ### Seasons
@@ -210,6 +215,9 @@ paired `budget_adjustments` rows rather than by freezing the column.
 | `GET /api/export?season=` | pick log as CSV; defaults to the current season |
 | `GET/POST /api/queue` | the caller's **own** player queue. Manager id comes from the session cookie — there is deliberately no id field to send |
 
+`/stats` needs **no route of its own**: all four views are pure functions of what `/api/board` and
+`/api/archive` already ship.
+
 ---
 
 ## 8. Screens
@@ -218,7 +226,8 @@ paired `budget_adjustments` rows rather than by freezing the column.
 2. **`/draft`** — center: the player on the block, and for the nominator a price field plus a grid of the ten managers. **Type the price first and everyone who cannot afford it greys out**, so an illegal price is refused while the room is still listening. Left: searchable/filterable pool, drafted players vanish, Nominate live only on your turn. Right: tabs **My Roster / Budgets / Picks**. Bottom: recent-picks ticker. Audio: gavel on sold, nudge on your turn.
 3. **League board** (`/board`) — 16 slot rows × 10 manager columns, one color each, headers pinned. Auto-slotted for display; drag your own to override; empty slots greyed; winner's column flashes on sale. Mobile: horizontal scroll with pinned labels + single-manager picker. **A year picker sits in the header**: the current season is live and polling, any past season renders read-only from the archive and stops polling — a finished draft does not change.
 4. **Commissioner drawer** (`isCommish`) — pause/resume, undo last pick, edit price, reassign, skip nominator, cancel lot, export CSV.
-5. **`/trades`** — its own page, for the same reason the board got one: bidding, studying the board, and negotiating a trade are three different moments. Two rosters side by side, cash either way, and a live preview of both managers' budget/roster/max bid *after* the deal.
+5. **`/stats`** — spend analysis, its own page because `/board` is about *who has whom*. Four views (Teams / Pace / Nominations / Value), one `StatsInput` adapter so the live draft and any archived season share a single code path. The Value view is **gated until every roster is full** — a live "you overpaid" readout is the anchoring the league removed tiers and auction values to avoid.
+6. **`/trades`** — its own page, for the same reason the board got one: bidding, studying the board, and negotiating a trade are three different moments. Two rosters side by side, cash either way, and a live preview of both managers' budget/roster/max bid *after* the deal.
 6. **`/setup`** — sync players, seed managers, budget/roster rules, and **set the season's draft order** (drag or Randomize, re-rollable, round 1/2 preview, locks when live).
 
 ## 9. Sleeper — `src/lib/sleeper.ts`, setup only, never on draft night
@@ -264,6 +273,7 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 - [ ] **11.** CSV export
 - [ ] **12.** Deploy to preview → dress rehearsal → full UAT
 - [x] **16.** **Called auction** — remove the clock, live bidding, soft close, lazy settlement and clock sync; `awardLot()` records the room's result. **Trades** of players and auction dollars, salary staying with the drafter.
+- [x] **19.** **`/stats`** — spend by team, market pace, nomination analysis, and bargains/overpays, live and for every archived season. Plus the `picks.player_rank` snapshot, which had a hard deadline: rank stops being recoverable once the pool is re-imported.
 - [x] **18.** **§9 P0/P1 + backlog §3–§6** — `nominatorAt` no longer stalls near the end of a draft; a real "Draft Complete!" panel that distinguishes finished from stuck; the board grows bench rows so a manager with no defense doesn't lose a player; average remaining budget; on deck; market by position; the private player queue.
 - [x] **17.** **Seasons + archive** (BACKLOG §2) — `season` on every per-draft table, season-scoped `manager_totals`, the player snapshot on `picks`, `season_orders`, `/api/archive` and the year picker on `/board`. `season:new` replaces "reset and start over". The 2026 draft's final 8 picks recorded and the draft closed at 160.
 

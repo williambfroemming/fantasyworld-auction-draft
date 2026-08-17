@@ -19,8 +19,8 @@ August costs the draft.
 > - **The private queue must never reach `/api/state` or the polling
 >   fingerprint.** There are tests for both; see §4.
 >
-> Still genuinely open: **§1** (news feed), **§7** (team spend matrix), **§8**,
-> and **§9's P2**, which is now the highest-value item in the file.
+> Still genuinely open: **§1** (news feed), **§8**, and **§9's P2**, which is now the
+> highest-value item in the file.
 
 ---
 
@@ -464,13 +464,29 @@ most of the recap page in §8.
 
 ---
 
-## 7. Team spend analysis — who is spending how much on what
+## 7. ✅ Team spend analysis — who is spending how much on what
 
 **Want:** per manager, where their money has actually gone — how much of a
 budget went to RBs vs WRs vs QBs vs TEs, and how much is still uncommitted.
 §6 is the league-wide market; this is the same money cut by team.
 
-**Status:** not started.
+**Status: BUILT, 2026-08-16** — see `PROGRESS_LOG.md` step 19. It became the **Teams** view on a
+new `/stats` page, alongside three views this file never considered: **Pace** (the market's price
+curve and who is ahead of it), **Nominations** (reading `nominatorId`, which had never been read by
+anything), and **Value** (bargains and overpays against the room's own bidding, gated until every
+roster is full).
+
+The "which question does it answer" warning below turned out to be the load-bearing part: it
+attributes to the **drafter** and says so on screen. Note `budget_adjustments` cannot recover the
+original buyer — a trade folds salary and cash into one row per manager — so `draftersByPick()`
+rewinds the trade log instead.
+
+Also built: `picks.player_rank` / `player_pos_rank`, snapshotted at award time. Without it a
+finished season can never be scored again, because rank is otherwise only recoverable by joining
+`players` and that join dies at the next pool import.
+
+Still open: the **cumulative spend curve** (deliberately deferred — the only view needing a new
+visual primitive), and a per-manager positional split on the draft screen itself.
 
 ### Panel or page? — a page (or a tab on `/board`)
 

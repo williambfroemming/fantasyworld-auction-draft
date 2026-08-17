@@ -477,3 +477,91 @@ cases would have shipped this bug twice.
 **Next:** §9's P2 — `voidLot` and `undoPick` decrement `nomination_index` by exactly 1, which lands
 mid-skip-run rather than back on the seat that nominated. It self-heals and did not cause the stall,
 but "undo" does not reliably hand the turn back to the right manager.
+
+---
+
+## Step 19 — `/stats`, and the rank snapshot that had a deadline
+**Date:** 2026-08-16  **Status:** done
+
+**Built:** `picks.player_rank` / `player_pos_rank` + `scripts/migrate-pick-ranks.ts`;
+`src/lib/stats.ts` + `stats.test.ts`; `src/hooks/useSeasonView.ts` + `src/components/SeasonPicker.tsx`
+(extracted from `/board`); `src/app/stats/page.tsx` with four panels under
+`src/components/stats/`.
+
+**122 unit + 66 integration tests passing** (41 unit and 2 integration new), `db:verify` green,
+build clean.
+
+Backlog §7 plus three views it never considered — all four checked against the real 2026 data
+*before* building, so none of them is merely computable:
+
+| View | What 2026 shows |
+|---|---|
+| Teams | Mario $110 on RB vs Bolek $39; Daniel $80 on QB vs Mario $35 |
+| Pace | Average price decays $34.1 → $1.1 across eight blocks of 20 |
+| Nominations | Jack won **14%** of what he put up and drove **$142** to rivals; Daniel and Bolek 50% |
+| Value | McCaffrey a $9 bargain, Mahomes an $11.50 overpay; team nets −$21 → +$35 |
+
+### The bit with a deadline
+
+`picks` snapshotted name/team/position but **not rank**, so a finished season's ranks were
+recoverable only by joining `players` — and that join dies the moment the next rankings CSV is
+imported, because the pool is replaced wholesale and `players.id` is not stable across seasons.
+Verified 160/160 of the 2026 picks still resolved, and captured them. **A day later and after a
+2027 import, this feature could never have been built for 2026 at all.** Same lesson as step 17's
+name/team/position snapshot, arriving one column late.
+
+The migration scopes its backfill to `draft.season` rather than a hardcoded 2026, so it stays
+correct after every future draft instead of correct once.
+
+**Learned:**
+
+- **A naive "value" metric doesn't measure value, it rediscovers the league's format.** First pass
+  benchmarked each price against similarly-ranked players *overall*. Every one of the top overpays
+  came out a QB and every bargain a WR — because FantasyPros rank is overall and this is a
+  superflex league, where QBs are worth far more than that rank implies. Comparing **within
+  position** removed it (net by position QB +8 / RB +26 / TE +9 / WR +9) and produced sensible
+  names. There is a unit test with a superflex-shaped fixture that fails if anyone "simplifies"
+  this back to a cross-position comparison.
+- **A flat per-position median doesn't work either** — price decays steeply with rank inside a
+  position, so it would brand every QB1 an overpay. Nearest-neighbours within the position is the
+  only shape that works.
+- **The residual bias is at the ends and is documented rather than hidden.** The top-ranked player
+  at a position has nobody above them, so their window comes entirely from below and a decaying
+  market makes them look expensive. Dropping them would remove exactly the players the room argues
+  about. On real data it stayed small — no rank-1 player reached the top overpays.
+- **`budget_adjustments` cannot recover who originally bought a traded player.** A trade writes one
+  combined row per manager folding salary *and* cash together, so they are inseparable afterwards.
+  The trade log is the only surviving source, so `draftersByPick` walks it newest-first and rewinds.
+  Every money view attributes through it, which is what stops a November trade retroactively
+  rewriting who won their own nomination in August.
+- **A spend matrix and a market view want different position lists.** `MARKET_POSITIONS` drops K and
+  DEF because they'd drag every median to the floor — right for a market, wrong for a budget table,
+  where a row that doesn't total what someone spent is a lie. Hence `SPEND_COLUMNS` with an OTHER
+  bucket.
+- **Next 16's lint rejects components defined during render** (`react-hooks/static-components`), so
+  the shared `<Row>`/`<Head>` helpers inside `ValuePanel` had to be hoisted to module scope and take
+  their data as props.
+
+**Watch out for:**
+
+- **Two different things are now called `rank`.** `BoardPlayer.rank` is today's pool;
+  `RosterPick.rank` / `ArchivePick.rank` are frozen at award time. Both declaration sites say so.
+- **`/api/board` reads rank from `pk.`, never the joined `p.`** — one source of truth, so live and
+  archive cannot disagree and a mid-draft pool re-import cannot move the benchmark under a running
+  draft. Do not "fix" it into a COALESCE.
+- **`archive-service.ts` selecting `player_rank` looks like a violation** of that file's never-join-
+  `players` rule. It isn't — it's the pick's own column — and there's a comment saying so.
+- **There were two write paths to snapshot**, `awardLot()` and `scripts/record-picks.ts`. The second
+  has no test coverage; miss it and out-of-band picks are silently unscorable forever.
+- **The Value view is gated on every roster being full**, using the same "is anybody unfilled?"
+  definition as `nominatorAt` rather than `status === 'done'`, because the status flag is set by
+  hand and an archived season has no live status. It renders an explanatory empty state rather than
+  hiding the tab.
+- **2026's nomination numbers carry a small known bias**, noted on the panel itself: the 8 picks
+  repaired via `draft:record` recorded the buyer as their own nominator, inflating "won own" for
+  Daniel, Mario, Nate and Eric/Blakey.
+- `npm run test:int` wipes the test database, so any hand-seeded demo state has to be rebuilt
+  afterwards.
+
+**Next:** §9's P2 (the `nomination_index` decrement), and §7's cumulative-spend curve, which was
+deliberately deferred — it is the only view that would need a new visual primitive.

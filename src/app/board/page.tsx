@@ -1,14 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { LeagueBoard } from '@/components/LeagueBoard'
 import { MarketPanel } from '@/components/MarketPanel'
+import { SeasonPicker } from '@/components/SeasonPicker'
 import { useDraft } from '@/hooks/useDraft'
-import type { ArchiveSeason, SeasonSummary } from '@/server/archive-service'
+import { useSeasonView } from '@/hooks/useSeasonView'
 
 /**
- * The League board on its own page, for the live draft and for every past one.
+ * The League board on its own page, for the live draft and every past one.
  *
  * Deliberately separate from /draft: during bidding the only thing that matters
  * is the player on the block, and a 10-column grid competing for attention made
@@ -21,44 +22,8 @@ import type { ArchiveSeason, SeasonSummary } from '@/server/archive-service'
  */
 export default function BoardPage() {
   const { state, board } = useDraft()
-
-  const [seasons, setSeasons] = useState<SeasonSummary[]>([])
-  /** null = the season being drafted now, i.e. the live board. */
-  const [viewing, setViewing] = useState<number | null>(null)
+  const { seasons, viewing, setViewing, isArchive, archive, archiveError } = useSeasonView()
   const [view, setView] = useState<'grid' | 'market'>('grid')
-
-  // Both results carry the season they belong to, so switching tabs needs no
-  // "clear the old one" setState in the effect body — a stale result simply
-  // stops matching `viewing` and is ignored. Same reason the fetch is keyed
-  // rather than cancelled-and-blanked.
-  const [loaded, setLoaded] = useState<ArchiveSeason | null>(null)
-  const [failed, setFailed] = useState<{ season: number; message: string } | null>(null)
-
-  useEffect(() => {
-    fetch('/api/archive', { cache: 'no-store' })
-      .then((r) => r.json())
-      .then((d) => setSeasons(d.seasons ?? []))
-      .catch(() => {})
-  }, [])
-
-  // Fetched once per selection, not polled: a finished draft does not change.
-  useEffect(() => {
-    if (viewing === null) return
-    let alive = true
-    fetch(`/api/archive?season=${viewing}`, { cache: 'no-store' })
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error ?? 'Could not load that season')
-        return r.json()
-      })
-      .then((d) => alive && setLoaded(d))
-      .catch((e) => alive && setFailed({ season: viewing, message: e.message }))
-    return () => {
-      alive = false
-    }
-  }, [viewing])
-
-  const archive = loaded && loaded.season === viewing ? loaded : null
-  const archiveError = failed && failed.season === viewing ? failed.message : null
 
   if (!state) {
     return <main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
@@ -66,8 +31,6 @@ export default function BoardPage() {
 
   const lot = state.lot
   const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
-  const isArchive = viewing !== null
-  const past = seasons.filter((s) => !s.isCurrent)
 
   return (
     <main className="flex h-dvh flex-col bg-slate-950 text-slate-100">
@@ -78,6 +41,7 @@ export default function BoardPage() {
         >
           ← Back to draft
         </Link>
+
         {/* Grid vs market: two ways of reading the same draft. The grid is who
             has whom; the market is what the money has been going to. */}
         <div className="flex items-center gap-1 rounded-lg bg-slate-900 p-1">
@@ -99,29 +63,19 @@ export default function BoardPage() {
           ))}
         </div>
 
-        {/* The year picker. Shown as soon as any season is on record, even
-            before there is a second one: with an archive in play, "which year
-            am I looking at" is a real question, and the current-season tab
-            answers it. */}
-        {seasons.length > 0 && (
-          <div className="flex items-center gap-1 rounded-lg bg-slate-900 p-1">
-            <SeasonTab
-              label={`${state.draft.season}`}
-              sub="live"
-              active={!isArchive}
-              onClick={() => setViewing(null)}
-            />
-            {past.map((s) => (
-              <SeasonTab
-                key={s.season}
-                label={`${s.season}`}
-                sub={`${s.picks} picks`}
-                active={viewing === s.season}
-                onClick={() => setViewing(s.season)}
-              />
-            ))}
-          </div>
-        )}
+        <SeasonPicker
+          liveSeason={state.draft.season}
+          seasons={seasons}
+          viewing={viewing}
+          onSelect={setViewing}
+        />
+
+        <Link
+          href="/stats"
+          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+        >
+          Stats →
+        </Link>
 
         <div className="ml-auto flex items-center gap-3">
           {isArchive ? (
@@ -183,29 +137,5 @@ export default function BoardPage() {
         )}
       </div>
     </main>
-  )
-}
-
-function SeasonTab({
-  label,
-  sub,
-  active,
-  onClick,
-}: {
-  label: string
-  sub: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-md px-2.5 py-1 text-left leading-tight ${
-        active ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800'
-      }`}
-    >
-      <span className="block text-xs font-semibold tabular-nums">{label}</span>
-      <span className="block text-[10px] opacity-70">{sub}</span>
-    </button>
   )
 }

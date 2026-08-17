@@ -49,6 +49,17 @@ export interface ArchivePick {
   name: string
   team: string | null
   position: string
+  /**
+   * Pool rank the night this player was bought, from the pick's OWN snapshot
+   * column — not a join to `players`. This is what lets /stats score a finished
+   * season's bargains and overpays years later.
+   *
+   * Null for any season drafted before `picks.player_rank` existed. Those picks
+   * simply go unscored; there is no way to recover the rank once that season's
+   * pool has been replaced.
+   */
+  rank: number | null
+  posRank: number | null
   /** Always null in the archive — bye weeks belong to a season that is over. */
   byeWeek: null
 }
@@ -109,8 +120,12 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
     sql`SELECT so.manager_id, so.draft_slot, so.display_name, so.color
         FROM season_orders so WHERE so.season = ${season}
         ORDER BY so.draft_slot`,
+    // Every column here is `pk.` — the rule at the top of this file still
+    // holds, there is no join to `players`. player_rank is the pick's own
+    // snapshot, written at award time exactly like player_name.
     sql`SELECT pk.id, pk.pick_no, pk.manager_id, pk.nominator_id, pk.price, pk.slot_override,
-               pk.player_name, pk.player_team, pk.player_position
+               pk.player_name, pk.player_team, pk.player_position,
+               pk.player_rank, pk.player_pos_rank
         FROM picks pk WHERE pk.season = ${season} ORDER BY pk.pick_no`,
     sql`SELECT manager_id, COALESCE(SUM(amount), 0)::int AS total
         FROM budget_adjustments WHERE season = ${season} GROUP BY manager_id`,
@@ -160,6 +175,8 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
       name: p.player_name,
       team: p.player_team,
       position: p.player_position,
+      rank: p.player_rank === null ? null : Number(p.player_rank),
+      posRank: p.player_pos_rank === null ? null : Number(p.player_pos_rank),
       byeWeek: null,
     })),
     trades: await listTrades(season, 100),

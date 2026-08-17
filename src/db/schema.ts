@@ -256,12 +256,26 @@ export const picks = pgTable(
      * The pool is re-imported from a fresh CSV every season, so `players` holds
      * this year's truth: a player changes team, changes position, or disappears
      * on retirement. Rendering a 2026 pick by joining to `players` would show
-     * their 2028 team and quietly rewrite the archive. These three columns are
+     * their 2028 team and quietly rewrite the archive. These columns are
      * what a past season renders from — the join is for live drafts only.
      */
     playerName: text('player_name').notNull(),
     playerTeam: text('player_team'),
     playerPosition: text('player_position').notNull(),
+    /**
+     * Where this player sat in the pool THAT NIGHT. Same snapshot argument as
+     * the three columns above, and the reason the /stats "bargains and overpays"
+     * view can score a finished season at all: rank is otherwise recoverable
+     * only by joining `players`, which stops being true the moment next
+     * season's rankings CSV is imported.
+     *
+     * NULLABLE, unlike name and position. A rank can legitimately be absent (a
+     * Sleeper-seeded pool leaves plenty unranked), and a season drafted before
+     * this column existed can never recover one. Consumers must treat null as
+     * "not scored" — never as rank 0, which would read as the best player alive.
+     */
+    playerRank: integer('player_rank'),
+    playerPosRank: integer('player_pos_rank'),
     managerId: integer('manager_id')
       .notNull()
       .references(() => managers.id),

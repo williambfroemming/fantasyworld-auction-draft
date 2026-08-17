@@ -28,11 +28,18 @@ export async function GET() {
                 WHERE l.player_id = p.id AND l.status = 'open' AND l.season = ${season})
         ORDER BY p.search_rank NULLS LAST, p.name`,
     // Bye week still comes from the live pool — it is this season's schedule
-    // and only meaningful while the draft is running. Name, team and position
-    // come from the pick's own snapshot.
+    // and only meaningful while the draft is running. Name, team, position and
+    // rank come from the pick's own snapshot.
+    //
+    // ⚠️ Rank is read from `pk.`, never the joined `p.`, even though for the
+    // current season they agree today. One source of truth means the live board
+    // and the archive can never disagree, and a mid-draft pool re-import cannot
+    // move the /stats value benchmark under a running draft. Do not "fix" this
+    // into COALESCE(pk.player_rank, p.search_rank).
     sql`SELECT pk.id, pk.pick_no, pk.manager_id, pk.nominator_id, pk.price, pk.slot_override,
                pk.player_name AS name, pk.player_team AS team,
-               pk.player_position AS position, p.bye_week
+               pk.player_position AS position,
+               pk.player_rank, pk.player_pos_rank, p.bye_week
         FROM picks pk LEFT JOIN players p ON p.id = pk.player_id
         WHERE pk.season = ${season}
         ORDER BY pk.pick_no`,
@@ -62,6 +69,9 @@ export async function GET() {
         name: r.name,
         team: r.team,
         position: r.position,
+        // Frozen at award time — see the warning on the query above.
+        rank: r.player_rank,
+        posRank: r.player_pos_rank,
         byeWeek: r.bye_week,
       })),
       trades,

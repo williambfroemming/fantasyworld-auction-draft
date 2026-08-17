@@ -9,6 +9,7 @@ export interface BoardPlayer {
   name: string
   team: string | null
   position: string
+  /** TODAY'S pool rank. Contrast `RosterPick.rank`, which is frozen. */
   rank: number | null
   posRank: number | null
   byeWeek: number | null
@@ -25,6 +26,14 @@ export interface RosterPick {
   name: string
   team: string | null
   position: string
+  /**
+   * Pool rank AT AWARD TIME — a snapshot, not a live lookup. Same field name as
+   * `BoardPlayer.rank` but different provenance: that one is today's pool, this
+   * one was frozen the night the player was bought. Null for picks made before
+   * the snapshot column existed; treat null as "not scored", never as rank 0.
+   */
+  rank: number | null
+  posRank: number | null
   byeWeek: number | null
 }
 

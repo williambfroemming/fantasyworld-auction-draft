@@ -273,4 +273,41 @@ d('seasons + archive (real Postgres)', () => {
   it('returns null for a season nobody drafted', async () => {
     expect(await getArchivedSeason(1999)).toBeNull()
   })
+
+  // -------------------------------------------------------------------------
+  // The rank snapshot — what makes /stats able to score a finished season
+  // -------------------------------------------------------------------------
+
+  it('snapshots the pool rank onto the pick at award time', async () => {
+    const [pool] = await sql`
+      SELECT id, search_rank, pos_rank FROM players
+      WHERE id = ${players[0].id}`
+    await buy(0, managers[0].id, 20)
+
+    const [row] = await sql`
+      SELECT player_rank, player_pos_rank FROM picks
+      WHERE season = ${PAST} AND player_id = ${players[0].id}`
+    expect(Number(row.player_rank)).toBe(Number(pool.search_rank))
+    expect(row.player_pos_rank === null ? null : Number(row.player_pos_rank)).toBe(
+      pool.pos_rank === null ? null : Number(pool.pos_rank),
+    )
+  })
+
+  it('serves the archived rank without ever joining players', async () => {
+    const original = players[0]
+    const [pool] = await sql`SELECT search_rank FROM players WHERE id = ${original.id}`
+    await buy(0, managers[0].id, 33)
+    await startNewSeason(NOW)
+
+    // Next season's import moves this player up the board. The archive must
+    // still report what was true on the night.
+    await sql`UPDATE players SET search_rank = 999 WHERE id = ${original.id}`
+
+    const archived = await getArchivedSeason(PAST)
+    const pick = archived!.rosters.find((p) => p.name === original.name)!
+    expect(pick.rank).toBe(Number(pool.search_rank))
+    expect(pick.rank).not.toBe(999)
+
+    await sql`UPDATE players SET search_rank = ${pool.search_rank} WHERE id = ${original.id}`
+  })
 })

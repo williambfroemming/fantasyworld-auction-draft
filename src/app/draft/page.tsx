@@ -110,6 +110,12 @@ export default function DraftPage() {
         >
           Trades →
         </Link>
+        <Link
+          href="/stats"
+          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
+        >
+          Stats →
+        </Link>
 
         {state.draft.status === 'paused' && (
           <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300">

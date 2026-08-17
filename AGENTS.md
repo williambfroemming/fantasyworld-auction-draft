@@ -55,7 +55,10 @@ These look like mistakes and are not. Read `docs/PROJECT_PLAN.md` §4 before cha
 - **`autoSlot()` is display-only** and must stay unreachable from any award path. Position slotting must never block a sale. Its `overflow` must always be **drawn**, not ignored: a manager who skips the DEFENSE slot has a 16th player with nowhere to sit, and the board grows a bench row for them (`slotRows`). Two managers had an invisible player on the 2026 board because the callers dropped `overflow`.
 - **The player queue is private and stays off the polling path.** It must never enter `/api/state` or the fingerprint in `src/lib/version.ts` — a league-wide payload would leak everyone's targets, and widening the fingerprint would make every client's 204 depend on one person's private edit. `/api/queue` takes the manager id from the session cookie and has no id field to send. There are integration tests for both properties.
 - **`nominatorAt` has no index cap.** It returns null only when every roster is full. The old `n * rosterSize + n` bound stalled the live 2026 draft with 32 picks left, because a skipped seat consumes an index with no pick behind it. Scan a `2n` window, never `n`.
-- **Positional stats group on `players.position`, never the display slot.** A WR shown in FLEX is still a WR, and `positionMarket` excludes K and DEF on purpose.
+- **Positional stats group on `players.position`, never the display slot.** A WR shown in FLEX is still a WR, and `positionMarket` excludes K and DEF on purpose (but `SPEND_COLUMNS` keeps them in an OTHER bucket, because a budget row that doesn't total what someone spent is a lie).
+- **`picks` snapshots `player_rank` as well as name/team/position.** Rank is otherwise recoverable only by joining `players`, and that join dies the moment the next season's CSV replaces the pool. Read it from `pk.`, never the joined `p.` — one source of truth, so live and archive cannot disagree.
+- **Money questions attribute to the drafter, via `draftersByPick()`.** A trade moves `picks.manager_id` but not the salary, and `budget_adjustments` can't recover the original buyer because a trade folds salary and cash into one row. The trade log is the only surviving source.
+- **The value view compares within a position, never across.** A cross-position comparison doesn't measure value, it just rediscovers that this is a superflex league — every top "overpay" comes out a QB. There's a unit test that fails if this is "simplified".
 - **Roster is 16 slots.** `maxBid = budget − (16 − rostered − 1)` → $185 at the start. Getting this wrong skews every bid all draft.
 - **No backticks inside the SQL template literals.** They terminate the tagged template and the error surfaces as an unrelated esbuild parse failure.
 
@@ -79,6 +82,8 @@ npm run db:migrate-seasons        # the one-draft -> season-per-year migration (
 npm run db:migrate-seasons -- --test
 npm run db:migrate-queue          # adds the private player_queue table
 npm run db:migrate-queue -- --test
+npm run db:migrate-pick-ranks     # snapshots pool rank onto picks. RE-RUN AFTER EVERY DRAFT,
+                                  # BEFORE the next season's rankings CSV is imported
 npm run pins -- --clear
 ```
 

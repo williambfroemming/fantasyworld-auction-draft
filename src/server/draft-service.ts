@@ -307,10 +307,14 @@ export async function awardLot(
     return { ok: false, reason: 'Only the nominator or the commissioner can record the sale' }
   }
 
-  // The player's name/team/position are copied onto the pick here, at award
-  // time. That snapshot is what the archive renders from years later, when the
-  // pool has been re-imported and this player may have changed team, changed
-  // position, or left `players` entirely. See docs/BACKLOG.md §2.
+  // The player's name/team/position/rank are copied onto the pick here, at
+  // award time. That snapshot is what the archive renders from years later,
+  // when the pool has been re-imported and this player may have changed team,
+  // changed position, or left `players` entirely. See docs/BACKLOG.md §2.
+  //
+  // Rank rides along for the same reason and is what lets /stats score a
+  // finished season's bargains and overpays. It costs nothing here: `players`
+  // is already joined to read the name.
   const rows = await sql`
     WITH sold AS (
       UPDATE lots
@@ -324,10 +328,11 @@ export async function awardLot(
       RETURNING player_id, nominator_id
     )
     INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
-                       player_position, manager_id, nominator_id, price)
+                       player_position, player_rank, player_pos_rank,
+                       manager_id, nominator_id, price)
     SELECT ${season},
            (SELECT COALESCE(MAX(pick_no), 0) FROM picks WHERE season = ${season}) + 1,
-           sold.player_id, p.name, p.team, p.position,
+           sold.player_id, p.name, p.team, p.position, p.search_rank, p.pos_rank,
            ${winnerId}, sold.nominator_id, ${price}
     FROM sold JOIN players p ON p.id = sold.player_id
     ON CONFLICT (season, player_id) DO NOTHING
