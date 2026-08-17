@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from 'react'
 import { autoSlot, pickInRow, positionCounts, slotRows } from '@/lib/draft'
+import { perSlotLeft } from '@/lib/stats'
 import type { Board, RosterPick } from '@/hooks/useDraft'
 import type { DraftState, StateManager } from '@/server/draft-service'
 import { PositionBadge } from './LotPanel'
-import { MySpendSplit } from './MarketPanel'
 
 type Tab = 'me' | 'budgets' | 'picks'
 
@@ -50,13 +50,15 @@ export function SidePanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        {tab === 'me' && <MyRoster picks={byManager.get(me ?? -1) ?? []} rosterSize={state.draft.rosterSize} />}
-        {tab === 'budgets' && (
-          <Budgets
-            managers={state.managers}
-            byManager={byManager}
+        {tab === 'me' && (
+          <MyRoster
+            picks={byManager.get(me ?? -1) ?? []}
             rosterSize={state.draft.rosterSize}
+            budget={state.managers.find((m) => m.id === me)?.budget ?? 0}
           />
+        )}
+        {tab === 'budgets' && (
+          <Budgets managers={state.managers} rosterSize={state.draft.rosterSize} />
         )}
         {tab === 'picks' && <PickLog board={board} managers={state.managers} />}
       </div>
@@ -65,7 +67,15 @@ export function SidePanel({
 }
 
 /** One roster laid into the slot rows, plus extra bench rows if it needs them. */
-function MyRoster({ picks, rosterSize }: { picks: RosterPick[]; rosterSize: number }) {
+function MyRoster({
+  picks,
+  rosterSize,
+  budget,
+}: {
+  picks: RosterPick[]
+  rosterSize: number
+  budget: number
+}) {
   const laid = autoSlot(
     picks.map((p) => ({ id: p.id, position: p.position, slotOverride: p.slotOverride })),
   )
@@ -77,23 +87,50 @@ function MyRoster({ picks, rosterSize }: { picks: RosterPick[]; rosterSize: numb
   const counts = positionCounts(picks.map((p) => ({ id: p.id, position: p.position })))
   const spent = picks.reduce((s, p) => s + p.price, 0)
 
+  // Count AND dollars on one chip per position. Previously these were two
+  // separate rows of near-identical chips — "QB 3" above "QB $63" — which read
+  // as the same thing twice, and the totals chip was shoved onto a third line
+  // by `ml-auto` as soon as it wrapped.
+  const spendByPos = picks.reduce<Record<string, number>>((acc, p) => {
+    acc[p.position] = (acc[p.position] ?? 0) + p.price
+    return acc
+  }, {})
+
   return (
     <div className="p-3">
-      <div className="mb-3 flex flex-wrap gap-1.5 text-[11px]">
-        {['QB', 'RB', 'WR', 'TE', 'DEF', 'K'].map((pos) => (
-          <span key={pos} className="rounded bg-slate-800 px-1.5 py-0.5 text-slate-400">
-            {pos} <span className="font-bold text-slate-200">{counts[pos] ?? 0}</span>
-          </span>
-        ))}
-        <span className="ml-auto rounded bg-slate-800 px-1.5 py-0.5 text-slate-400">
-          {picks.length}/{rosterSize} · ${spent}
+      <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-slate-800 pb-2">
+        <span className="text-sm">
+          <span className="font-bold tabular-nums text-slate-100">
+            {picks.length}
+            <span className="text-slate-500">/{rosterSize}</span>
+          </span>{' '}
+          <span className="text-[11px] uppercase tracking-wider text-slate-500">players</span>
+        </span>
+        <span className="text-sm tabular-nums">
+          <span className="font-bold text-slate-100">${spent}</span>{' '}
+          <span className="text-[11px] uppercase tracking-wider text-slate-500">spent</span>
+          <span className="mx-1.5 text-slate-700">·</span>
+          <span className="font-bold text-emerald-400">${budget}</span>{' '}
+          <span className="text-[11px] uppercase tracking-wider text-slate-500">left</span>
         </span>
       </div>
 
-      {/* Where your own money went. The league-wide comparison lives on /board,
-          which has the width for a 10 x 4 matrix; this is the at-a-glance
-          version for while you are bidding. */}
-      <MySpendSplit picks={picks} />
+      <div className="mb-3 flex flex-wrap gap-1">
+        {['QB', 'RB', 'WR', 'TE', 'DEF', 'K'].map((pos) => {
+          const n = counts[pos] ?? 0
+          return (
+            <span
+              key={pos}
+              className={`rounded px-1.5 py-0.5 text-[11px] tabular-nums ${
+                n === 0 ? 'bg-slate-800/50 text-slate-600' : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              {pos} <span className={n === 0 ? '' : 'font-bold text-slate-200'}>{n}</span>
+              {n > 0 && <span className="text-slate-500"> · ${spendByPos[pos] ?? 0}</span>}
+            </span>
+          )
+        })}
+      </div>
 
       <table className="w-full text-sm">
         <tbody>
@@ -102,20 +139,22 @@ function MyRoster({ picks, rosterSize }: { picks: RosterPick[]; rosterSize: numb
             const pick = entry ? byId.get(entry.id) : null
             return (
               <tr key={slot.key} className="border-b border-slate-800/60 last:border-0">
-                <td className="w-24 py-1.5 pr-2 text-[11px] uppercase tracking-wide text-slate-500">
+                {/* Narrow enough that the name sits next to its slot instead of
+                    across a gap — SUPERFLEX is the longest label and still fits. */}
+                <td className="w-[4.5rem] py-1.5 pr-1 align-middle text-[10px] uppercase tracking-wide text-slate-600">
                   {slot.label}
                 </td>
                 <td className="py-1.5">
                   {pick ? (
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex min-w-0 items-baseline gap-1.5">
                       <span className="truncate font-medium">{pick.name}</span>
-                      <span className="text-xs text-slate-500">{pick.team}</span>
+                      <span className="shrink-0 text-[11px] text-slate-500">{pick.team}</span>
                     </span>
                   ) : (
                     <span className="text-slate-700">—</span>
                   )}
                 </td>
-                <td className="w-12 py-1.5 text-right tabular-nums text-slate-400">
+                <td className="w-10 py-1.5 text-right tabular-nums text-slate-400">
                   {pick ? `$${pick.price}` : ''}
                 </td>
               </tr>
@@ -184,35 +223,32 @@ function RoomMoney({ managers, rosterSize }: { managers: StateManager[]; rosterS
   )
 }
 
-function Budgets({
-  managers,
-  byManager,
-  rosterSize,
-}: {
-  managers: StateManager[]
-  byManager: Map<number, RosterPick[]>
-  rosterSize: number
-}) {
+function Budgets({ managers, rosterSize }: { managers: StateManager[]; rosterSize: number }) {
   return (
     <>
     <RoomMoney managers={managers} rosterSize={rosterSize} />
     <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
-          <th className="px-3 py-2 text-left">Team</th>
+          <th className="px-2 py-2 text-left">Team</th>
           <th className="px-2 py-2 text-right">Budget</th>
           <th className="px-2 py-2 text-right">Max</th>
-          <th className="px-2 py-2 text-right">Plyrs</th>
-          <th className="px-3 py-2 text-right">Avg</th>
+          {/* What they can average on every spot they still have to fill —
+              the number that says whether someone can actually compete for the
+              next player or is about to be filling slots at a dollar. */}
+          <th className="px-2 py-2 text-right" title="Budget divided by roster spots still to fill">
+            $/slot
+          </th>
+          <th className="pl-1 pr-2 py-2 text-right">Plyrs</th>
         </tr>
       </thead>
       <tbody>
         {managers.map((m) => {
-          const picks = byManager.get(m.id) ?? []
-          const spent = picks.reduce((s, p) => s + p.price, 0)
+          const full = m.rostered >= rosterSize
+          const perSlot = perSlotLeft(m.budget, m.rostered, rosterSize)
           return (
             <tr key={m.id} className="border-b border-slate-800/60">
-              <td className="px-3 py-2">
+              <td className="px-2 py-2">
                 <span className="flex items-center gap-2">
                   <span className="h-3 w-1.5 rounded-full" style={{ backgroundColor: m.color }} />
                   <span className="truncate font-medium">{m.displayName}</span>
@@ -226,10 +262,14 @@ function Budgets({
               >
                 ${m.maxBid}
               </td>
-              <td className="px-2 py-2 text-right tabular-nums text-slate-400">{m.rostered}</td>
-              <td className="px-3 py-2 text-right tabular-nums text-slate-500">
-                ${picks.length ? Math.round(spent / picks.length) : 0}
+              <td className="px-2 py-2 text-right tabular-nums">
+                {full ? (
+                  <span className="text-slate-700">—</span>
+                ) : (
+                  <span className="font-semibold text-slate-200">${perSlot.toFixed(1)}</span>
+                )}
               </td>
+              <td className="py-2 pl-1 pr-2 text-right tabular-nums text-slate-400">{m.rostered}</td>
             </tr>
           )
         })}
@@ -239,32 +279,135 @@ function Budgets({
   )
 }
 
+const PICK_FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'DEF', 'K'] as const
+type SortKey = 'pickNo' | 'price' | 'name'
+
+function SortArrow({ active, desc }: { active: boolean; desc: boolean }) {
+  if (!active) return null
+  return <span className="text-slate-400">{desc ? '↓' : '↑'}</span>
+}
+
+/**
+ * Every pick made, filterable by position and sortable.
+ *
+ * Defaults to newest first, which is what it was before and what you want while
+ * the draft is running. The filters turn it into "what have the RBs gone for" —
+ * the same question /stats answers league-wide, asked about individual players.
+ */
 function PickLog({ board, managers }: { board: Board | null; managers: StateManager[] }) {
-  const byId = new Map(managers.map((m) => [m.id, m]))
-  const picks = [...(board?.rosters ?? [])].sort((a, b) => b.pickNo - a.pickNo)
-  if (picks.length === 0)
-    return <p className="p-6 text-center text-sm text-slate-500">No picks yet.</p>
+  const [filter, setFilter] = useState<(typeof PICK_FILTERS)[number]>('ALL')
+  const [sort, setSort] = useState<SortKey>('pickNo')
+  const [desc, setDesc] = useState(true)
+
+  const byId = useMemo(() => new Map(managers.map((m) => [m.id, m])), [managers])
+
+  const picks = useMemo(() => {
+    const rows = (board?.rosters ?? []).filter((p) =>
+      filter === 'ALL' ? true : p.position === filter,
+    )
+    const dir = desc ? -1 : 1
+    return [...rows].sort((a, b) => {
+      if (sort === 'name') return dir * a.name.localeCompare(b.name)
+      if (sort === 'price') {
+        // Ties on price are common ($1 fills); fall back to pick order so the
+        // list never reshuffles arbitrarily between polls.
+        return dir * (a.price - b.price) || b.pickNo - a.pickNo
+      }
+      return dir * (a.pickNo - b.pickNo)
+    })
+  }, [board, filter, sort, desc])
+
+  /** Clicking the active column flips direction; a new column starts sensibly. */
+  const sortBy = (key: SortKey) => {
+    if (key === sort) return setDesc((d) => !d)
+    setSort(key)
+    setDesc(key !== 'name') // A-Z reads better ascending; numbers, biggest first
+  }
+
+  const all = board?.rosters ?? []
 
   return (
-    <table className="w-full text-sm">
-      <tbody>
-        {picks.map((p) => {
-          const m = byId.get(p.managerId)
-          return (
-            <tr key={p.id} className="border-b border-slate-800/60">
-              <td className="w-8 px-2 py-1.5 text-right tabular-nums text-slate-600">{p.pickNo}</td>
-              <td className="px-1 py-1.5">
-                <PositionBadge position={p.position} />
-              </td>
-              <td className="px-2 py-1.5 truncate font-medium">{p.name}</td>
-              <td className="px-2 py-1.5 truncate text-xs" style={{ color: m?.color }}>
-                {m?.displayName}
-              </td>
-              <td className="w-12 px-3 py-1.5 text-right tabular-nums font-semibold">${p.price}</td>
+    <div>
+      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-2 py-2">
+        <div className="flex flex-wrap gap-1">
+          {PICK_FILTERS.map((f) => {
+            const n = f === 'ALL' ? all.length : all.filter((p) => p.position === f).length
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                disabled={n === 0 && f !== 'ALL'}
+                className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+                  filter === f
+                    ? 'bg-slate-100 text-slate-900'
+                    : n === 0
+                      ? 'bg-slate-800/40 text-slate-700'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                }`}
+              >
+                {f} <span className="tabular-nums opacity-60">{n}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {picks.length === 0 ? (
+        <p className="p-6 text-center text-sm text-slate-500">
+          {all.length === 0 ? 'No picks yet.' : `No ${filter} picks yet.`}
+        </p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+              <th className="w-10 cursor-pointer px-2 py-1.5 text-right hover:text-slate-300">
+                <button onClick={() => sortBy('pickNo')}>
+                  # <SortArrow active={sort === 'pickNo'} desc={desc} />
+                </button>
+              </th>
+              <th className="cursor-pointer px-2 py-1.5 text-left hover:text-slate-300" colSpan={2}>
+                <button onClick={() => sortBy('name')}>
+                  Player <SortArrow active={sort === 'name'} desc={desc} />
+                </button>
+              </th>
+              <th className="w-16 px-1 py-1.5 text-left">By</th>
+              <th className="w-14 cursor-pointer px-3 py-1.5 text-right hover:text-slate-300">
+                <button onClick={() => sortBy('price')}>
+                  $ <SortArrow active={sort === 'price'} desc={desc} />
+                </button>
+              </th>
             </tr>
-          )
-        })}
-      </tbody>
-    </table>
+          </thead>
+          <tbody>
+            {picks.map((p) => {
+              const m = byId.get(p.managerId)
+              return (
+                <tr key={p.id} className="border-b border-slate-800/60">
+                  <td className="w-10 px-2 py-1.5 text-right tabular-nums text-slate-600">
+                    {p.pickNo}
+                  </td>
+                  <td className="w-8 px-1 py-1.5">
+                    <PositionBadge position={p.position} />
+                  </td>
+                  {/* `w-full max-w-0` is the pair that makes ONE cell absorb the
+                      leftover width and truncate. Putting it on two competing
+                      cells collapses both — the player name shrank to a single
+                      character. The manager column is fixed instead. */}
+                  <td className="w-full max-w-0 truncate px-2 py-1.5 font-medium">{p.name}</td>
+                  {/* Fixed width, and NO max-w-0 — that pairing belongs to the
+                      one greedy column above; here it would collapse the cell. */}
+                  <td className="w-16 truncate px-1 py-1.5 text-[11px]" style={{ color: m?.color }}>
+                    {m?.displayName}
+                  </td>
+                  <td className="w-14 px-3 py-1.5 text-right tabular-nums font-semibold">
+                    ${p.price}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
   )
 }

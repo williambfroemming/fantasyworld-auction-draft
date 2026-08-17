@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { LotPanel } from '@/components/LotPanel'
+import { LotPanel, PositionBadge } from '@/components/LotPanel'
+import { NominationOrder } from '@/components/NominationOrder'
 import { PlayerPool } from '@/components/PlayerPool'
 import { SidePanel } from '@/components/SidePanel'
 import { CommishDrawer } from '@/components/CommishDrawer'
@@ -73,7 +74,6 @@ export default function DraftPage() {
   const myManager = state.managers.find((m) => m.id === me)
   const myTurn = state.onTheClock?.managerId === me && !state.lot
   const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
-  const onDeck = state.managers.find((m) => m.id === state.onDeck?.managerId)
 
   // Always say WHY nominating isn't available. A dead button with no
   // explanation is the single most confusing thing that can happen mid-draft.
@@ -162,28 +162,17 @@ export default function DraftPage() {
         </div>
       </header>
 
-      {state.draft.status === 'live' && !state.lot && (
-        <div
-          className={`px-4 py-2 text-center text-sm font-semibold ${
-            myTurn ? 'bg-emerald-600/20 text-emerald-300' : 'bg-slate-800/60 text-slate-300'
-          }`}
-        >
-          {myTurn ? (
-            <>You&apos;re on the clock — pick a player from the list on the left to put up.</>
-          ) : (
-            <>
-              On the clock:{' '}
-              <span style={{ color: onClock?.color }}>{onClock?.displayName ?? '—'}</span>
-            </>
-          )}
-          {onDeck && (
-            <span className="ml-3 font-normal text-slate-400">
-              on deck: <span style={{ color: onDeck.color }}>{onDeck.displayName}</span>
-              {onDeck.id === me && ' (you)'}
-            </span>
-          )}
+      {/* Your own turn still gets a full-width call-out — it is the one thing
+          somebody must not miss. The order strip below carries everyone else. */}
+      {state.draft.status === 'live' && !state.lot && myTurn && (
+        <div className="bg-emerald-600/20 px-4 py-2 text-center text-sm font-semibold text-emerald-300">
+          You&apos;re on the clock — pick a player from the list on the left to put up.
         </div>
       )}
+
+      {/* Who's up, and who's coming. Above the lot because it is about what
+          happens next; the recent-picks ticker below is about what already did. */}
+      {state.draft.status !== 'setup' && <NominationOrder state={state} me={me} />}
       {state.draft.status === 'setup' && (
         <div className="bg-amber-500/15 px-4 py-2 text-center text-sm font-semibold text-amber-300">
           Draft not started.{' '}
@@ -215,21 +204,32 @@ export default function DraftPage() {
             <LotPanel state={state} me={me} onAward={award} />
           </div>
 
+          {/* What just went, and for how much. Kept because "what did Puka
+              actually go for" is asked constantly, but tightened: the position
+              badge and the price do the work, and the row scans left-to-right
+              as newest-first. */}
           {state.recentPicks.length > 0 && (
-            <div className="flex shrink-0 gap-2 overflow-x-auto pb-1">
+            <div className="flex shrink-0 items-center gap-2 overflow-x-auto pb-1">
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                Just sold
+              </span>
               {state.recentPicks.map((p) => {
                 const m = state.managers.find((x) => x.id === p.managerId)
                 return (
                   <div
                     key={p.pickNo}
-                    className="shrink-0 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5"
+                    className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-1.5"
                   >
-                    <div className="text-[11px] text-slate-500">
-                      #{p.pickNo} · <span style={{ color: m?.color }}>{m?.displayName}</span>
-                    </div>
-                    <div className="text-sm font-medium">
-                      {p.playerName} <span className="text-emerald-400">${p.price}</span>
-                    </div>
+                    <PositionBadge position={p.playerPosition} />
+                    <span className="text-sm font-medium">{p.playerName}</span>
+                    <span className="text-sm font-bold text-emerald-400">${p.price}</span>
+                    <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                      <span
+                        className="h-3 w-1 rounded-full"
+                        style={{ backgroundColor: m?.color }}
+                      />
+                      {m?.displayName}
+                    </span>
                   </div>
                 )
               })}

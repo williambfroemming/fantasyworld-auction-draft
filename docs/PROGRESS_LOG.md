@@ -565,3 +565,70 @@ correct after every future draft instead of correct once.
 
 **Next:** §9's P2 (the `nomination_index` decrement), and §7's cumulative-spend curve, which was
 deliberately deferred — it is the only view that would need a new visual primitive.
+
+---
+
+## Step 20 — Draft-screen pass: order strip, sortable picks, $/slot, roster header
+**Date:** 2026-08-16  **Status:** done
+
+**Built:** `upcomingOrder()` in `src/lib/draft.ts` + tests; `src/components/NominationOrder.tsx`;
+`perSlotLeft()` in `src/lib/stats.ts`; rebuilt `MyRoster`, `Budgets` and `PickLog` in
+`SidePanel.tsx`; reworked the draft page's banner and ticker.
+
+**130 unit tests passing**, build clean, `db:verify` green.
+
+Four things the user asked for after looking at the live screen:
+
+### The bottom ticker was carrying too little
+
+It showed recent picks and nothing else, and the read was that it wasn't earning its space. Rather
+than replace it, the two jobs got split by direction: **what happens next goes above the lot, what
+already happened stays below it.** The old thin "On the clock: X · on deck: Y" banner became a full
+order strip showing the current nominator plus the next nine; the ticker below kept recent picks but
+gained a position badge and manager colour so it scans.
+
+Worth recording *why* the strip is honest about itself: only the first two names are certain.
+Everything after assumes rosters stay as they are, and a manager who fills their 16th slot drops out
+and shuffles the rest up. That is exactly right for most of a draft — nobody is full early — and
+drifts at the end. So the tail is dimmed and labelled "after the next two, projected" rather than
+presented as fact. Backlog §5 argued for showing only *one* name for this reason; showing ten with
+the uncertainty drawn on is the better trade, but the uncertainty is real and had to be visible.
+
+The strip also makes the snake turn legible for the first time — "Justin R9 › Justin R10" reads as
+deliberate once the round number is next to the name, where before the same name twice in a row just
+looked like a bug.
+
+### The rest
+
+- **Picks tab** gained position filters (with counts, and disabled when a position has none) and
+  sortable `#` / `Player` / `$` columns. Default is still newest-first.
+- **Budgets tab** gained `$/slot` — budget divided by roster spots still to fill, which is the
+  number that says whether someone can actually compete for the next player. The old "Avg" (average
+  price paid) column was dropped to make room: `$/slot` is strictly more useful mid-draft and the
+  average is on `/stats`.
+- **My Roster** header was genuinely confusing: two rows of near-identical chips where `QB 3` was a
+  count and `QB $63` was dollars, plus a totals chip that `ml-auto` shoved onto a third line as soon
+  as it wrapped. Now one summary line (players / spent / left) and one chip row combining count and
+  spend per position.
+
+**Learned:**
+
+- **`w-full max-w-0` is a one-column trick.** It is the Tailwind pairing that makes a table cell
+  absorb leftover width and truncate — but applied to two competing cells it collapses *both*. The
+  picks table shipped a screenshot with every player name rendered as a single character before I
+  caught it. Exactly one flexible column; everything else fixed.
+- **Six columns do not fit a 19rem sidebar.** Adding `$/slot` silently clipped the last column off
+  the right edge, which no test would ever catch — only looking at it did.
+- Next 16's `react-hooks/static-components` rule bites again for tiny render helpers: the sort-arrow
+  had to be hoisted to module scope, same as `ValuePanel`'s row helpers last step.
+
+**Watch out for:**
+
+- **`upcomingOrder` deliberately does not simulate purchases.** It cannot: who wins the next lot is
+  unknown. Anyone "improving" it by advancing roster counts would be inventing data.
+- The order strip renders for `status !== 'setup'`, so it is present while paused and while a lot is
+  open — that is intentional, since knowing who is after the current lot is most useful *during* it.
+- `perSlotLeft` is now the single definition shared by the Budgets panel and `/stats`; changing one
+  changes both, which is the point.
+
+**Next:** unchanged — §9's P2, and the cumulative-spend curve.

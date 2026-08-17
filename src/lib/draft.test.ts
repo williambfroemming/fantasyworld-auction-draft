@@ -3,6 +3,7 @@ import {
   autoSlot,
   maxBidFor,
   nominatorAt,
+  upcomingOrder,
   positionMarket,
   slotRows,
   extraBenchRows,
@@ -593,5 +594,78 @@ describe('slotRows / pickInRow — nobody drops off the board', () => {
     expect(rows.length).toBe(16 + noDef.overflow.length)
     // The shorter roster simply has empty cells in the extra rows.
     expect(pickInRow(normal, rows.length - 1)).toBeNull()
+  })
+})
+
+describe('upcomingOrder', () => {
+  const seats = (full: number[] = []) =>
+    SEATS.map((name, i) => ({
+      id: i,
+      draftSlot: i,
+      rosterCount: full.includes(i) ? ROSTER : 0,
+      name,
+    }))
+
+  it('matches the plain snake while nobody is full', () => {
+    const order = upcomingOrder(seats(), 0, ROSTER, 12)
+    expect(order.map((o) => o.manager.name)).toEqual([
+      ...SEATS,
+      ...[...SEATS].reverse().slice(0, 2),
+    ])
+  })
+
+  it('starts at the index it is given', () => {
+    const order = upcomingOrder(seats(), 7, ROSTER, 3)
+    expect(order[0].index).toBe(7)
+    expect(order.map((o) => o.index)).toEqual([7, 8, 9])
+  })
+
+  it('agrees with nominatorAt on its first entry, always', () => {
+    for (const index of [0, 3, 9, 10, 27, 155]) {
+      const one = nominatorAt(seats([2, 5]), index, ROSTER)
+      const many = upcomingOrder(seats([2, 5]), index, ROSTER, 4)
+      expect(many[0].manager.name).toBe(one?.manager.name)
+      expect(many[0].index).toBe(one?.index)
+    }
+  })
+
+  it('skips a full manager every time their seat comes round', () => {
+    // Bolek (slot 2) is done for the day.
+    const order = upcomingOrder(seats([2]), 0, ROSTER, 18)
+    expect(order.some((o) => o.manager.name === 'Bolek')).toBe(false)
+    // and everyone else still appears
+    expect(new Set(order.map((o) => o.manager.name)).size).toBe(9)
+  })
+
+  it('returns fewer than asked when the draft ends first', () => {
+    // One manager, one slot left: exactly one nomination remains.
+    const managers = SEATS.map((name, i) => ({
+      id: i,
+      draftSlot: i,
+      rosterCount: i === 4 ? ROSTER - 1 : ROSTER,
+      name,
+    }))
+    expect(upcomingOrder(managers, 0, ROSTER, 10)).toHaveLength(10)
+    // Every entry is the only manager who can still be sold anyone.
+    expect(new Set(upcomingOrder(managers, 0, ROSTER, 10).map((o) => o.manager.name))).toEqual(
+      new Set([SEATS[4]]),
+    )
+  })
+
+  it('returns nothing once every roster is full', () => {
+    const managers = SEATS.map((name, i) => ({ id: i, draftSlot: i, rosterCount: ROSTER, name }))
+    expect(upcomingOrder(managers, 0, ROSTER, 10)).toEqual([])
+  })
+
+  it('returns nothing when asked for nothing', () => {
+    expect(upcomingOrder(seats(), 0, ROSTER, 0)).toEqual([])
+  })
+
+  it('shows the same manager twice in a row across the snake turn', () => {
+    // Index 9 is the last of round 0; index 10 is the first of round 1, and both
+    // are slot 9. This doubling is the thing the room finds confusing.
+    const order = upcomingOrder(seats(), 9, ROSTER, 2)
+    expect(order[0].manager.name).toBe(order[1].manager.name)
+    expect(order[0].manager.name).toBe(SEATS[9])
   })
 })

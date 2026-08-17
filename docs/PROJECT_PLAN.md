@@ -273,6 +273,7 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 - [ ] **11.** CSV export
 - [ ] **12.** Deploy to preview → dress rehearsal → full UAT
 - [x] **16.** **Called auction** — remove the clock, live bidding, soft close, lazy settlement and clock sync; `awardLot()` records the room's result. **Trades** of players and auction dollars, salary staying with the drafter.
+- [x] **20.** **Draft-screen pass** — nomination-order strip above the lot (current + next nine, projected tail labelled), position filters and sortable columns on the Picks tab, `$/slot` on Budgets, and a rebuilt My Roster header.
 - [x] **19.** **`/stats`** — spend by team, market pace, nomination analysis, and bargains/overpays, live and for every archived season. Plus the `picks.player_rank` snapshot, which had a hard deadline: rank stops being recoverable once the pool is re-imported.
 - [x] **18.** **§9 P0/P1 + backlog §3–§6** — `nominatorAt` no longer stalls near the end of a draft; a real "Draft Complete!" panel that distinguishes finished from stuck; the board grows bench rows so a manager with no defense doesn't lose a player; average remaining budget; on deck; market by position; the private player queue.
 - [x] **17.** **Seasons + archive** (BACKLOG §2) — `season` on every per-draft table, season-scoped `manager_totals`, the player snapshot on `picks`, `season_orders`, `/api/archive` and the year picker on `/board`. `season:new` replaces "reset and start over". The 2026 draft's final 8 picks recorded and the draft closed at 160.

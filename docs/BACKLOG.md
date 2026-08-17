@@ -369,12 +369,18 @@ Once it exists, "nominate straight from your queue" is the payoff.
 **Want:** alongside whoever is on the clock, show the single league member who
 nominates next, so everyone can see who's on deck.
 
-**Status: BUILT, 2026-08-15** — see `PROGRESS_LOG.md` step 18. One name, from a
-second `nominatorAt` call at `turn.index + 1`, carried on `/api/state` as
-`onDeck` and shown on the lot panel and in the turn banner. It calls out the
-snake turn explicitly ("again — the order turns here"), which is the case that
-actually confuses the room. **§9's P0 was fixed first**, as this section said it
-had to be.
+**Status: BUILT, 2026-08-15**, and **widened on 2026-08-16** (step 20). The
+single `onDeck` name is still carried on `/api/state`, and the draft screen now
+also shows an order strip of the next nine via `upcomingOrder()`.
+
+The "one name only" argument below was right about the *certainty* and wrong
+about the *usefulness*: seats beyond the next one are a projection, so the strip
+dims and labels everything past on-deck rather than pretending. See step 20.
+
+Both surfaces call out the snake turn — the lot panel says "again — the order
+turns here", and the strip puts a round number beside each name so the same
+manager appearing twice in a row reads as deliberate. **§9's P0 was fixed
+first**, as this section said it had to be.
 
 ### Why one name is the right scope
 

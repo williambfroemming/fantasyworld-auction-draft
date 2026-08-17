@@ -99,6 +99,43 @@ export function nominatorAt<T extends Nominator>(
   return null
 }
 
+/**
+ * The next `count` nominators, in order, starting at `nominationIndex`.
+ *
+ * Repeated calls to `nominatorAt` — never a second copy of the snake maths.
+ *
+ * ⚠️ **This is a projection, not a promise.** It assumes every roster stays as
+ * it is right now, because who nominates in five turns genuinely depends on who
+ * fills their roster before then and that has not happened yet. The consequences
+ * are worth knowing precisely:
+ *
+ *  - While nobody is full — which is most of a draft — it is exactly right.
+ *  - Once managers start filling up it drifts, because a manager who reaches
+ *    `rosterSize` mid-run gets skipped and everyone behind them shuffles up.
+ *  - It always self-corrects: the turn is recomputed from scratch on every read,
+ *    so a wrong projection is replaced rather than accumulated.
+ *
+ * That is why the seat immediately ahead (`onDeck`) is carried separately and
+ * treated as certain, while this is labelled as a projection wherever it is
+ * shown. See docs/BACKLOG.md §5.
+ */
+export function upcomingOrder<T extends Nominator>(
+  managers: T[],
+  nominationIndex: number,
+  rosterSize: number,
+  count: number,
+): Array<{ manager: T; index: number }> {
+  const out: Array<{ manager: T; index: number }> = []
+  let i = nominationIndex
+  for (let k = 0; k < count; k++) {
+    const turn = nominatorAt(managers, i, rosterSize)
+    if (!turn) break // draft complete — nothing further to project
+    out.push(turn)
+    i = turn.index + 1
+  }
+  return out
+}
+
 /** Fisher-Yates. Returns a new array of ids in their freshly drawn seat order. */
 export function randomOrder<T>(items: T[], rng: () => number = Math.random): T[] {
   const out = [...items]

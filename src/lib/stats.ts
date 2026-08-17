@@ -221,6 +221,21 @@ export function spendBlocks(picks: StatsPick[], blockSize: number): SpendBlock[]
   return blocks
 }
 
+/**
+ * Dollars a manager can average on each roster spot they still have to fill.
+ *
+ * `budget / slotsLeft`, and **0 for a full roster** rather than a divide by
+ * zero — a manager at `rosterSize` has nothing left to spend it on, so the
+ * honest answer is not Infinity.
+ *
+ * One definition, shared by the Budgets panel and /stats, so the two can never
+ * quote different numbers for the same thing.
+ */
+export function perSlotLeft(budget: number, rostered: number, rosterSize: number): number {
+  const slotsLeft = Math.max(0, rosterSize - rostered)
+  return slotsLeft === 0 ? 0 : budget / slotsLeft
+}
+
 export interface ManagerPace {
   managerId: number
   rostered: number
@@ -256,9 +271,7 @@ export function managerPace(input: StatsInput): ManagerPace[] {
       spent,
       unspent: m.budget,
       slotsLeft,
-      // A full roster has nothing left to fill; report 0 rather than dividing
-      // by zero and printing Infinity next to somebody's name.
-      perSlotLeft: slotsLeft === 0 ? 0 : m.budget / slotsLeft,
+      perSlotLeft: perSlotLeft(m.budget, m.rostered, input.rosterSize),
       spentShare: leagueSpent === 0 ? 0 : spent / leagueSpent,
     }
   })
