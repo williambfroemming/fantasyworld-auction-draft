@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# database snapshots from `npm run db:backup` -- these dump the whole `managers`
+# table, including every league member's real name and their PIN hash. A 4-digit
+# PIN behind a public repo is 10,000 guesses, so these stay local. Keep them.
+/backups/
+
 # vercel
 .vercel
 
