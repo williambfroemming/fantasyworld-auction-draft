@@ -9,7 +9,7 @@
  * every client picks the change up on its next poll.
  */
 import { getSql } from './sql'
-import type { ActionResult } from './draft-service'
+import { getState, type ActionResult } from './draft-service'
 
 async function bumpRev() {
   await getSql()`UPDATE draft SET rev = rev + 1 WHERE id = 1`
@@ -68,8 +68,13 @@ export async function resume(): Promise<ActionResult<null>> {
 }
 
 /**
- * Undo the most recent pick: refund it, return the player to the pool, and
- * rewind the nomination order by one so the same manager nominates again.
+ * Undo the most recent pick: refund it, return the player to the pool, and hand
+ * the turn back to the manager who nominated it.
+ *
+ * "Hand the turn back" used to mean `nomination_index - 1`, which is wrong
+ * whenever nomination skipped a full roster to reach that seat — the cursor
+ * lands mid-skip-run instead of on the nominator. `lots.nomination_index` is
+ * the recorded answer; see docs/BACKLOG.md §9 P2.
  */
 export async function undoLastPick(): Promise<ActionResult<{ playerName: string }>> {
   const sql = getSql()
@@ -95,12 +100,32 @@ export async function undoLastPick(): Promise<ActionResult<{ playerName: string 
     }
   }
 
-  await sql`DELETE FROM picks WHERE id = ${last.id}`
-  // Void the lot so the player is draftable again but the history is kept.
-  await sql`UPDATE lots SET status = 'void'
-            WHERE player_id = ${last.player_id} AND status = 'sold' AND season = ${season}`
-  await sql`UPDATE draft SET nomination_index = GREATEST(0, nomination_index - 1) WHERE id = 1`
-  await bumpRev()
+  // One statement, three effects: drop the pick, void its lot so the player is
+  // draftable again while the history is kept, and rewind the cursor to the
+  // seat that nominated. Split across three statements a failure between them
+  // could leave a sold lot with no pick, or a refunded player still undraftable.
+  //
+  // The status reversal matters as much as the rewind: awarding the final pick
+  // now flips the draft to 'done', and 'done' refuses nominations. Undoing that
+  // pick without undoing the status would leave the draft one player short and
+  // permanently unable to fill it.
+  await sql`
+    WITH gone AS (
+      DELETE FROM picks WHERE id = ${last.id}
+      RETURNING player_id
+    ), voided AS (
+      UPDATE lots SET status = 'void'
+      WHERE player_id = (SELECT player_id FROM gone)
+        AND status = 'sold' AND season = ${season}
+      RETURNING nomination_index
+    )
+    UPDATE draft
+    SET nomination_index = COALESCE(
+          (SELECT v.nomination_index FROM voided v),
+          GREATEST(0, draft.nomination_index - 1)),
+        status = CASE WHEN status = 'done' THEN 'live' ELSE status END,
+        rev = rev + 1
+    WHERE id = 1`
   return { ok: true, data: { playerName: last.name } }
 }
 
@@ -178,26 +203,60 @@ export async function reassignPick(pickId: number, managerId: number): Promise<A
   return { ok: true, data: null }
 }
 
-/** Skip whoever is on the clock — they've stepped away. */
+/**
+ * Skip whoever is on the clock — they've stepped away.
+ *
+ * ⚠️ Advances past the seat that is *actually* on the clock, not past the raw
+ * cursor. Those differ whenever full rosters were skipped to reach the current
+ * nominator: with the cursor at 1 and seats 1–4 full, seat 5 is on the clock,
+ * and `nomination_index + 1` would move the cursor to 2 — which still resolves
+ * to seat 5. The skip button would do nothing, repeatedly, with the room
+ * watching. Same root cause as docs/BACKLOG.md §9 P2: the cursor is not the
+ * seat.
+ */
 export async function skipNominator(): Promise<ActionResult<null>> {
   const sql = getSql()
   const season = await currentSeason()
   const [open] = await sql`SELECT id FROM lots WHERE status = 'open' AND season = ${season}`
   if (open) return { ok: false, reason: 'Finish the current lot first' }
-  await sql`UPDATE draft SET nomination_index = nomination_index + 1 WHERE id = 1`
-  await bumpRev()
+
+  const state = await getState()
+  if (!state.onTheClock) return { ok: false, reason: 'Nobody is on the clock to skip' }
+
+  await sql`UPDATE draft SET nomination_index = ${state.onTheClock.index + 1}, rev = rev + 1
+            WHERE id = 1`
   return { ok: true, data: null }
 }
 
-/** Cancel the lot on the clock without awarding it. */
+/**
+ * Cancel the lot on the clock without awarding it, and give the turn back to
+ * whoever nominated it.
+ *
+ * Same rewind as `undoLastPick`, and for the same reason: nomination may have
+ * advanced the cursor past several full rosters to reach that seat, so `- 1`
+ * does not undo it. `lots.nomination_index` is the exact answer, with the old
+ * behaviour kept as the fallback for lots opened before that column existed.
+ *
+ * One statement so a void cannot half-apply into a cancelled lot whose turn was
+ * never returned — which reads in the room as the app skipping someone.
+ */
 export async function voidLot(): Promise<ActionResult<null>> {
   const sql = getSql()
   const season = await currentSeason()
-  const rows = await sql`UPDATE lots SET status = 'void'
-                         WHERE status = 'open' AND season = ${season} RETURNING id`
+  const rows = await sql`
+    WITH voided AS (
+      UPDATE lots SET status = 'void'
+      WHERE status = 'open' AND season = ${season}
+      RETURNING id, nomination_index
+    )
+    UPDATE draft
+    SET nomination_index = COALESCE(
+          (SELECT v.nomination_index FROM voided v),
+          GREATEST(0, draft.nomination_index - 1)),
+        rev = rev + 1
+    WHERE id = 1 AND EXISTS (SELECT 1 FROM voided)
+    RETURNING (SELECT v.id FROM voided v) AS lot_id`
   if (rows.length === 0) return { ok: false, reason: 'No lot is on the clock' }
-  await sql`UPDATE draft SET nomination_index = GREATEST(0, nomination_index - 1) WHERE id = 1`
-  await bumpRev()
   return { ok: true, data: null }
 }
 

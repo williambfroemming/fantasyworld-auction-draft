@@ -142,6 +142,19 @@ export const lots = pgTable(
     nominatorId: integer('nominator_id')
       .notNull()
       .references(() => managers.id),
+    /**
+     * The `draft.nomination_index` this lot was opened at — the seat that
+     * actually nominated, recorded so undo can hand the turn back to them.
+     *
+     * Nomination advances the index to *the seat it landed on* plus one, which
+     * can be several indices when full rosters were skipped. `- 1` therefore
+     * lands mid-skip-run rather than on the nominator; this column is the only
+     * way to rewind exactly. See docs/BACKLOG.md §9 P2.
+     *
+     * Nullable because lots opened before this column existed have no answer.
+     * Void/undo fall back to `- 1` for those, which is the old behaviour.
+     */
+    nominationIndex: integer('nomination_index'),
     /** Null while open; the hammer price once awarded. */
     soldPrice: integer('sold_price'),
     /** Null while open; the winning manager once awarded. */

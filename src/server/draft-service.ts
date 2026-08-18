@@ -237,10 +237,14 @@ export async function nominate(
   // "Already drafted" means drafted THIS season. Without that filter every
   // player taken in a previous year would be permanently unavailable, which
   // would turn a 10-person redraft league into an accidental keeper league.
+  //
+  // The lot records the index it was nominated at. The line below advances the
+  // cursor past any seats that were skipped to reach this one, so the distance
+  // moved is not always 1 and cannot be inferred later — see docs/BACKLOG.md §9 P2.
   const season = state.draft.season
   const rows = await sql`
-    INSERT INTO lots (season, player_id, nominator_id)
-    SELECT ${season}, ${playerId}, ${managerId}
+    INSERT INTO lots (season, player_id, nominator_id, nomination_index)
+    SELECT ${season}, ${playerId}, ${managerId}, ${state.onTheClock.index}
     WHERE NOT EXISTS (SELECT 1 FROM lots WHERE status = 'open' AND season = ${season})
       AND NOT EXISTS (SELECT 1 FROM picks WHERE player_id = ${playerId} AND season = ${season})
       AND EXISTS (SELECT 1 FROM players WHERE id = ${playerId})
@@ -280,7 +284,7 @@ export async function awardLot(
   lotId: number,
   winnerId: number,
   price: number,
-): Promise<ActionResult<{ pickNo: number }>> {
+): Promise<ActionResult<{ pickNo: number; draftComplete: boolean }>> {
   const sql = getSql()
 
   if (!Number.isInteger(price)) return { ok: false, reason: 'Price must be a whole dollar' }
@@ -339,7 +343,32 @@ export async function awardLot(
     RETURNING pick_no`
 
   if (rows.length === 0) return { ok: false, reason: await explainRejectedAward(winnerId, price) }
-  return { ok: true, data: { pickNo: Number(rows[0].pick_no) } }
+
+  // If that was the last empty slot in the league, the draft is over — record
+  // it. Until now `setStatus` was only ever called by hand, so the database
+  // never actually learned the draft had ended; the screen knew, because every
+  // consumer that matters asks "is anybody unfilled?" instead of trusting the
+  // flag. See docs/BACKLOG.md §9 P1.
+  //
+  // Those consumers stay as they are. This makes the flag true, it does not
+  // make it authoritative: `stats.ts` still refuses to trust it, because an
+  // archived season has no live status and a commissioner can still set it by
+  // hand. The flag is now a *record* that the draft finished, not a source.
+  //
+  // Uses the same definition of "complete" as `nominatorAt` — every manager at
+  // rosterSize, asked of the derived view rather than a pick count, so it stays
+  // right after a trade moves players around. Idempotent and guarded on
+  // 'live', so a paused or already-done draft is untouched, and undoing the
+  // final pick flips it back (see `undoLastPick`).
+  const [finished] = await sql`
+    UPDATE draft
+    SET status = 'done', rev = rev + 1
+    WHERE id = 1
+      AND status = 'live'
+      AND NOT EXISTS (SELECT 1 FROM manager_totals t WHERE t.rostered < draft.roster_size)
+    RETURNING season`
+
+  return { ok: true, data: { pickNo: Number(rows[0].pick_no), draftComplete: Boolean(finished) } }
 }
 
 /**

@@ -632,3 +632,92 @@ looked like a bug.
   changes both, which is the point.
 
 **Next:** unchanged — §9's P2, and the cumulative-spend curve.
+
+---
+
+## Step 21 — Undo hands the turn back, and the draft knows when it is over
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** `lots.nomination_index` + `scripts/migrate-lot-index.ts`; rewrote `voidLot`,
+`undoLastPick` and `skipNominator` in `commish-service.ts`; the auto-`done` flip in `awardLot`.
+Backlog §9 P2 and the rest of §9 P1.
+
+**130 unit tests and 72 integration tests passing**, `db:verify` green, migration applied to both
+databases.
+
+### §9 P2 — the cursor is not the seat
+
+`nomination_index` is a cursor that `nominatorAt` scans *forward* from; the seat it lands on can be
+several indices later, because full rosters are skipped on the way. Nomination then parks the cursor
+at **landed + 1**. So the distance a nomination moves the cursor is not 1, and `- 1` cannot undo it.
+
+Worth writing down what I got wrong first: I assumed the bug was visible in a single
+nominate-then-void, and it is not. In that sequence `- 1` returns the cursor to the landed index,
+`nominatorAt` finds that seat unfilled, and the right manager is on the clock. **The shortest
+sequence that actually breaks is two undos in a row across a skip run**, which is now the test:
+seat 0 nominates at index 0, the next nomination skips four full rosters to land at index 5, and the
+cursor is at 6. First undo → 5 → seat 5, correct. Second undo → 4 → a *full* seat → the scan skips
+forward and returns seat 5 **a second time**. Seat 0 never gets their turn back.
+
+The fix is to stop deriving and start recording: `lots.nomination_index` stores the index the lot
+was opened at, and void/undo restore it exactly. Nullable, with `COALESCE(..., GREATEST(0, idx - 1))`
+falling back to the old behaviour for the 160 lots from 2026 that predate the column.
+
+**The migration deliberately does not backfill.** The index a 2026 lot was nominated at is *not*
+recoverable: `draft.nomination_index` is one moving cursor with no history, and skipped seats mean
+pick order cannot be replayed onto it. A guessed backfill would look exactly like a real one and
+would send undo to a plausible wrong seat — worse than NULL, which at least selects the old
+behaviour honestly.
+
+### The same bug on the skip path, found while fixing it
+
+`skipNominator` did `nomination_index + 1`. With the cursor at 1 and seats 1–3 full, seat 4 is on
+the clock; +1 moves the cursor to 2, which still resolves to seat 4. **The skip button does nothing,
+repeatedly, in front of the room.** It now advances past `onTheClock.index`, the same way `nominate`
+does. This was never reported from draft night, which is its own lesson — it fails silently and
+looks like a mis-click.
+
+### §9 P1 — the flag now agrees with the screen
+
+`awardLot` flips `draft.status` to `'done'` when the award fills the last slot in the league, guarded
+on `status = 'live'` and asking `manager_totals` "is anybody below `roster_size`?" — the same
+definition `nominatorAt` uses, not a pick count, so it stays right after a trade.
+
+**Nothing was changed to trust the flag.** `stats.ts` and `LotPanel` still ask the roster question
+directly, because an archived season has no live status and a commissioner can still set it by hand.
+This makes the flag a *record* that the draft finished, not a source of truth.
+
+**`undoLastPick` had to flip it back**, and that is the part that would have bitten later: 'done'
+refuses nominations, so undoing the final pick without reopening the draft would leave the league one
+player short and permanently unable to draft them. It is folded into the same statement.
+
+### Both rewinds became single statements
+
+`undoLastPick` was three statements (delete pick, void lot, move cursor) and `voidLot` was two.
+Both are now one data-modifying CTE, per the Neon rule in AGENTS.md — a void that half-applied
+would cancel a lot without returning the turn, which in the room reads as the app skipping someone.
+
+**Learned:**
+
+- **A cursor and the thing it points at are different values, and mixing them is a whole bug
+  family.** Three functions had it: void, undo, and skip. Anywhere that does arithmetic on
+  `nomination_index` instead of reading `onTheClock.index` is suspect.
+- **Reason about the shortest failing sequence before writing the test.** I nearly wrote a
+  single-void test, which passes against the *old* code and would have shipped the bug with a green
+  suite behind it — the same trap step 18 recorded for the P0 stall, where the two obvious draft
+  shapes both passed.
+- **An `OFFSET` into a fixture pool fails open.** `OFFSET 400 LIMIT 159` against 503 players silently
+  inserted 103 rows and left four seats unfilled, and the test failed several assertions later with a
+  confusing message. Assert the inserted row count.
+
+**Watch out for:**
+
+- **`lots.nomination_index` is NULL for every 2026 lot** and for any lot opened before this deploy.
+  The `COALESCE` fallback is load-bearing, not decorative — do not "simplify" it away.
+- **`awardLot` now returns `draftComplete`.** Nothing renders it yet; the screen still derives
+  completion from rosters, deliberately.
+- `skipNominator` now reads `getState()`, so `commish-service` imports from `draft-service`. That
+  direction only — `draft-service` must not import back.
+
+**Next:** §7's cumulative spend curve and the sidebar positional split, then §4's queue reorder and
+nominate-from-queue, then §2's cross-import player identity.
