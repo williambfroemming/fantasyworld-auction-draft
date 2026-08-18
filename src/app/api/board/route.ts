@@ -18,7 +18,13 @@ export async function GET() {
     // "Already drafted" is scoped to this season. Unscoped, every player taken
     // in a previous year would be missing from the pool forever — the league
     // would silently become a keeper league.
-    sql`SELECT p.id, p.name, p.team, p.position, p.search_rank, p.pos_rank, p.bye_week
+    // Injury rides along on the pool query — no extra round trip, and no
+    // provider on the request path. It is a stored snapshot from
+    // `npm run news:refresh`, so draft night cannot be affected by Sleeper
+    // being down. See docs/BACKLOG.md §1.
+    sql`SELECT p.id, p.name, p.team, p.position, p.search_rank, p.pos_rank, p.bye_week,
+               p.injury_status, p.injury_body_part, p.injury_notes,
+               p.practice_participation, p.injury_updated_at
         FROM players p
         WHERE NOT EXISTS (
                 SELECT 1 FROM picks pk
@@ -56,6 +62,17 @@ export async function GET() {
         rank: p.search_rank,
         posRank: p.pos_rank,
         byeWeek: p.bye_week,
+        // Null status means UNKNOWN, not healthy. The UI must not render an
+        // absent injury as a clean bill of health.
+        injury: p.injury_status
+          ? {
+              status: p.injury_status as string,
+              bodyPart: (p.injury_body_part as string | null) ?? null,
+              notes: (p.injury_notes as string | null) ?? null,
+              practice: (p.practice_participation as string | null) ?? null,
+              updatedAt: p.injury_updated_at ? String(p.injury_updated_at) : null,
+            }
+          : null,
       })),
       rosters: rosters.map((r) => ({
         id: r.id,

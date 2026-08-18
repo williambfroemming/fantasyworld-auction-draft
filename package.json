@@ -34,6 +34,7 @@
     "db:migrate-pick-ranks": "dotenv -e .env.local -- tsx scripts/migrate-pick-ranks.ts",
     "db:migrate-lot-index": "dotenv -e .env.local -- tsx scripts/migrate-lot-index.ts",
     "db:migrate-identity": "dotenv -e .env.local -- tsx scripts/migrate-player-identity.ts",
+    "news:refresh": "dotenv -e .env.local -- tsx scripts/refresh-news.ts",
     "season:new": "dotenv -e .env.local -- tsx scripts/new-season.ts",
     "season:list": "dotenv -e .env.local -- tsx scripts/list-seasons.ts"
   },

@@ -74,6 +74,31 @@ export const players = pgTable(
     /** Bye week; null for players without one in the source. */
     byeWeek: integer('bye_week'),
     active: boolean('active').notNull().default(true),
+
+    /**
+     * Availability, from the Sleeper dump (docs/BACKLOG.md §1).
+     *
+     * "Is this guy hurt?" is the question managers were alt-tabbing to Rotowire
+     * to answer mid-auction, and it turns out to ride along in the same 5MB file
+     * the pool already comes from — so it costs **no runtime dependency**. That
+     * is the whole reason it lives in a column rather than behind a fetch: on
+     * draft night this is already in the database, and no provider being down
+     * can take it away.
+     *
+     * ⚠️ A **snapshot**, not a feed. It is as fresh as the last import or
+     * `npm run news:refresh`, and `injuryUpdatedAt` is what lets the UI say "as
+     * of Thursday" instead of implying it is live. Null status means *unknown*,
+     * never healthy — a CSV-seeded pool has none of this, and rendering absence
+     * as fitness would be a confident wrong answer about the one thing being
+     * asked.
+     */
+    injuryStatus: text('injury_status'),
+    injuryBodyPart: text('injury_body_part'),
+    injuryNotes: text('injury_notes'),
+    /** DNP · Limited Participation · Full Participation. */
+    practiceParticipation: text('practice_participation'),
+    /** When this row's injury picture was last refreshed from Sleeper. */
+    injuryUpdatedAt: timestamp('injury_updated_at', { withTimezone: true }),
   },
   (t) => [index('players_rank_idx').on(t.searchRank)],
 )

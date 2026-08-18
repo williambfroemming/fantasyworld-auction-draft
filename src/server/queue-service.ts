@@ -35,6 +35,18 @@ export interface QueuedPlayer {
   rank: number | null
   byeWeek: number | null
   sortOrder: number
+  /**
+   * Availability as of the last `npm run news:refresh` (docs/BACKLOG.md §1).
+   * Null is *unknown*, not healthy. Your shortlist is exactly where this
+   * matters: the point of a queue is knowing what you are about to bid on.
+   */
+  injury: {
+    status: string
+    bodyPart: string | null
+    notes: string | null
+    practice: string | null
+    updatedAt: string | null
+  } | null
   /** Bought by someone this season — still listed, but struck through. */
   drafted: boolean
   /** On the block right now. */
@@ -57,6 +69,8 @@ export async function getQueue(managerId: number): Promise<QueuedPlayer[]> {
   const rows = await sql`
     SELECT q.player_id, q.sort_order,
            p.name, p.team, p.position, p.search_rank, p.bye_week,
+           p.injury_status, p.injury_body_part, p.injury_notes,
+           p.practice_participation, p.injury_updated_at,
            EXISTS (SELECT 1 FROM picks pk
                     WHERE pk.player_id = q.player_id AND pk.season = ${season}) AS drafted,
            EXISTS (SELECT 1 FROM lots l
@@ -75,6 +89,15 @@ export async function getQueue(managerId: number): Promise<QueuedPlayer[]> {
     rank: r.search_rank,
     byeWeek: r.bye_week,
     sortOrder: Number(r.sort_order),
+    injury: r.injury_status
+      ? {
+          status: r.injury_status as string,
+          bodyPart: (r.injury_body_part as string | null) ?? null,
+          notes: (r.injury_notes as string | null) ?? null,
+          practice: (r.practice_participation as string | null) ?? null,
+          updatedAt: r.injury_updated_at ? String(r.injury_updated_at) : null,
+        }
+      : null,
     drafted: r.drafted,
     onTheBlock: r.on_the_block,
   }))

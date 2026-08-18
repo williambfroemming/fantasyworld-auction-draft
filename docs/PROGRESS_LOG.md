@@ -1122,3 +1122,92 @@ three resolve correctly in the built CSS.
 - **Still unverified on a phone.** Both themes are confirmed only on a desktop browser.
 
 **Next:** BACKLOG §9 P2 — `voidLot`/`undoPick` decrementing the nomination index by exactly 1.
+
+---
+
+## Step 26 — Player news, in three tiers
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** injury columns on `players` + `readInjury`/`injurySeverity` in `sleeper.ts`;
+`scripts/refresh-news.ts`; `src/lib/news.ts` + 23 unit tests; `src/server/news-service.ts`;
+`/api/news`; `InjuryBadge` and `PlayerDrawer`. Backlog §1.
+
+**176 unit tests, 78 integration tests passing**, build and lint clean, verified end-to-end against
+a running server.
+
+### The finding that reshaped the whole feature
+
+§1 was written assuming news meant picking a provider and paying for it. It does not. **Sleeper's
+player dump — the same ~14MB file the pool is already seeded from — carries `injury_status`,
+`injury_body_part`, `injury_notes`, `practice_participation` and `news_updated`.** 618 players
+across the NFL, 84 within our 503-player pool.
+
+So the question §1 actually exists to answer — "is this guy hurt?", the one people were alt-tabbing
+to Rotowire for mid-auction — is answerable **with no runtime dependency at all**. It is a stored
+column. On draft night it is already in Postgres and no provider being down can take it away.
+
+That split the feature into tiers, and the ordering matters:
+
+| Tier | Source | Runtime dependency |
+|---|---|---|
+| 1 — is he hurt | Sleeper dump, stored column | **none** |
+| 2 — headlines | ESPN, one request | optional, degrades to empty |
+| 3 — market buzz | Sleeper trending | optional |
+
+**The most important question is the one with no network on its path.** That is the opposite of how
+the section was originally scoped, and it is a much better shape.
+
+### Verifying instead of recalling, without a search engine
+
+§1 said to decide by verifying. I probed the actual endpoints:
+
+- ESPN `/news?limit=100` **caps at 50 articles** but tags **129 distinct athletes** in one request.
+  So one league-wide fetch serves a 500-player pool — which satisfies §1's "never fetch a provider
+  from a request path" for free, rather than needing a pre-fetch job over the pool.
+- ESPN's **per-athlete** news endpoint returns **0 articles**. Had I assumed it worked, the design
+  would have been per-player fetches — exactly the thing §1 bans.
+- Sleeper `trending/add` works and is keyed by `player_id`, which §2's `sleeper_id` now joins to
+  directly.
+
+### Everything a provider touches is quarantined
+
+`news.ts` is pure and network-free; `news-service.ts` is the only file that fetches. Every request
+is individually caught with a 4s timeout, and **a failed refresh keeps the previous snapshot**
+rather than blanking a panel that was fine a moment ago. `/api/news` always returns 200 — a dead
+provider is "no news about this guy", not an error state in the UI.
+
+Backlog §1's rule 1 is now enforced **structurally rather than by discipline**: `news.test.ts` reads
+`draft-service.ts` and fails if it ever imports the news service or grows a `fetch(`.
+
+### The click collision was already solved
+
+§1 worried at length about the pool's row-click meaning "nominate". §4 had already answered it: the
+star is a **sibling button** that stays live while the row is disabled. The ⓘ button is a second
+sibling, and it opens one drawer with several entry points rather than several components.
+
+**Learned:**
+
+- **Read the dependency you already have before shopping for a new one.** The answer to the headline
+  question was inside a file this app has downloaded at every setup since step 2.
+- **Probe the endpoint you intend to build on.** The per-athlete ESPN endpoint returning 0 would
+  have been discovered late and expensively; it took one curl to find.
+- **Next 16's `react-hooks/set-state-in-effect` bites the "reset then fetch" pattern.** Clearing
+  state at the top of an effect is a cascade. Tagging the result with the player it belongs to makes
+  "loading" *derived* instead — and as a bonus makes it impossible to flash player A's headlines
+  under player B's name.
+
+**Watch out for:**
+
+- **Null injury means UNKNOWN, not healthy**, everywhere. `InjuryBadge` renders nothing rather than
+  a green tick, and the drawer says "no injury on file — not a clean bill of health". A pool that
+  has never been refreshed is null on every row.
+- **`npm run news:refresh` requires `sleeper_id`.** It joins on the identity from step 25 and exits
+  non-zero with instructions if *nothing* matched, because the silent version of that failure is
+  every player reading as healthy.
+- The refresh writes **five columns and nothing else** — never ranks, names or teams. It must not
+  quietly reorder the draft board on the morning of the draft because Sleeper disagrees about who is
+  better.
+- Clearing matters as much as setting: a player who was Questionable on Tuesday and fine on Sunday
+  must lose the badge, or the board fills with injuries that resolved weeks ago and nobody trusts it.
+
+**Next:** §8 is all that remains — mobile, push-to-Sleeper, accessibility.

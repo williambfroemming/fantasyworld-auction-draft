@@ -13,6 +13,23 @@ export interface BoardPlayer {
   rank: number | null
   posRank: number | null
   byeWeek: number | null
+  /**
+   * Availability as of the last `npm run news:refresh` (docs/BACKLOG.md §1).
+   *
+   * **Null means unknown, not healthy.** A CSV-seeded pool that has never been
+   * refreshed has null on every row, and painting those as fit would be a
+   * confident wrong answer about the exact thing people are asking.
+   */
+  injury: PlayerInjuryView | null
+}
+
+export interface PlayerInjuryView {
+  status: string
+  bodyPart: string | null
+  notes: string | null
+  practice: string | null
+  /** ISO timestamp of the refresh, so the UI can say "as of" rather than imply live. */
+  updatedAt: string | null
 }
 
 export interface RosterPick {
