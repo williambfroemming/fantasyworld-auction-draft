@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { autoSlot, pickInRow, positionCounts, slotRows } from '@/lib/draft'
-import { perSlotLeft } from '@/lib/stats'
+import { perSlotLeft, spendColumnFor, type SpendColumn } from '@/lib/stats'
 import type { Board, RosterPick } from '@/hooks/useDraft'
 import type { DraftState, StateManager } from '@/server/draft-service'
 import { PositionBadge } from './LotPanel'
@@ -28,8 +28,8 @@ export function SidePanel({
   }, [board, state.managers])
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-900/60">
-      <div className="flex shrink-0 gap-1 border-b border-slate-800 p-2">
+    <div className="rule-strong flex h-full min-h-0 flex-col rounded-2xl border border-rule bg-slate-900/60">
+      <div className="flex shrink-0 gap-1 border-b border-rule p-2">
         {(
           [
             ['me', 'My Roster'],
@@ -58,7 +58,11 @@ export function SidePanel({
           />
         )}
         {tab === 'budgets' && (
-          <Budgets managers={state.managers} rosterSize={state.draft.rosterSize} />
+          <Budgets
+            managers={state.managers}
+            rosterSize={state.draft.rosterSize}
+            byManager={byManager}
+          />
         )}
         {tab === 'picks' && <PickLog board={board} managers={state.managers} />}
       </div>
@@ -98,7 +102,7 @@ function MyRoster({
 
   return (
     <div className="p-3">
-      <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-slate-800 pb-2">
+      <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-rule pb-2">
         <span className="text-sm">
           <span className="font-bold tabular-nums text-slate-100">
             {picks.length}
@@ -138,7 +142,7 @@ function MyRoster({
             const entry = pickInRow(laid, rowIndex)
             const pick = entry ? byId.get(entry.id) : null
             return (
-              <tr key={slot.key} className="border-b border-slate-800/60 last:border-0">
+              <tr key={slot.key} className="border-b border-rule/60 last:border-0">
                 {/* Narrow enough that the name sits next to its slot instead of
                     across a gap — SUPERFLEX is the longest label and still fits. */}
                 <td className="w-[4.5rem] py-1.5 pr-1 align-middle text-[10px] uppercase tracking-wide text-slate-600">
@@ -202,7 +206,7 @@ function RoomMoney({ managers, rosterSize }: { managers: StateManager[]; rosterS
   const sidelined = managers.length - active.length
 
   return (
-    <div className="border-b border-slate-800 bg-slate-900/80 px-3 py-2">
+    <div className="border-b border-rule bg-slate-900/80 px-3 py-2">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[10px] uppercase tracking-wider text-slate-500">
           The room{sidelined > 0 && ` · ${sidelined} full`}
@@ -223,13 +227,80 @@ function RoomMoney({ managers, rosterSize }: { managers: StateManager[]; rosterS
   )
 }
 
-function Budgets({ managers, rosterSize }: { managers: StateManager[]; rosterSize: number }) {
+/**
+ * Where each manager's money has gone, as one thin stacked bar per row.
+ *
+ * Backlog §7 wanted a per-manager positional split on the draft screen and
+ * warned — correctly — that the 10 x 4 matrix from /stats does not fit a 19rem
+ * sidebar; step 20 clipped a column off the Budgets table just by adding a
+ * sixth. A stacked bar is the compact encoding for a four-way split: it costs no
+ * columns at all, riding under the row it belongs to, and answers the only
+ * question worth asking mid-draft — "is he loading up on running backs?" —
+ * without a single number.
+ *
+ * Proportion, not magnitude. Each bar fills its own width, so it says how a
+ * manager split their money, not how much they spent; the $ columns above
+ * already answer that, and scaling these to a league-wide peak would make the
+ * early-draft bars invisible slivers.
+ */
+const SPLIT_SEGMENTS: Array<{ key: SpendColumn; label: string; hex: string }> = [
+  // ⚠️ Not in SPEND_COLUMNS order, deliberately. Rose (QB) against emerald (RB)
+  // is ΔE 4.6 under deuteranopia — indistinguishable for the ~1 in 12 men with
+  // it, and a bar has no room for the labels that make PositionBadge safe.
+  // Interleaving them costs nothing and lifts the worst adjacent pair to 10.6.
+  // Same trick, same reason as SEAT_ORDER in src/lib/colors.ts.
+  { key: 'WR', label: 'WR', hex: '#38bdf8' },
+  { key: 'QB', label: 'QB', hex: '#fb7185' },
+  { key: 'TE', label: 'TE', hex: '#fbbf24' },
+  { key: 'RB', label: 'RB', hex: '#34d399' },
+  // Grey on purpose: K and DEF are the residue, and a residual bucket reading as
+  // "not a real category" is the correct signal, not a palette failure.
+  { key: 'OTHER', label: 'K/DEF', hex: '#64748b' },
+]
+
+function SpendSplit({ picks }: { picks: RosterPick[] }) {
+  const spent = picks.reduce((s, p) => s + p.price, 0)
+  if (spent === 0) return <div className="h-1" />
+
+  const by = picks.reduce<Partial<Record<SpendColumn, number>>>((acc, p) => {
+    const k = spendColumnFor(p.position)
+    acc[k] = (acc[k] ?? 0) + p.price
+    return acc
+  }, {})
+
+  return (
+    <div className="flex h-1 gap-px overflow-hidden rounded-full">
+      {SPLIT_SEGMENTS.map(({ key, label, hex }) => {
+        const v = by[key] ?? 0
+        if (v === 0) return null
+        return (
+          <span
+            key={key}
+            className="h-full"
+            style={{ width: `${(v / spent) * 100}%`, backgroundColor: hex }}
+            title={`${label} $${v} — ${Math.round((v / spent) * 100)}% of $${spent}`}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function Budgets({
+  managers,
+  rosterSize,
+  byManager,
+}: {
+  managers: StateManager[]
+  rosterSize: number
+  byManager: Map<number, RosterPick[]>
+}) {
   return (
     <>
     <RoomMoney managers={managers} rosterSize={rosterSize} />
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+        <tr className="border-b border-rule text-[10px] uppercase tracking-wider text-slate-500">
           <th className="px-2 py-2 text-left">Team</th>
           <th className="px-2 py-2 text-right">Budget</th>
           <th className="px-2 py-2 text-right">Max</th>
@@ -247,12 +318,15 @@ function Budgets({ managers, rosterSize }: { managers: StateManager[]; rosterSiz
           const full = m.rostered >= rosterSize
           const perSlot = perSlotLeft(m.budget, m.rostered, rosterSize)
           return (
-            <tr key={m.id} className="border-b border-slate-800/60">
+            <tr key={m.id} className="border-b border-rule/60">
               <td className="px-2 py-2">
                 <span className="flex items-center gap-2">
                   <span className="h-3 w-1.5 rounded-full" style={{ backgroundColor: m.color }} />
                   <span className="truncate font-medium">{m.displayName}</span>
                 </span>
+                {/* Rides under the name rather than taking a sixth column,
+                    which does not fit — see SpendSplit. */}
+                <SpendSplit picks={byManager.get(m.id) ?? []} />
               </td>
               <td className="px-2 py-2 text-right tabular-nums font-semibold">${m.budget}</td>
               <td
@@ -275,6 +349,15 @@ function Budgets({ managers, rosterSize }: { managers: StateManager[]; rosterSiz
         })}
       </tbody>
     </table>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-2 pt-1 text-[10px] text-slate-500">
+      <span className="uppercase tracking-wider">Spend split</span>
+      {SPLIT_SEGMENTS.map(({ key, label, hex }) => (
+        <span key={key} className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+          {label}
+        </span>
+      ))}
+    </div>
     </>
   )
 }
@@ -328,7 +411,7 @@ function PickLog({ board, managers }: { board: Board | null; managers: StateMana
 
   return (
     <div>
-      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-2 py-2">
+      <div className="sticky top-0 z-10 border-b border-rule bg-slate-900 px-2 py-2">
         <div className="flex flex-wrap gap-1">
           {PICK_FILTERS.map((f) => {
             const n = f === 'ALL' ? all.length : all.filter((p) => p.position === f).length
@@ -359,7 +442,7 @@ function PickLog({ board, managers }: { board: Board | null; managers: StateMana
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-rule text-[10px] uppercase tracking-wider text-slate-500">
               <th className="w-10 cursor-pointer px-2 py-1.5 text-right hover:text-slate-300">
                 <button onClick={() => sortBy('pickNo')}>
                   # <SortArrow active={sort === 'pickNo'} desc={desc} />
@@ -382,7 +465,7 @@ function PickLog({ board, managers }: { board: Board | null; managers: StateMana
             {picks.map((p) => {
               const m = byId.get(p.managerId)
               return (
-                <tr key={p.id} className="border-b border-slate-800/60">
+                <tr key={p.id} className="border-b border-rule/60">
                   <td className="w-10 px-2 py-1.5 text-right tabular-nums text-slate-600">
                     {p.pickNo}
                   </td>

@@ -257,3 +257,151 @@ function splitCsvLine(line: string): string[] {
 function slug(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
+
+// ---------------------------------------------------------------------------
+// Cross-import identity (docs/BACKLOG.md §2, and the hard half of §1)
+// ---------------------------------------------------------------------------
+
+/**
+ * `players.id` is a Sleeper id when synced from Sleeper and a derived slug when
+ * imported from a CSV — and the CSV is the *recommended* path, so in practice
+ * the pool is keyed by slugs no other system has ever heard of. The pool is
+ * re-imported every season, so nothing survives from one year to the next: a
+ * cross-year question ("what did this player cost in 2026 vs 2027") has nothing
+ * reliable to join on, and a news provider has nothing to look the player up by.
+ *
+ * The fix is at the seam we control: resolve every CSV row against the Sleeper
+ * pool at import time and store the Sleeper id alongside the slug. `players.id`
+ * keeps its current meaning — nothing that references it has to change — and
+ * `sleeperId` becomes the one identifier that means the same thing across years.
+ *
+ * ⚠️ **Do not expect this to reach 100%, and do not build anything that needs it
+ * to.** Every consumer must treat a null `sleeperId` as "unknown", not "error".
+ */
+
+/** Suffixes that appear in one source and not the other. */
+const NAME_SUFFIXES = /\s+(jr|sr|ii|iii|iv|v)\.?$/i
+
+/**
+ * Team codes the two sources spell differently.
+ *
+ * Found the hard way: the 2026 backfill resolved 159 of 160 picks, and the one
+ * miss was the Jacksonville defense — FantasyPros writes `JAC`, Sleeper writes
+ * `JAX`. That is not a one-off worth an override entry, it is a systematic
+ * mismatch that would recur every year for the same team, and defenses match on
+ * team code *only* — so a divergence here is a guaranteed miss rather than a
+ * probable one.
+ *
+ * The relocations are here for the archive: a pick recorded in an older season
+ * carries the team as it was written that night.
+ */
+const TEAM_ALIASES: Record<string, string> = {
+  JAC: 'JAX',
+  WSH: 'WAS',
+  LA: 'LAR',
+  ARZ: 'ARI',
+  BLT: 'BAL',
+  CLV: 'CLE',
+  HST: 'HOU',
+  // Relocated franchises, for archived seasons.
+  SD: 'LAC',
+  STL: 'LAR',
+  OAK: 'LV',
+}
+
+/** A team code in the spelling Sleeper uses. */
+export function normalizeTeam(raw: string | null | undefined): string | null {
+  if (!raw) return null
+  const code = raw.trim().toUpperCase()
+  if (!code) return null
+  return TEAM_ALIASES[code] ?? code
+}
+
+/**
+ * The key two sources have to agree on for the same player.
+ *
+ * Lowercased, suffix-stripped, and reduced to letters and digits — which folds
+ * away the apostrophes ("Ja'Marr"), periods ("A.J."), and hyphens
+ * ("Smith-Njigba") that differ between exports and are the single biggest cause
+ * of a naive equality miss.
+ */
+export function playerMatchKey(name: string, position: string): string {
+  const bare = name
+    .trim()
+    .replace(NAME_SUFFIXES, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+  return `${bare}|${position}`
+}
+
+/**
+ * Resolve a pool against the Sleeper pool, returning player id → Sleeper id.
+ *
+ * Matching runs in tiers, most specific first, and **a tier that is ambiguous is
+ * skipped rather than guessed**. Two players sharing a name and position is
+ * exactly the case where a wrong answer is worse than no answer: it would
+ * silently attribute one player's price history to another.
+ *
+ *  1. **Defenses match on team, never on name.** Sleeper keys them by team
+ *     abbreviation with a synthesised "PHI Defense" name, while a CSV says
+ *     "Philadelphia Eagles" or "Eagles D/ST". Those never match as strings, and
+ *     the team code always does.
+ *  2. Name + position + team — unambiguous by construction.
+ *  3. Name + position, only when exactly one Sleeper player has that key.
+ *
+ * `overrides` is applied first and wins outright: budget for a handful of
+ * players that never match rather than for a matcher that gets everyone.
+ */
+export function resolveSleeperIds(
+  pool: PoolPlayer[],
+  sleeper: PoolPlayer[],
+  overrides: Record<string, string> = {},
+): Map<string, string> {
+  const byTeamDef = new Map<string, string>()
+  const byNamePosTeam = new Map<string, string>()
+  const byNamePos = new Map<string, string | null>() // null = ambiguous
+
+  for (const s of sleeper) {
+    if (s.position === 'DEF') {
+      // Sleeper's DEF rows carry the team abbreviation in `team` (and in `id`).
+      const code = normalizeTeam(s.team ?? s.id)
+      if (code) byTeamDef.set(code, s.id)
+      continue
+    }
+    const key = playerMatchKey(s.name, s.position)
+    const team = normalizeTeam(s.team)
+    if (team) byNamePosTeam.set(`${key}|${team}`, s.id)
+    // Second sighting of a name+position makes it ambiguous, and it stays that
+    // way — a later unique-looking entry must not un-poison it.
+    byNamePos.set(key, byNamePos.has(key) ? null : s.id)
+  }
+
+  const out = new Map<string, string>()
+  for (const p of pool) {
+    const override = overrides[p.id]
+    if (override) {
+      out.set(p.id, override)
+      continue
+    }
+
+    if (p.position === 'DEF') {
+      const code = normalizeTeam(p.team)
+      const hit = code ? byTeamDef.get(code) : undefined
+      if (hit) out.set(p.id, hit)
+      continue
+    }
+
+    const key = playerMatchKey(p.name, p.position)
+    const team = normalizeTeam(p.team)
+    const withTeam = team ? byNamePosTeam.get(`${key}|${team}`) : undefined
+    if (withTeam) {
+      out.set(p.id, withTeam)
+      continue
+    }
+    // No team on the row, or they changed team between the two sources — fall
+    // back to name+position, but only if it identifies exactly one player.
+    const unique = byNamePos.get(key)
+    if (unique) out.set(p.id, unique)
+  }
+  return out
+}

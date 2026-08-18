@@ -60,5 +60,31 @@ export function useQueue(boardVersion: string | null | undefined, signedIn: bool
   )
   const prune = useCallback(() => act({ action: 'prune' }), [act])
 
-  return { queue, toggle, prune, busy }
+  /**
+   * Move an entry, optimistically.
+   *
+   * The reorder is applied locally first and the server is told afterwards.
+   * Waiting for the round trip would make a dragged row snap back to where it
+   * started for ~200ms, which reads as the drag having failed and invites a
+   * second drag on top of the first. The POST returns the authoritative queue
+   * and `act` overwrites with it, so a rejected reorder still self-corrects.
+   */
+  const reorder = useCallback(
+    (from: number, to: number) => {
+      let next: QueuedPlayer[] = []
+      setQueue((current) => {
+        if (from === to || from < 0 || from >= current.length) return current
+        const copy = [...current]
+        const [moved] = copy.splice(from, 1)
+        copy.splice(Math.max(0, Math.min(copy.length, to)), 0, moved)
+        next = copy
+        return copy
+      })
+      if (next.length === 0) return Promise.resolve(null)
+      return act({ action: 'reorder', playerIds: next.map((q) => q.playerId) })
+    },
+    [act],
+  )
+
+  return { queue, toggle, prune, reorder, busy }
 }

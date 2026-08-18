@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { SeasonPicker } from '@/components/SeasonPicker'
+import { CurvePanel } from '@/components/stats/CurvePanel'
 import { NominationsPanel } from '@/components/stats/NominationsPanel'
 import { PacePanel } from '@/components/stats/PacePanel'
 import { TeamSpendPanel } from '@/components/stats/TeamSpendPanel'
@@ -10,12 +11,14 @@ import { ValuePanel } from '@/components/stats/ValuePanel'
 import { useDraft } from '@/hooks/useDraft'
 import { useSeasonView } from '@/hooks/useSeasonView'
 import type { StatsInput } from '@/lib/stats'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
-type View = 'teams' | 'pace' | 'nominations' | 'value'
+type View = 'teams' | 'pace' | 'curve' | 'nominations' | 'value'
 
 const VIEWS = [
   ['teams', 'Teams'],
   ['pace', 'Pace'],
+  ['curve', 'Curve'],
   ['nominations', 'Nominations'],
   ['value', 'Value'],
 ] as const
@@ -67,7 +70,7 @@ export default function StatsPage() {
 
   return (
     <main className="flex h-dvh flex-col bg-slate-950 text-slate-100">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-2.5">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <Link
           href="/draft"
           className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold hover:bg-slate-700"
@@ -104,6 +107,7 @@ export default function StatsPage() {
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
+          <ThemeToggle />
           {isArchive ? (
             <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
               Archived · read only
@@ -127,6 +131,8 @@ export default function StatsPage() {
           <TeamSpendPanel input={input} className="h-full" />
         ) : view === 'pace' ? (
           <PacePanel input={input} className="h-full" />
+        ) : view === 'curve' ? (
+          <CurvePanel input={input} className="h-full" />
         ) : view === 'nominations' ? (
           <NominationsPanel input={input} className="h-full" />
         ) : (

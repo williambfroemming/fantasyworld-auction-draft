@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { TradePanel } from '@/components/TradePanel'
 import { useDraft } from '@/hooks/useDraft'
+import { managerTint } from '@/lib/colors'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 /**
  * Trades, on their own page.
@@ -42,7 +44,7 @@ export default function TradesPage() {
 
   return (
     <main className="min-h-dvh bg-slate-950 text-slate-100">
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-2.5">
+      <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <Link
           href="/draft"
           className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold hover:bg-slate-700"
@@ -55,14 +57,17 @@ export default function TradesPage() {
             {state.lot.playerName} is on the block
           </span>
         )}
-        {myManager && (
+        <div className="ml-auto flex items-center gap-3">
+          <ThemeToggle />
+          {myManager && (
           <span
-            className="ml-auto rounded-full px-3 py-1 text-xs font-semibold"
-            style={{ backgroundColor: `${myManager.color}33`, color: myManager.color }}
+            className="rounded-full px-3 py-1 text-xs font-semibold"
+            style={{ backgroundColor: managerTint(myManager.color, 20), color: myManager.color }}
           >
             {myManager.displayName}
           </span>
-        )}
+          )}
+        </div>
       </header>
 
       <div className="mx-auto max-w-4xl p-4">

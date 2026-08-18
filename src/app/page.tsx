@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 interface Seat {
   id: number
@@ -62,7 +63,10 @@ export default function JoinPage() {
   return (
     <main className="min-h-dvh bg-slate-950 text-slate-100 px-4 py-10">
       <div className="mx-auto w-full max-w-md">
-        <h1 className="text-3xl font-bold tracking-tight">Auction Draft</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-3xl font-bold tracking-tight">Auction Draft</h1>
+          <ThemeToggle className="mt-1" />
+        </div>
         <p className="mt-1 text-slate-400">Pick your name to join.</p>
 
         {!picked ? (
@@ -78,7 +82,7 @@ export default function JoinPage() {
                       setPicked(s)
                       setError(null)
                     }}
-                    className="flex h-16 items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-3 text-left transition hover:border-slate-500 hover:bg-slate-800"
+                    className="flex h-16 items-center gap-3 rounded-xl border border-rule bg-slate-900 px-3 text-left transition hover:border-slate-500 hover:bg-slate-800"
                   >
                     <span
                       className="h-8 w-2 shrink-0 rounded-full"
@@ -94,7 +98,7 @@ export default function JoinPage() {
                 ))}
           </div>
         ) : (
-          <div className="mt-8 rounded-xl border border-slate-700 bg-slate-900 p-5">
+          <div className="mt-8 rounded-xl border border-rule bg-slate-900 p-5">
             <div className="flex items-center gap-3">
               <span
                 className="h-9 w-2 rounded-full"
@@ -120,7 +124,7 @@ export default function JoinPage() {
               }}
               onKeyDown={(e) => e.key === 'Enter' && submit()}
               placeholder="••••"
-              className="mt-5 w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-center text-3xl tracking-[0.5em] outline-none focus:border-emerald-500"
+              className="mt-5 w-full rounded-lg border border-rule bg-slate-950 px-4 py-3 text-center text-3xl tracking-[0.5em] outline-none focus:border-emerald-500"
             />
 
             {error && <p className="mt-3 text-sm text-rose-400">{error}</p>}
@@ -132,7 +136,7 @@ export default function JoinPage() {
                   setPin('')
                   setError(null)
                 }}
-                className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+                className="rounded-lg border border-rule px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
               >
                 Back
               </button>

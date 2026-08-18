@@ -14,7 +14,7 @@ import { PositionBadge } from '../LotPanel'
 function ValueHead() {
   return (
     <thead>
-      <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+      <tr className="border-b border-rule text-[10px] uppercase tracking-wider text-slate-500">
         <th className="py-2 pr-2 text-left">Player</th>
         <th className="px-2 py-2 text-right">Rank</th>
         <th className="px-2 py-2 text-right">Paid</th>
@@ -28,7 +28,7 @@ function ValueHead() {
 
 function ValueRow({ v, manager }: { v: ValuedPick; manager?: StatsManager }) {
   return (
-    <tr className="border-b border-slate-800/60">
+    <tr className="border-b border-rule/60">
       <td className="py-1.5 pr-2">
         <span className="flex items-center gap-1.5">
           <PositionBadge position={v.position} />
@@ -74,8 +74,8 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
   const byId = useMemo(() => new Map(input.managers.map((m) => [m.id, m])), [input.managers])
 
   const shell = (children: React.ReactNode) => (
-    <div className={`flex min-h-0 flex-col rounded-xl border border-slate-800 bg-slate-900/60 ${className}`}>
-      <div className="flex shrink-0 flex-wrap items-baseline gap-2 border-b border-slate-800 px-3 py-2">
+    <div className={`flex min-h-0 flex-col rounded-xl border border-rule bg-slate-900/60 ${className}`}>
+      <div className="flex shrink-0 flex-wrap items-baseline gap-2 border-b border-rule px-3 py-2">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           Bargains &amp; overpays
         </h2>
@@ -154,7 +154,7 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
             .map((b) => {
               const m = byId.get(b.managerId)
               return (
-                <tr key={b.managerId} className="border-b border-slate-800/60">
+                <tr key={b.managerId} className="border-b border-rule/60">
                   <td className="py-1.5 pr-2">
                     <span
                       className="inline-block max-w-[9rem] truncate rounded px-1.5 py-0.5 text-xs font-semibold"

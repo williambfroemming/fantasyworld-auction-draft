@@ -15,8 +15,9 @@ import { sql } from 'drizzle-orm'
 import * as schema from '../src/db/schema'
 import { draft, managers, players } from '../src/db/schema'
 import { colorForSeat } from '../src/lib/colors'
-import { parseCsvPool } from '../src/lib/sleeper'
+import { parseCsvPool, resolveSleeperIds } from '../src/lib/sleeper'
 import { fetchPool } from '../src/lib/sleeper'
+import { PLAYER_ID_OVERRIDES } from '../src/lib/player-overrides'
 
 /**
  * The league, in the seating order drawn for 2025. Re-draw for 2026 in /setup —
@@ -69,6 +70,38 @@ async function main() {
 
   if (pool.length === 0) throw new Error('Player pool came back empty — refusing to seed.')
 
+  // ---- cross-season identity (docs/BACKLOG.md §2) -------------------------
+  //
+  // A CSV import keys the pool by a slug derived from the name, which no other
+  // system has heard of and which does not survive next year's re-import. So
+  // resolve every row against Sleeper once, here, and store the Sleeper id
+  // alongside the slug: `players.id` keeps its current meaning and nothing that
+  // references it changes, while `sleeper_id` becomes the one identifier that
+  // means the same thing in 2027.
+  //
+  // Best-effort on purpose. If Sleeper is down, or the seed is being run on a
+  // plane, the pool still imports with every `sleeper_id` null — seeding the
+  // draft must never depend on a third party being up, which is the same rule
+  // §1 puts on the news feed.
+  const sleeperIds = new Map<string, string>()
+  if (csvPath) {
+    try {
+      console.log('resolving player identities against Sleeper…')
+      const resolved = resolveSleeperIds(pool, await fetchPool(), PLAYER_ID_OVERRIDES)
+      for (const [k, v] of resolved) sleeperIds.set(k, v)
+      const missed = pool.length - resolved.size
+      console.log(
+        `✓ identity: ${resolved.size} of ${pool.length} resolved` +
+          (missed > 0 ? ` (${missed} unresolved — expected, see player-overrides.ts)` : ''),
+      )
+    } catch (e) {
+      console.warn(
+        `! could not reach Sleeper (${(e as Error).message}). ` +
+          `Seeding without cross-season ids; run npm run db:migrate-identity later.`,
+      )
+    }
+  }
+
   // Replace the pool wholesale, but never orphan a player anything points at.
   //
   // `picks` spans EVERY season now, so this also protects players drafted years
@@ -89,6 +122,7 @@ async function main() {
       .values(
         pool.slice(i, i + BATCH).map((p) => ({
           id: p.id,
+          sleeperId: sleeperIds.get(p.id) ?? null,
           name: p.name,
           team: p.team,
           position: p.position,
@@ -101,6 +135,9 @@ async function main() {
       .onConflictDoUpdate({
         target: players.id,
         set: {
+          // COALESCE, not a plain overwrite: a re-import that could not reach
+          // Sleeper must not wipe an id an earlier run resolved.
+          sleeperId: sql`COALESCE(excluded.sleeper_id, players.sleeper_id)`,
           name: sql`excluded.name`,
           team: sql`excluded.team`,
           position: sql`excluded.position`,

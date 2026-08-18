@@ -97,6 +97,85 @@ d('commish-service (real Postgres)', () => {
     })
 
     /**
+     * docs/BACKLOG.md §9 P2, reproduced.
+     *
+     * `nomination_index - 1` is right only while the cursor sits exactly one
+     * past the seat that nominated. Nomination sets it to *the seat it landed
+     * on* plus one, so a nomination that skipped four full rosters moves the
+     * cursor by five — and one `- 1` per undo cannot walk that back.
+     *
+     * Two undos in a row is the shortest sequence that shows it: the first
+     * lands correctly, the second lands mid-skip-run and hands the turn to a
+     * manager who never had it. `lots.nomination_index` is the recorded answer.
+     */
+    it('hands the turn back across a skip run, not one index at a time', async () => {
+      // Seats 1-4 cannot nominate: full rosters, so the snake skips them.
+      const full = managers.slice(1, 5)
+      const bench = (await sql`
+        SELECT id, name, team, position FROM players
+        ORDER BY search_rank OFFSET 100 LIMIT ${full.length * 16}`) as Array<{
+        id: string
+        name: string
+        team: string
+        position: string
+      }>
+      let n = 0
+      for (const m of full) {
+        for (let i = 0; i < 16; i++) {
+          const p = bench[n++]
+          await sql`
+            INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
+                               player_position, manager_id, nominator_id, price)
+            VALUES ((SELECT season FROM draft WHERE id=1), ${1000 + n}, ${p.id}, ${p.name},
+                    ${p.team}, ${p.position}, ${m.id}, ${m.id}, 1)`
+        }
+      }
+
+      // Seat 0 nominates at index 0; the cursor moves to 1.
+      const first = await getState()
+      const seat0 = first.onTheClock!.managerId
+      expect(seat0).toBe(managers[0].id)
+      const a = await openLot(0)
+      expect((await awardLot(a.nominator, a.lotId, managers[9].id, 1)).ok).toBe(true)
+
+      // Next nomination skips seats 1-4 and lands on seat 5 at index 5, so the
+      // cursor jumps 1 -> 6. This is the gap that `- 1` cannot cross.
+      const second = await getState()
+      expect(second.onTheClock!.managerId).toBe(managers[5].id)
+      expect(second.onTheClock!.index).toBe(5)
+      const b = await openLot(1)
+      expect((await awardLot(b.nominator, b.lotId, managers[9].id, 1)).ok).toBe(true)
+
+      // First undo: back to seat 5. Correct under either implementation.
+      expect((await commish.undoLastPick()).ok).toBe(true)
+      expect((await getState()).onTheClock!.managerId).toBe(managers[5].id)
+
+      // Second undo: must be seat 0. The old `- 1` gives index 4, which is a
+      // full seat, so the scan skips forward and returns seat 5 a second time.
+      expect((await commish.undoLastPick()).ok).toBe(true)
+      const back = await getState()
+      expect(back.onTheClock!.managerId).toBe(seat0)
+      expect(back.onTheClock!.index).toBe(0)
+    })
+
+    /**
+     * Undoing the final pick must un-finish the draft. The award path now flips
+     * `status` to 'done' (§9 P1) and 'done' refuses nominations — so without
+     * the matching reversal the league would be one player short and unable to
+     * ever draft them.
+     */
+    it('reopens a draft that the last pick had completed', async () => {
+      const { lotId, nominator } = await openLot()
+      expect((await awardLot(nominator, lotId, nominator, 3)).ok).toBe(true)
+      // Stand in for "that was the 160th pick" — the award path sets this
+      // itself only when every roster is full, which is 160 inserts away.
+      await sql`UPDATE draft SET status = 'done' WHERE id = 1`
+
+      expect((await commish.undoLastPick()).ok).toBe(true)
+      expect((await getState()).draft.status).toBe('live')
+    })
+
+    /**
      * A traded player's salary is pinned by a pair of budget_adjustments that
      * reference this pick. Deleting the pick would orphan them and silently
      * shift both managers' budgets for the rest of the draft.
@@ -160,6 +239,67 @@ d('commish-service (real Postgres)', () => {
     })
   })
 
+  /**
+   * docs/BACKLOG.md §9 P1. `setStatus` used to be the only writer of
+   * `draft.status`, so the database never learned the draft had ended — the
+   * 2026 draft was closed by hand. The screen was already right, because it
+   * asks "is anybody unfilled?" rather than trusting the flag; this makes the
+   * flag agree with it.
+   */
+  describe('finishing', () => {
+    it('flips the draft to done when the award fills the last slot', async () => {
+      // Every seat to 16 except the last, which is left one short: one bulk
+      // insert rather than ~159 round trips over the HTTP driver.
+      // OFFSET 20 skips the players `openLot` draws from and leaves plenty of
+      // headroom in a ~500-row pool. An OFFSET that overshoots would insert
+      // fewer picks than asked for and quietly leave several seats unfilled,
+      // so the row count is asserted rather than assumed.
+      const wanted = managers.length * 16 - 1
+      const filled = await sql`
+        WITH seats AS (
+          SELECT id, row_number() OVER (ORDER BY draft_slot) - 1 AS seat FROM managers
+        ), pool AS (
+          SELECT id, name, team, position,
+                 row_number() OVER (ORDER BY search_rank) - 1 AS rn
+          FROM (SELECT id, name, team, position, search_rank FROM players
+                ORDER BY search_rank OFFSET 20 LIMIT ${wanted}) x
+        )
+        INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
+                           player_position, manager_id, nominator_id, price)
+        SELECT (SELECT season FROM draft WHERE id = 1), 4000 + pool.rn,
+               pool.id, pool.name, pool.team, pool.position, seats.id, seats.id, 1
+        FROM pool JOIN seats ON seats.seat = pool.rn / 16
+        RETURNING id`
+      expect(filled).toHaveLength(wanted)
+
+      const before = await getState()
+      expect(before.draft.status).toBe('live')
+      // Exactly one manager can still bid, so the snake must land on them.
+      const unfilled = before.managers.filter((m) => m.rostered < before.draft.rosterSize)
+      expect(unfilled).toHaveLength(1)
+      expect(before.onTheClock!.managerId).toBe(unfilled[0].id)
+
+      const { lotId, nominator } = await openLot()
+      const res = await awardLot(nominator, lotId, unfilled[0].id, 1)
+      expect(res.ok).toBe(true)
+      expect(res.ok === true && res.data.draftComplete).toBe(true)
+
+      const after = await getState()
+      expect(after.draft.status).toBe('done')
+      // And the two states stop being indistinguishable: nobody is on the
+      // clock *because* it is finished, not because the app lost the turn.
+      expect(after.onTheClock).toBeNull()
+    })
+
+    it('leaves a paused draft alone, and does not fire twice', async () => {
+      const { lotId, nominator } = await openLot()
+      const res = await awardLot(nominator, lotId, nominator, 1)
+      // Nowhere near full, so nothing should have flipped.
+      expect(res.ok === true && res.data.draftComplete).toBe(false)
+      expect((await getState()).draft.status).toBe('live')
+    })
+  })
+
   describe('order control', () => {
     it('skips a nominator who has stepped away', async () => {
       const before = await getState()
@@ -171,6 +311,85 @@ d('commish-service (real Postgres)', () => {
     it('refuses to skip while a lot is live', async () => {
       await openLot()
       expect((await commish.skipNominator()).ok).toBe(false)
+    })
+
+    /**
+     * The same "the cursor is not the seat" bug as §9 P2, on the skip path.
+     *
+     * With the cursor behind the seat actually on the clock — which is what a
+     * nomination that skipped full rosters leaves behind — `nomination_index +
+     * 1` moves the cursor into the run of full seats it was already scanning
+     * past, and resolves to the same manager. The button appears dead.
+     */
+    it('skips past the seat on the clock, not past the raw cursor', async () => {
+      // Cursor at 1 with seats 1-3 full puts seat 4 on the clock at index 4.
+      const bench = (await sql`
+        SELECT id, name, team, position FROM players
+        ORDER BY search_rank OFFSET 200 LIMIT 48`) as Array<{
+        id: string
+        name: string
+        team: string
+        position: string
+      }>
+      let n = 0
+      for (const m of managers.slice(1, 4)) {
+        for (let i = 0; i < 16; i++) {
+          const p = bench[n++]
+          await sql`
+            INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
+                               player_position, manager_id, nominator_id, price)
+            VALUES ((SELECT season FROM draft WHERE id=1), ${2000 + n}, ${p.id}, ${p.name},
+                    ${p.team}, ${p.position}, ${m.id}, ${m.id}, 1)`
+        }
+      }
+      await sql`UPDATE draft SET nomination_index = 1 WHERE id = 1`
+
+      const before = await getState()
+      expect(before.onTheClock!.managerId).toBe(managers[4].id)
+      expect(before.onTheClock!.index).toBe(4)
+
+      expect((await commish.skipNominator()).ok).toBe(true)
+
+      const after = await getState()
+      expect(after.onTheClock!.managerId).toBe(managers[5].id)
+    })
+
+    /**
+     * Void returns the turn to whoever nominated, across a skip run — the
+     * voidLot half of §9 P2.
+     */
+    it('returns the turn to the nominator after voiding across a skip run', async () => {
+      const bench = (await sql`
+        SELECT id, name, team, position FROM players
+        ORDER BY search_rank OFFSET 300 LIMIT 48`) as Array<{
+        id: string
+        name: string
+        team: string
+        position: string
+      }>
+      let n = 0
+      for (const m of managers.slice(1, 4)) {
+        for (let i = 0; i < 16; i++) {
+          const p = bench[n++]
+          await sql`
+            INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
+                               player_position, manager_id, nominator_id, price)
+            VALUES ((SELECT season FROM draft WHERE id=1), ${3000 + n}, ${p.id}, ${p.name},
+                    ${p.team}, ${p.position}, ${m.id}, ${m.id}, 1)`
+        }
+      }
+      await sql`UPDATE draft SET nomination_index = 1 WHERE id = 1`
+
+      const before = await getState()
+      const who = before.onTheClock!.managerId
+      expect(who).toBe(managers[4].id)
+
+      await openLot(0)
+      expect((await commish.voidLot()).ok).toBe(true)
+
+      const after = await getState()
+      expect(after.onTheClock!.managerId).toBe(who)
+      expect(after.onTheClock!.index).toBe(before.onTheClock!.index)
     })
 
     it('voids the current lot without awarding it', async () => {

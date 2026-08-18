@@ -133,7 +133,7 @@ export interface TeamSpendRow {
   drift: number
 }
 
-function spendColumnFor(position: string): SpendColumn {
+export function spendColumnFor(position: string): SpendColumn {
   return (MARKET_POSITIONS as readonly string[]).includes(position)
     ? (position as SpendColumn)
     : 'OTHER'
@@ -234,6 +234,93 @@ export function spendBlocks(picks: StatsPick[], blockSize: number): SpendBlock[]
 export function perSlotLeft(budget: number, rostered: number, rosterSize: number): number {
   const slotsLeft = Math.max(0, rosterSize - rostered)
   return slotsLeft === 0 ? 0 : budget / slotsLeft
+}
+
+// ---------------------------------------------------------------------------
+// View 2b — the cumulative spend curve
+// ---------------------------------------------------------------------------
+
+/** A step in a cumulative curve: after `pickNo`, this much had been spent. */
+export interface CurvePoint {
+  pickNo: number
+  spent: number
+}
+
+export interface ManagerCurve {
+  managerId: number
+  /**
+   * Step points, starting at `{ pickNo: 0, spent: 0 }` and gaining one entry per
+   * pick this manager bought. A manager's total only changes when *they* buy, so
+   * the line is flat between their own picks — that flatness is the signal, and
+   * it is why these are steps rather than a smoothed line through their picks.
+   */
+  points: CurvePoint[]
+  total: number
+  /**
+   * Pick number at which they had spent half their eventual total — a single
+   * number for "did they buy early or late". Null if they never bought.
+   */
+  halfwayPick: number | null
+}
+
+export interface SpendCurveReport {
+  /** Cumulative spend across the whole league, one point per pick. */
+  league: CurvePoint[]
+  managers: ManagerCurve[]
+  /** Last pick number seen, so every curve can be drawn to a common x-max. */
+  lastPick: number
+  /** Highest total any one manager reached — the y-max for the per-manager panels. */
+  peak: number
+}
+
+/**
+ * Cumulative spend over the course of the draft, league-wide and per manager.
+ *
+ * This is the "who bought early" view. `spendBlocks` answers what the *market*
+ * was doing in a window; this answers what a *person* was doing across the whole
+ * night, and the shape is the point: a steep early curve that flattens is
+ * someone who spent their budget in the first three rounds, and a flat line that
+ * kicks up at the end is someone who sat on their money.
+ *
+ * ⚠️ Attributes to the **drafter**, via `draftersByPick`, like every other money
+ * question here. Using `pick.managerId` would move a traded player's salary onto
+ * their new team and redraw two managers' whole curves from the trade onward,
+ * which is a silent wrong answer rather than a visible one.
+ */
+export function spendCurve(input: StatsInput): SpendCurveReport {
+  const drafter = draftersByPick(input.picks, input.trades)
+  const ordered = [...input.picks].sort((a, b) => a.pickNo - b.pickNo)
+  const lastPick = ordered.length ? ordered[ordered.length - 1].pickNo : 0
+
+  const league: CurvePoint[] = []
+  let runningLeague = 0
+  for (const p of ordered) {
+    runningLeague += p.price
+    league.push({ pickNo: p.pickNo, spent: runningLeague })
+  }
+
+  const managers = input.managers.map((m) => {
+    const mine = ordered.filter((p) => drafter.get(p.id) === m.id)
+    const points: CurvePoint[] = [{ pickNo: 0, spent: 0 }]
+    let running = 0
+    for (const p of mine) {
+      running += p.price
+      points.push({ pickNo: p.pickNo, spent: running })
+    }
+    // The first pick at which they were half-done spending. Computed against
+    // their final total, so it is only meaningful once they have stopped —
+    // mid-draft it simply tracks the halfway point of what they have spent so far.
+    const half = running / 2
+    const halfwayPick = points.find((pt) => pt.pickNo > 0 && pt.spent >= half)?.pickNo ?? null
+    return { managerId: m.id, points, total: running, halfwayPick }
+  })
+
+  return {
+    league,
+    managers,
+    lastPick,
+    peak: Math.max(1, ...managers.map((m) => m.total)),
+  }
 }
 
 export interface ManagerPace {

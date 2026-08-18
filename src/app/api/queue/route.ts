@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { addToQueue, getQueue, pruneQueue, removeFromQueue } from '@/server/queue-service'
+import {
+  QUEUE_LIMIT,
+  addToQueue,
+  getQueue,
+  pruneQueue,
+  removeFromQueue,
+  reorderQueue,
+} from '@/server/queue-service'
 import { currentManagerId } from '@/server/session'
 
 /**
@@ -30,6 +37,11 @@ const Body = z.discriminatedUnion('action', [
   z.object({ action: z.literal('add'), playerId: z.string().min(1) }),
   z.object({ action: z.literal('remove'), playerId: z.string().min(1) }),
   z.object({ action: z.literal('prune') }),
+  // The whole order, not a move instruction — see reorderQueue.
+  z.object({
+    action: z.literal('reorder'),
+    playerIds: z.array(z.string().min(1)).max(QUEUE_LIMIT),
+  }),
 ])
 
 export async function GET() {
@@ -57,7 +69,9 @@ export async function POST(req: Request) {
       ? await addToQueue(managerId, body.playerId)
       : body.action === 'remove'
         ? await removeFromQueue(managerId, body.playerId)
-        : await pruneQueue(managerId)
+        : body.action === 'reorder'
+          ? await reorderQueue(managerId, body.playerIds)
+          : await pruneQueue(managerId)
 
   if (!result.ok) return NextResponse.json(result, { headers: NO_STORE })
 

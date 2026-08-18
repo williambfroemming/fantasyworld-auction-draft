@@ -632,3 +632,493 @@ looked like a bug.
   changes both, which is the point.
 
 **Next:** unchanged — §9's P2, and the cumulative-spend curve.
+
+---
+
+## Step 21 — Undo hands the turn back, and the draft knows when it is over
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** `lots.nomination_index` + `scripts/migrate-lot-index.ts`; rewrote `voidLot`,
+`undoLastPick` and `skipNominator` in `commish-service.ts`; the auto-`done` flip in `awardLot`.
+Backlog §9 P2 and the rest of §9 P1.
+
+**130 unit tests and 72 integration tests passing**, `db:verify` green, migration applied to both
+databases.
+
+### §9 P2 — the cursor is not the seat
+
+`nomination_index` is a cursor that `nominatorAt` scans *forward* from; the seat it lands on can be
+several indices later, because full rosters are skipped on the way. Nomination then parks the cursor
+at **landed + 1**. So the distance a nomination moves the cursor is not 1, and `- 1` cannot undo it.
+
+Worth writing down what I got wrong first: I assumed the bug was visible in a single
+nominate-then-void, and it is not. In that sequence `- 1` returns the cursor to the landed index,
+`nominatorAt` finds that seat unfilled, and the right manager is on the clock. **The shortest
+sequence that actually breaks is two undos in a row across a skip run**, which is now the test:
+seat 0 nominates at index 0, the next nomination skips four full rosters to land at index 5, and the
+cursor is at 6. First undo → 5 → seat 5, correct. Second undo → 4 → a *full* seat → the scan skips
+forward and returns seat 5 **a second time**. Seat 0 never gets their turn back.
+
+The fix is to stop deriving and start recording: `lots.nomination_index` stores the index the lot
+was opened at, and void/undo restore it exactly. Nullable, with `COALESCE(..., GREATEST(0, idx - 1))`
+falling back to the old behaviour for the 160 lots from 2026 that predate the column.
+
+**The migration deliberately does not backfill.** The index a 2026 lot was nominated at is *not*
+recoverable: `draft.nomination_index` is one moving cursor with no history, and skipped seats mean
+pick order cannot be replayed onto it. A guessed backfill would look exactly like a real one and
+would send undo to a plausible wrong seat — worse than NULL, which at least selects the old
+behaviour honestly.
+
+### The same bug on the skip path, found while fixing it
+
+`skipNominator` did `nomination_index + 1`. With the cursor at 1 and seats 1–3 full, seat 4 is on
+the clock; +1 moves the cursor to 2, which still resolves to seat 4. **The skip button does nothing,
+repeatedly, in front of the room.** It now advances past `onTheClock.index`, the same way `nominate`
+does. This was never reported from draft night, which is its own lesson — it fails silently and
+looks like a mis-click.
+
+### §9 P1 — the flag now agrees with the screen
+
+`awardLot` flips `draft.status` to `'done'` when the award fills the last slot in the league, guarded
+on `status = 'live'` and asking `manager_totals` "is anybody below `roster_size`?" — the same
+definition `nominatorAt` uses, not a pick count, so it stays right after a trade.
+
+**Nothing was changed to trust the flag.** `stats.ts` and `LotPanel` still ask the roster question
+directly, because an archived season has no live status and a commissioner can still set it by hand.
+This makes the flag a *record* that the draft finished, not a source of truth.
+
+**`undoLastPick` had to flip it back**, and that is the part that would have bitten later: 'done'
+refuses nominations, so undoing the final pick without reopening the draft would leave the league one
+player short and permanently unable to draft them. It is folded into the same statement.
+
+### Both rewinds became single statements
+
+`undoLastPick` was three statements (delete pick, void lot, move cursor) and `voidLot` was two.
+Both are now one data-modifying CTE, per the Neon rule in AGENTS.md — a void that half-applied
+would cancel a lot without returning the turn, which in the room reads as the app skipping someone.
+
+**Learned:**
+
+- **A cursor and the thing it points at are different values, and mixing them is a whole bug
+  family.** Three functions had it: void, undo, and skip. Anywhere that does arithmetic on
+  `nomination_index` instead of reading `onTheClock.index` is suspect.
+- **Reason about the shortest failing sequence before writing the test.** I nearly wrote a
+  single-void test, which passes against the *old* code and would have shipped the bug with a green
+  suite behind it — the same trap step 18 recorded for the P0 stall, where the two obvious draft
+  shapes both passed.
+- **An `OFFSET` into a fixture pool fails open.** `OFFSET 400 LIMIT 159` against 503 players silently
+  inserted 103 rows and left four seats unfilled, and the test failed several assertions later with a
+  confusing message. Assert the inserted row count.
+
+**Watch out for:**
+
+- **`lots.nomination_index` is NULL for every 2026 lot** and for any lot opened before this deploy.
+  The `COALESCE` fallback is load-bearing, not decorative — do not "simplify" it away.
+- **`awardLot` now returns `draftComplete`.** Nothing renders it yet; the screen still derives
+  completion from rosters, deliberately.
+- `skipNominator` now reads `getState()`, so `commish-service` imports from `draft-service`. That
+  direction only — `draft-service` must not import back.
+
+**Next:** §7's cumulative spend curve and the sidebar positional split, then §4's queue reorder and
+nominate-from-queue, then §2's cross-import player identity.
+
+---
+
+## Step 22 — The spend curve, and where everyone's money went
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** `spendCurve()` in `src/lib/stats.ts` + 6 unit tests; `src/components/stats/CurvePanel.tsx`
+behind a new **Curve** tab on `/stats`; `SpendSplit` in `SidePanel.tsx`. Backlog §7's two remaining
+items — the cumulative curve that was deliberately deferred, and the per-manager positional split on
+the draft screen.
+
+**136 unit tests passing**, build clean, lint clean.
+
+### The curve is small multiples, not ten lines
+
+Ten overlapping series is spaghetti at any size. The league palette passes every colour-separation
+check (I ran the validator: worst adjacent pair ΔE 10.2 under protanopia, 17.8 normal vision) but it
+was designed to label **columns on a wide grid**, not to disambiguate ten crossing lines. So: one
+small panel per manager, all sharing the same axes so the shapes compare directly, each one named —
+identity never rests on colour.
+
+The league total gets its own full-width chart **with a straight reference line from origin to final
+total**. That line is the whole design: a cumulative curve on its own only ever goes up and says
+nothing. The gap to the reference is the finding.
+
+Checked against the real 2026 draft before calling it done, since there is no browser here to look
+with — an ASCII render of the same function:
+
+```
+cumulative % of league spend:  pick 16 → 29%   pick 48 → 68%   pick 96 → 91%
+Gabes  $200  ½ by pick 15      Bolek  $200  ½ by pick 41
+```
+
+**68% of $1,993 was gone by pick 48 of 160.** The room front-loads hard, and the halfway-pick spread
+(15 to 41) is real variation between managers — so the view has something to say rather than ten
+identical ramps.
+
+### Steps, not a line
+
+A manager's total only changes when *they* buy. Drawing a smooth line through their picks would
+render money leaving the room during picks that belonged to somebody else. `stepPath` is step-after,
+and extends flat to the final pick so somebody who stopped buying shows a long flat tail rather than
+a line that ends early and reads as missing data.
+
+### The sidebar split had to be a bar, not a table
+
+§7 warned that the 10 × 4 matrix does not fit a 19rem sidebar, and step 20 proved it by clipping a
+column off Budgets just by adding a sixth. A stacked bar costs **no columns** — it rides under the
+manager's name in the cell that already exists.
+
+**The colour ordering is load-bearing and was not obvious.** Running the palette validator on the
+position tints from `PositionBadge` turned up rose (QB) against emerald (RB) at **ΔE 4.6 under
+deuteranopia** — below even the 6–8 "legal with secondary encoding" floor. `PositionBadge` is fine
+because it carries the position as *text*; a 4px bar has no room for a label. Interleaving the
+segments to `WR · QB · TE · RB · K/DEF` lifts the worst adjacent pair to 10.6 and costs nothing.
+This is the same trick, for the same reason, as `SEAT_ORDER` in `src/lib/colors.ts` — which the
+codebase had already worked out once for seats and I nearly re-learned the hard way.
+
+**Learned:**
+
+- **Run the palette validator even on colours the codebase already uses.** The QB/RB pair has been
+  on screen since the first build and is perfectly safe *there*, because it is always labelled. The
+  same two hues in an unlabelled bar are a real accessibility defect. Safety is a property of the
+  mark, not of the hex.
+- **A stacked bar showing proportion must not be scaled to a league peak.** Each bar fills its own
+  width; scaling to the biggest spender would make every early-draft bar an invisible sliver, and
+  the $ columns directly above already answer "how much".
+- No headless browser is available in this environment, so the curve was verified numerically
+  against the live 2026 data rather than by looking. **The geometry still wants an eyeball** — see
+  below.
+
+**Watch out for:**
+
+- **`spendCurve` attributes to the drafter via `draftersByPick`**, like every other money view. There
+  is a unit test that fails if that is "simplified" to `pick.managerId` — a trade would otherwise
+  redraw two managers' whole curves from the trade onward.
+- `SPLIT_SEGMENTS` order is a colour-vision fix, not a display preference. Re-sorting it to match
+  `SPEND_COLUMNS` reintroduces the ΔE 4.6 pair.
+- The SVGs use `preserveAspectRatio="none"` with `vector-effect="non-scaling-stroke"`: the plot
+  stretches to the container and the 2px lines stay 2px. Dropping the vector-effect makes strokes
+  scale with the box and go fuzzy at small panel sizes.
+
+**Next:** §4's queue reorder and nominate-from-queue, then §2's cross-import player identity.
+
+---
+
+## Step 23 — The queue reorders, and nominates
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** `reorderQueue()` + a `reorder` action on `/api/queue`; optimistic `reorder` in
+`useQueue`; drag handles and a per-row **Nominate** button in `PlayerPool`. Backlog §4's two
+remaining items — the last of §4 is now closed.
+
+**136 unit tests, 78 integration tests passing** (6 new, all on reorder), build and lint clean.
+
+### Reorder sends the whole order, not a move
+
+"Move this one to index 3" has to be applied against a base the server also has, and two quick drags
+race. Sending the full list means the last request simply wins, and there is nothing to reconcile.
+
+**The interesting bug was found by a test I nearly did not write.** The first implementation wrote
+`sort_order` only for the ids it was given, which is correct whenever the client's list is complete —
+and the client's list *is* complete, until it isn't. A star added in a second tab, or between the
+fetch and the drop, leaves one entry unnamed; the positions the reorder writes then **collide with
+the ones it left alone**, two rows share a `sort_order`, and the order is settled by the `q.id`
+tiebreak rather than by the person who just dragged. It would have looked like an occasional
+mysterious re-shuffle and been nearly impossible to reproduce on purpose.
+
+So a reorder now renumbers the **whole** queue in one statement: named entries take positions 1..n,
+and anything unnamed keeps its relative order at `UNNAMED_BASE + rank` — behind them, which is
+exactly where a newly starred player would have been anyway.
+
+### Privacy holds on the write path too
+
+`reorderQueue` filters on the session manager id like everything else here, so ids the caller does
+not own match no row. The test asserts the stronger property: it returns `moved: 0` rather than
+reporting how many of the sent ids existed. A count would have been a working oracle for reading
+somebody else's queue one id at a time.
+
+### Nominate straight from the shortlist
+
+The ★ view already showed the list; selecting from it still went through the pool's
+select-then-confirm tray. Queue rows now carry their own **Nominate** button when it is your turn.
+
+Deliberately a distinct labelled button rather than making the row itself one-tap: the row gesture
+means "select" everywhere else in the pool, and a mis-click that puts the wrong player on the block
+in front of the room needs the commissioner to void it. One tap from a list you built on purpose is
+the payoff; one tap from a 500-row pool would be a hazard.
+
+**Learned:**
+
+- **"The client always sends the full list" is an assumption, not a guarantee**, and the failure it
+  produces is a silent tie rather than an error. Any partial-update statement wants a test that
+  feeds it a partial input.
+- **A count can be an oracle.** Returning how many of the given ids matched would leak the contents
+  of another manager's queue to anyone willing to send one id at a time — the same class of leak §4
+  exists to prevent, arriving through the write path instead of the read path.
+- Optimistic reorder is worth the extra code here: waiting on the round trip snaps the dragged row
+  back for ~200ms, which reads as a failed drag and invites a second drag on top of the first.
+
+**Watch out for:**
+
+- **Dragging is offered only when the queue filter is on and the search box is empty** (`canDrag`).
+  Indices are positions in the queue, so reordering a filtered subset would move entries relative to
+  rows that are not on screen.
+- `UNNAMED_BASE` is 1,000,000 against a queue capped at 60. It is a sentinel, not a magic number to
+  tune — the gap is what makes a collision impossible.
+- The **Nominate** button is gated on `filter === 'QUEUE' && canNominate && !p.gone`. Loosening the
+  first condition puts a one-tap nomination beside all 300 pool rows.
+
+**Next:** §2's cross-import player identity — the last open item that is not §1 or §8.
+
+---
+
+## Step 24 — Sunday Broadsheet: the app gets a visual identity, and a light theme
+
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** the whole app reskinned as a sports page — **Broadsheet** on newsprint (`#f2ede3`) in
+light, **Late Edition** on press-black (`#17150f`) in dark. New type: Oswald (condensed gothic) for
+heads and labels, Source Serif 4 for body, Geist Mono for agate. `managers.color` became
+theme-aware. The runner-up direction is parked with its palette in **BACKLOG §10**.
+
+**149 unit tests passing**, typecheck and build clean, smoke-tested against the live database.
+
+### The complaint was "it looks like every other website", and it was correct
+
+The board wore Tailwind's factory setting — `slate` ground, `emerald` accent, `rounded-lg`
+everywhere. That is the house style of roughly every dark-mode SaaS app, and swapping the hue only
+produces a different anonymous app. The fix had to come from type and structure, not colour.
+
+### The ramp is semantic by POSITION, which is what makes one theme flip into two
+
+~4,200 lines of TSX hardcode `bg-slate-950` / `text-slate-100`. Rather than touch any of it, the
+built-in scales are redefined in `globals.css` and the ramp is read as a role, not a lightness:
+
+```
+slate-950 page · 900 panel · 800 raised+rule · 700 strong rule
+600/500 muted · 400/300 secondary · 200/100/50 primary text
+```
+
+**Light mode inverts that ramp** — 950 becomes the lightest value, 100 the darkest. So
+`bg-slate-950 text-slate-100` is correct in both themes with zero component changes. The light
+values in the file look upside-down and are not.
+
+The **accent** ramps deliberately do *not* invert: `emerald-600` and friends stay dark fills in
+both themes because they carry `text-white`. Only `emerald-100` and `rose-200` stay light, for the
+one reversed-chip pattern in the test console.
+
+The same trick squared the corners. Zeroing `--radius-*` in `@theme` flattens every
+`rounded-sm|md|lg|xl|2xl|3xl` at once, while `rounded-full` — a static utility, not a scale entry —
+keeps dots and progress bars round. Boxes go square, circles stay circles, no component edits.
+
+### The palette was generated and validated, not eyeballed
+
+A script defines both themes, checks every pairing the app actually uses, and emits the CSS. It
+caught nine real failures on the first run — the muted tiers on raised surfaces, white text on
+hover fills, `text-X-300` on its own `/15` wash in light mode, and a rule so close to the ground it
+was invisible. Rather than tune-and-squint, the source of truth is the validated table.
+
+### `managers.color` was the real cost of a light theme, exactly as predicted
+
+The ten hues live in the **database**, are tuned for a dark ground, and vanish on newsprint. They
+also satisfy four constraints at once (ten distinguishable, readable as text *and* as a fill behind
+their own ink, never colour-alone). So there are now two sets, as `--mgr-*` variables that swap on
+`prefers-color-scheme`, and `managerColor()` maps the stored hex to the variable **once, at the
+serialisation boundary** in `draft-service` and `archive-service`. Every component that does
+`style={{ color: m.color }}` became theme-correct without knowing any of this exists.
+
+**Learned:**
+
+- **A colour comparison has to be rendered, not described.** Three rounds of prose got nowhere; one
+  page showing the same board under four palettes settled it in minutes. The decisive artifact was
+  the *same markup* under swapped tokens — anything else compares layout as well as colour.
+- **The generator caught a bug that reads as correct.** The ink-picker chose text for a manager
+  swatch from the theme-inverted `slate` ramp, so light mode put near-black text on near-black
+  fills. Ink laid ON a colour must be picked from *that colour's own* luminance, absolutely — it is
+  the one value in the system that must not follow the theme.
+- **`textOn`'s old 0.45 threshold was already failing AA.** White on `#f87171` is 2.8:1, and that
+  has been shipping. 0.25 puts near-black on all ten, which is both correct and what the mockups
+  had.
+- **Hex-alpha string concatenation is a trap that only springs later.** `` `${m.color}33` `` worked
+  for a year and produced silent garbage the moment the colour became a `var()`. `color-mix()`
+  takes either.
+- Geist was being downloaded and never rendered — `globals.css` overrode `body` with
+  `Arial, Helvetica, sans-serif`, straight from `create-next-app`. Worth grepping for the
+  boilerplate you inherited rather than assuming it is inert.
+
+**Watch out for:**
+
+- **The light ramp is inverted on purpose.** `--s-950: #f2ede3` is not a typo. Anyone "fixing" it
+  to a dark value inverts every page at once.
+- **`--mgr-*` has two sets that must stay in sync.** Adding an eleventh manager colour means adding
+  it in three places: `PALETTE` in `colors.ts`, and both blocks in `globals.css`. Miss the light
+  block and that manager is invisible on newsprint.
+- **`colorForSeat()` must keep returning a raw hex.** It is what gets written to `managers.color`,
+  and that value has to survive outside a browser — exports, scripts, `db:verify`. Only
+  `managerColor()` returns a `var()`.
+- **`var()` does not reliably resolve in an SVG presentation *attribute*.** `CurvePanel` had
+  `stroke={color}` and now goes through `style={{ stroke: color }}`. Any new SVG that takes a
+  manager colour has the same constraint.
+- **`.uppercase` carries the display face** by a rule in `globals.css`, because in this app every
+  use of it is a label or badge. Set body copy in caps and it will come out gothic — add
+  `font-sans` to opt out.
+- **The drawer scrim stays `bg-black/50`.** It has to darken the page in *both* themes, so it is
+  one of the few colours that must not follow the palette. `bg-slate-950/70` is wrong: slate-950 is
+  *light* in the light theme, and the scrim stops dimming anything.
+- **Neither theme has been checked on a phone, or by anyone but the build.** The contrast maths is
+  verified; how newsprint actually reads in a dim room on draft night is not.
+
+**Next:** BACKLOG §9 P2 — `voidLot`/`undoPick` decrementing the nomination index by exactly 1.
+
+---
+
+## Step 25 — A player identity that survives the season
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** `playerMatchKey`, `normalizeTeam` and `resolveSleeperIds` in `src/lib/sleeper.ts` + 15
+unit tests; `players.sleeper_id` and `picks.player_sleeper_id`;
+`scripts/migrate-player-identity.ts`; `src/lib/player-overrides.ts`; identity resolution wired into
+`seed.ts` and the snapshot into `awardLot`. Backlog §2's last open item, and the hard half of §1.
+
+**149 unit tests, 78 integration tests passing**, lint clean.
+
+### The problem, restated
+
+`players.id` is a Sleeper id when synced from Sleeper and a derived slug when imported from a CSV —
+and the CSV is the *recommended* path, so in practice the pool is keyed by slugs no other system has
+heard of. The pool is re-imported every season, so nothing survives a year boundary: "what did this
+player cost in 2026 vs 2027" had nothing to join on, and a news provider had nothing to look a
+player up by.
+
+`sleeper_id` is now that key. `players.id` keeps its exact current meaning, so nothing that
+references it changed.
+
+### The matcher refuses to guess, and that is the feature
+
+Tiers, most specific first: **defenses on team code only** (Sleeper synthesises "PHI Defense" and
+keys by abbreviation; a CSV says "Philadelphia Eagles" — those never match as strings and the code
+always does), then name+position+team, then name+position **only when exactly one Sleeper player
+has that key**.
+
+Two players sharing a name and position is precisely where a wrong answer is worse than no answer:
+it would silently attribute one player's price history to another, and look completely plausible.
+There is a test for the negative, and one for the subtler version — a third same-named player must
+not *un*-poison an already-ambiguous key.
+
+### The real backfill found a real bug
+
+First run against live: **497 of 503 players, 159 of 160 picks.** The single miss was the
+Jacksonville defense. FantasyPros writes `JAC`, Sleeper writes `JAX`.
+
+That is not an override-table entry, it is a systematic divergence that would recur every year for
+the same team — and because **defenses match on team code alone**, a spelling difference there is a
+*guaranteed* miss rather than a probable one. So `normalizeTeam` and a `TEAM_ALIASES` map went in
+(plus the relocations, SD/STL/OAK, for archived seasons). Second run: **160 of 160 picks, 498 of
+503 players.**
+
+The 5 unresolved pool players are correct — they are CSV entries with no live Sleeper counterpart.
+
+### Why this one backfills when step 21's did not
+
+Step 21 refused to backfill `lots.nomination_index` because it was unrecoverable: one moving cursor,
+no history, any value a guess dressed as a fact. This one is a **derivation, not an invention** —
+`picks` already snapshots name, team and position, which is exactly what the matcher consumes, so
+the 2026 draft is resolved by the *same* code the import uses, with the same refusal to guess.
+
+**Learned:**
+
+- **Run the backfill before believing the matcher.** Fifteen unit tests covering apostrophes,
+  suffixes, hyphens and ambiguity all passed, and the real data still found a defect none of them
+  described — because I had not thought about team-code *spelling*, only about names. The 160-row
+  live dataset was a better test than the fixtures.
+- **The tier that matches on the least information is the one to be most careful with.** Every other
+  position has three signals; a defense has one. Anything that reduces a match to a single field
+  deserves an alias table.
+- Resolution in `seed.ts` is wrapped in try/catch and skipped entirely on failure: seeding must never
+  depend on a third party being up, which is the same rule §1 puts on the news feed. The upsert uses
+  `COALESCE(excluded.sleeper_id, players.sleeper_id)` so an offline re-import cannot wipe ids an
+  earlier run resolved.
+
+**Watch out for:**
+
+- **`sleeper_id` is nullable and will stay nullable.** Treat null as "unknown", never as an error,
+  and never put it on the draft path. A matcher that reaches 100% is not a goal — §2 said so and it
+  was right.
+- **Re-run `npm run db:migrate-identity` after every pool import**, alongside
+  `db:migrate-pick-ranks`. Both snapshot things that expire when the next CSV lands.
+- `resolveSleeperIds` matches picks from the pick's **own** snapshot columns, never by joining
+  `players` — the archive rule. A 2026 pick must resolve from what was true that night, not from
+  whoever holds that slug today.
+
+**Next:** the backlog is down to §1 (news feed) and §8. §1 is now materially cheaper: its identity
+problem is solved here and its UI collision was solved by §4's sibling-button pattern.
+
+---
+
+## Step 25 — A theme toggle, and the rules that were holding the page together
+
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** a Paper / Night / Auto toggle in every page header; `light-dark()` replacing the two
+duplicated palette blocks; `--color-rule` split out as a role of its own; solid-ink position
+badges; the heavy `rule-strong` section head.
+
+**149 unit tests passing**, typecheck and build clean.
+
+### Step 24 shipped the colour half of the identity and none of the structure
+
+The board came out flat — one uniform slab. The reason was specific: Broadsheet's structure lives
+in its **rules**, and the app's borders were all `border-slate-800`, a value that also has to work
+as a *raised fill*. Something subtle enough to be a background is far too faint to be a hairline,
+so the compromise value satisfied neither and every panel edge disappeared.
+
+The fix is to stop treating the rule as a step on the slate ramp. `--color-rule` is now its own
+token, tuned only for visibility, and all 95 `border-slate-700|800` sites became `border-rule`.
+`rule-strong` is the second weight — the 2px head that opens a panel, which is what makes a panel
+read as a panel now that nothing has a radius or a shadow.
+
+Position badges went the same way: `bg-X-500/15 text-X-300` washes became solid `bg-X-300
+text-slate-950` blocks. A newspaper prints a block or it prints nothing.
+
+### `light-dark()` deleted a whole class of bug
+
+Step 24 warned that `--mgr-*` had "two sets that must stay in sync". That warning is now obsolete —
+**every token is a single `light-dark(light, dark)` pair**, so there is no second block to forget.
+The toggle is then one property: `color-scheme`. No class to propagate down the tree, no second
+stylesheet, and native scrollbars, form controls and caret colour follow along for free.
+
+Three states fall out of it: `color-scheme: light dark` on `:root` follows the OS, and
+`[data-theme='light'|'dark']` pins it. Lightning CSS polyfills `light-dark()` into
+`--lightningcss-light/dark` sentinels and emits the matching `prefers-color-scheme` block, so all
+three resolve correctly in the built CSS.
+
+**Learned:**
+
+- **A palette can be fully validated and still look wrong.** Every pairing in Step 24 passed AA,
+  and the page still read as a flat slab, because contrast between *text and its ground* says
+  nothing about whether the page has visible **structure**. Rules, weights and edges are a separate
+  axis that no contrast checker looks at.
+- **One token cannot be both a fill and a rule.** The moment a value has two jobs with opposite
+  requirements, the compromise fails both. Splitting the role was a smaller change than tuning the
+  shared value ever could have been.
+- **`light-dark()` is the right primitive for a two-theme app** and removes the duplicated-block
+  failure mode entirely. Worth reaching for before hand-rolling `prefers-color-scheme` twice.
+- A theme's initial value **has to be applied by a blocking inline script in `<head>`**. Doing it in
+  an effect runs after first paint, which is a visible flash of the wrong theme on every load.
+
+**Watch out for:**
+
+- **`--rule` is not on the slate ramp, deliberately.** Do not "tidy" `border-rule` back to
+  `border-slate-800`; that is the exact change that made the page flat.
+- **Solid badges depend on `-300` and `slate-950` moving in opposite directions.** `-300` is the
+  readable accent on each ground while `slate-950` inverts to the page colour. Swapping either for
+  a fixed value breaks one theme silently.
+- **`suppressHydrationWarning` is on `<html>` and on the toggle button** because both legitimately
+  differ between server and client — the server cannot know what is in `localStorage`.
+- Supersedes Step 24's "two sets that must stay in sync" note: there is one definition per token now.
+- **Still unverified on a phone.** Both themes are confirmed only on a desktop browser.
+
+**Next:** BACKLOG §9 P2 — `voidLot`/`undoPick` decrementing the nomination index by exactly 1.

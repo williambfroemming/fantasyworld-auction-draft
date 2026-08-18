@@ -44,6 +44,22 @@ export const players = pgTable(
   'players',
   {
     id: text('id').primaryKey(),
+    /**
+     * The one identifier that means the same thing across seasons.
+     *
+     * `id` is a Sleeper id when synced from Sleeper and a derived slug when
+     * imported from a CSV, and the pool is re-imported every year — so `id`
+     * does not survive a season boundary and cannot answer "what did this
+     * player cost last year". This is resolved at import time by
+     * `resolveSleeperIds` and is the key for any cross-year question, and for
+     * whatever news provider §1 eventually picks.
+     *
+     * ⚠️ **Nullable, and it will stay nullable.** Name matching between two
+     * sources does not reach 100%, and a deliberately unresolved player is the
+     * correct outcome when a name is ambiguous. Treat null as "unknown", never
+     * as an error, and never make anything on the draft path depend on it.
+     */
+    sleeperId: text('sleeper_id'),
     name: text('name').notNull(),
     team: text('team'),
     position: text('position').notNull(),
@@ -142,6 +158,19 @@ export const lots = pgTable(
     nominatorId: integer('nominator_id')
       .notNull()
       .references(() => managers.id),
+    /**
+     * The `draft.nomination_index` this lot was opened at — the seat that
+     * actually nominated, recorded so undo can hand the turn back to them.
+     *
+     * Nomination advances the index to *the seat it landed on* plus one, which
+     * can be several indices when full rosters were skipped. `- 1` therefore
+     * lands mid-skip-run rather than on the nominator; this column is the only
+     * way to rewind exactly. See docs/BACKLOG.md §9 P2.
+     *
+     * Nullable because lots opened before this column existed have no answer.
+     * Void/undo fall back to `- 1` for those, which is the old behaviour.
+     */
+    nominationIndex: integer('nomination_index'),
     /** Null while open; the hammer price once awarded. */
     soldPrice: integer('sold_price'),
     /** Null while open; the winning manager once awarded. */
@@ -276,6 +305,18 @@ export const picks = pgTable(
      */
     playerRank: integer('player_rank'),
     playerPosRank: integer('player_pos_rank'),
+    /**
+     * The player's cross-season identity, snapshotted here for the same reason
+     * as everything above: `players.sleeper_id` is re-derived every import, and
+     * `picks.player_id` is a slug that dies with the pool it came from.
+     *
+     * This is the column that makes "what did this player cost in 2026 vs 2027"
+     * answerable at all — it is the only value on a pick that will still mean
+     * the same thing in three years' time.
+     *
+     * Nullable, and often null for 2026: see `scripts/migrate-player-identity.ts`.
+     */
+    playerSleeperId: text('player_sleeper_id'),
     managerId: integer('manager_id')
       .notNull()
       .references(() => managers.id),

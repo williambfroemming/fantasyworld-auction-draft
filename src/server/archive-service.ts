@@ -27,6 +27,7 @@
  */
 import { getSql } from './sql'
 import { listTrades, type TradeSummary } from './trade-service'
+import { managerColor } from '@/lib/colors'
 
 export interface ArchiveManager {
   id: number
@@ -152,7 +153,8 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
     return {
       id: Number(s.manager_id),
       displayName: s.display_name,
-      color: s.color,
+      // See the note in draft-service: theme-aware at the serialisation boundary.
+      color: managerColor(s.color),
       draftSlot: Number(s.draft_slot),
       spent,
       budget: startingBudget - spent + (adjustments.get(Number(s.manager_id)) ?? 0),

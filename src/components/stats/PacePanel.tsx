@@ -24,7 +24,7 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
 
   if (input.picks.length === 0) {
     return (
-      <div className={`grid place-items-center rounded-xl border border-slate-800 bg-slate-900/60 text-sm text-slate-500 ${className}`}>
+      <div className={`grid place-items-center rounded-xl border border-rule bg-slate-900/60 text-sm text-slate-500 ${className}`}>
         Nothing drafted yet.
       </div>
     )
@@ -33,8 +33,8 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
   return (
     <div className={`flex min-h-0 flex-col gap-3 overflow-auto ${className}`}>
       {/* ---- the market's own curve ---- */}
-      <div className="shrink-0 rounded-xl border border-slate-800 bg-slate-900/60">
-        <div className="flex flex-wrap items-baseline gap-2 border-b border-slate-800 px-3 py-2">
+      <div className="shrink-0 rounded-xl border border-rule bg-slate-900/60">
+        <div className="flex flex-wrap items-baseline gap-2 border-b border-rule px-3 py-2">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
             Market pace
           </h2>
@@ -45,7 +45,7 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
         <div className="p-3">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+              <tr className="border-b border-rule text-[10px] uppercase tracking-wider text-slate-500">
                 <th className="py-2 pr-2 text-left">Picks</th>
                 <th className="px-2 py-2 text-right">Spent</th>
                 <th className="px-2 py-2 text-right font-bold text-slate-400">Avg</th>
@@ -56,7 +56,7 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
             </thead>
             <tbody>
               {blocks.map((b) => (
-                <tr key={b.index} className="border-b border-slate-800/60">
+                <tr key={b.index} className="border-b border-rule/60">
                   <td className="py-2 pr-2 tabular-nums text-slate-400">
                     {b.fromPick}–{b.toPick}
                   </td>
@@ -82,8 +82,8 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
       </div>
 
       {/* ---- who is ahead of it ---- */}
-      <div className="shrink-0 rounded-xl border border-slate-800 bg-slate-900/60">
-        <div className="flex flex-wrap items-baseline gap-2 border-b border-slate-800 px-3 py-2">
+      <div className="shrink-0 rounded-xl border border-rule bg-slate-900/60">
+        <div className="flex flex-wrap items-baseline gap-2 border-b border-rule px-3 py-2">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
             Who is ahead of pace
           </h2>
@@ -96,7 +96,7 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
         <div className="p-3">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+              <tr className="border-b border-rule text-[10px] uppercase tracking-wider text-slate-500">
                 <th className="py-2 pr-2 text-left">Team</th>
                 <th className="px-2 py-2 text-right">Spent</th>
                 <th className="px-2 py-2 text-right">Left</th>
@@ -113,7 +113,7 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
                   const full = p.slotsLeft === 0
                   const pct = (Math.abs(p.vsRoom) / spread) * 50
                   return (
-                    <tr key={p.managerId} className="border-b border-slate-800/60">
+                    <tr key={p.managerId} className="border-b border-rule/60">
                       <td className="py-2 pr-2">
                         <span
                           className="inline-block max-w-[9rem] truncate rounded px-1.5 py-0.5 text-xs font-semibold"

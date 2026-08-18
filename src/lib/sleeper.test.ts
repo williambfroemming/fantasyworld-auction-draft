@@ -3,7 +3,10 @@ import {
   UNRANKED_SENTINEL,
   normalizePool,
   parseCsvPool,
+  playerMatchKey,
+  resolveSleeperIds,
   sortForBoard,
+  type PoolPlayer,
   type SleeperPlayer,
 } from './sleeper'
 
@@ -155,5 +158,155 @@ describe('parseCsvPool', () => {
       expect(Object.keys(parsed)).not.toContain('auctionValue')
       expect(Object.keys(parsed)).not.toContain('tier')
     })
+  })
+})
+
+describe('playerMatchKey', () => {
+  it('folds away the punctuation the two sources disagree about', () => {
+    // The apostrophe, the periods, and the hyphen are the three biggest causes
+    // of a naive-equality miss between a FantasyPros export and Sleeper.
+    expect(playerMatchKey("Ja'Marr Chase", 'WR')).toBe(playerMatchKey('JaMarr Chase', 'WR'))
+    expect(playerMatchKey('A.J. Brown', 'WR')).toBe(playerMatchKey('AJ Brown', 'WR'))
+    expect(playerMatchKey('Jaxon Smith-Njigba', 'WR')).toBe(
+      playerMatchKey('Jaxon Smith Njigba', 'WR'),
+    )
+  })
+
+  it('strips generational suffixes', () => {
+    expect(playerMatchKey('Marvin Harrison Jr.', 'WR')).toBe(playerMatchKey('Marvin Harrison', 'WR'))
+    expect(playerMatchKey('Odell Beckham Jr', 'WR')).toBe(playerMatchKey('Odell Beckham', 'WR'))
+    expect(playerMatchKey('Michael Pittman II', 'WR')).toBe(playerMatchKey('Michael Pittman', 'WR'))
+  })
+
+  it('does not strip a suffix that is part of the name', () => {
+    // "V" as a surname initial, not a generational suffix, would be a real
+    // false positive -- guard the shape rather than only the happy path.
+    expect(playerMatchKey('Vita Vea', 'DEF')).toBe('vitavea|DEF')
+  })
+
+  it('keeps position in the key, so a name collision across positions stays apart', () => {
+    expect(playerMatchKey('Josh Allen', 'QB')).not.toBe(playerMatchKey('Josh Allen', 'LB'))
+  })
+})
+
+describe('resolveSleeperIds', () => {
+  const sleeperPlayer = (over: Partial<PoolPlayer> & { id: string }): PoolPlayer => ({
+    name: 'Somebody',
+    team: 'PHI',
+    position: 'WR',
+    searchRank: 1,
+    active: true,
+    ...over,
+  })
+
+  it('matches on name and position across punctuation and suffixes', () => {
+    const sleeper = [sleeperPlayer({ id: '4046', name: "Ja'Marr Chase", team: 'CIN', position: 'WR' })]
+    const pool = [
+      sleeperPlayer({ id: 'csv-jamarr-chase-WR', name: 'JaMarr Chase', team: 'CIN', position: 'WR' }),
+    ]
+    expect(resolveSleeperIds(pool, sleeper).get('csv-jamarr-chase-WR')).toBe('4046')
+  })
+
+  /**
+   * Sleeper synthesises "PHI Defense" and keys the row by team abbreviation; a
+   * rankings CSV says "Philadelphia Eagles". Those never match as strings, and
+   * the team code always does.
+   */
+  /**
+   * Found by the real 2026 backfill: 159 of 160 picks resolved, and the miss
+   * was Jacksonville. FantasyPros writes JAC, Sleeper writes JAX -- and since
+   * defenses match on team code ALONE, a spelling divergence is a guaranteed
+   * miss rather than a probable one.
+   */
+  it('matches a defense across a team-code spelling difference', () => {
+    const sleeper = [sleeperPlayer({ id: 'JAX', name: 'JAX Defense', team: 'JAX', position: 'DEF' })]
+    const pool = [
+      sleeperPlayer({
+        id: 'csv-jacksonville-jaguars-DEF',
+        name: 'Jacksonville Jaguars',
+        team: 'JAC',
+        position: 'DEF',
+      }),
+    ]
+    expect(resolveSleeperIds(pool, sleeper).get('csv-jacksonville-jaguars-DEF')).toBe('JAX')
+  })
+
+  it('matches defenses on team code, never on name', () => {
+    const sleeper = [sleeperPlayer({ id: 'PHI', name: 'PHI Defense', team: 'PHI', position: 'DEF' })]
+    const pool = [
+      sleeperPlayer({
+        id: 'csv-philadelphia-eagles-DEF',
+        name: 'Philadelphia Eagles',
+        team: 'PHI',
+        position: 'DEF',
+      }),
+    ]
+    expect(resolveSleeperIds(pool, sleeper).get('csv-philadelphia-eagles-DEF')).toBe('PHI')
+  })
+
+  it('uses team to separate two players who share a name and position', () => {
+    const sleeper = [
+      sleeperPlayer({ id: 'a', name: 'Mike Williams', team: 'NYJ', position: 'WR' }),
+      sleeperPlayer({ id: 'b', name: 'Mike Williams', team: 'LAC', position: 'WR' }),
+    ]
+    const pool = [
+      sleeperPlayer({ id: 'csv-mike-williams-WR', name: 'Mike Williams', team: 'LAC', position: 'WR' }),
+    ]
+    expect(resolveSleeperIds(pool, sleeper).get('csv-mike-williams-WR')).toBe('b')
+  })
+
+  /**
+   * The important negative. Guessing between two same-named players would
+   * silently attribute one player's price history to the other -- a wrong
+   * answer that looks exactly like a right one.
+   */
+  it('refuses to guess when a name and position are ambiguous and the team does not help', () => {
+    const sleeper = [
+      sleeperPlayer({ id: 'a', name: 'Mike Williams', team: 'NYJ', position: 'WR' }),
+      sleeperPlayer({ id: 'b', name: 'Mike Williams', team: 'LAC', position: 'WR' }),
+    ]
+    // Traded since the CSV was cut, so the team matches neither.
+    const pool = [
+      sleeperPlayer({ id: 'csv-mike-williams-WR', name: 'Mike Williams', team: 'PIT', position: 'WR' }),
+    ]
+    expect(resolveSleeperIds(pool, sleeper).has('csv-mike-williams-WR')).toBe(false)
+  })
+
+  it('falls back to name and position when the team has changed but the name is unique', () => {
+    const sleeper = [sleeperPlayer({ id: '99', name: 'Saquon Barkley', team: 'NYG', position: 'RB' })]
+    const pool = [
+      sleeperPlayer({ id: 'csv-saquon-barkley-RB', name: 'Saquon Barkley', team: 'PHI', position: 'RB' }),
+    ]
+    expect(resolveSleeperIds(pool, sleeper).get('csv-saquon-barkley-RB')).toBe('99')
+  })
+
+  it('leaves a player with no counterpart unresolved rather than inventing one', () => {
+    const sleeper = [sleeperPlayer({ id: '1', name: 'Real Player', position: 'WR' })]
+    const pool = [sleeperPlayer({ id: 'csv-nobody-WR', name: 'Nobody At All', position: 'WR' })]
+    expect(resolveSleeperIds(pool, sleeper).size).toBe(0)
+  })
+
+  it('lets an override win outright, including over an ambiguous match', () => {
+    const sleeper = [
+      sleeperPlayer({ id: 'a', name: 'Mike Williams', team: 'NYJ', position: 'WR' }),
+      sleeperPlayer({ id: 'b', name: 'Mike Williams', team: 'LAC', position: 'WR' }),
+    ]
+    const pool = [
+      sleeperPlayer({ id: 'csv-mike-williams-WR', name: 'Mike Williams', team: 'PIT', position: 'WR' }),
+    ]
+    const got = resolveSleeperIds(pool, sleeper, { 'csv-mike-williams-WR': 'b' })
+    expect(got.get('csv-mike-williams-WR')).toBe('b')
+  })
+
+  it('does not un-poison an ambiguous key when a third player arrives', () => {
+    const sleeper = [
+      sleeperPlayer({ id: 'a', name: 'Mike Williams', team: 'NYJ', position: 'WR' }),
+      sleeperPlayer({ id: 'b', name: 'Mike Williams', team: 'LAC', position: 'WR' }),
+      sleeperPlayer({ id: 'c', name: 'Mike Williams', team: 'SEA', position: 'WR' }),
+    ]
+    const pool = [
+      sleeperPlayer({ id: 'csv-mike-williams-WR', name: 'Mike Williams', team: 'DAL', position: 'WR' }),
+    ]
+    expect(resolveSleeperIds(pool, sleeper).has('csv-mike-williams-WR')).toBe(false)
   })
 })

@@ -1,0 +1,41 @@
+name: PR gate
+
+# Every change to main arrives through a pull request, and this is what stands
+# in front of the merge button.
+#
+# GitHub will not let you approve your own pull request -- that is enforced, not
+# a setting -- which on a one-person repo would mean no approval step at all.
+# Environment reviewers are the way around it: they *do* permit self-review, so
+# the `approval` job below parks until a named reviewer clicks Approve. Make
+# that job a required status check on main and the gate has real teeth.
+#
+# Leave "Prevent self-review" UNCHECKED on the `pr-gate` environment. Ticking it
+# restores exactly the restriction this is here to work around.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  checks:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The rules engine only -- no database. Integration tests need neondb_test
+      # and stay a local command on purpose.
+      - run: npm test
+
+  approval:
+    name: manual approval
+    # Gated behind the tests so a red build never costs you a review click.
+    needs: checks
+    runs-on: ubuntu-latest
+    environment: pr-gate
+    steps:
+      - run: echo "Approved by ${{ github.actor }}"
