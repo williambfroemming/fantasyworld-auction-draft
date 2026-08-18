@@ -6,6 +6,7 @@ import {
   managerPace,
   nominationStats,
   spendBlocks,
+  spendCurve,
   teamSpend,
   valueVsRoom,
   type StatsInput,
@@ -229,6 +230,101 @@ describe('spendBlocks', () => {
 
   it('produces one block when the block size exceeds the draft', () => {
     expect(spendBlocks([pick(), pick()], 500)).toHaveLength(1)
+  })
+})
+
+describe('spendCurve', () => {
+  it('is empty but well-formed with no picks', () => {
+    const r = spendCurve(input())
+    expect(r.league).toEqual([])
+    expect(r.lastPick).toBe(0)
+    // Every manager still gets a curve, anchored at the origin, so the renderer
+    // never has to special-case somebody who has not bought yet.
+    expect(r.managers).toHaveLength(2)
+    expect(r.managers[0].points).toEqual([{ pickNo: 0, spent: 0 }])
+    expect(r.managers[0].total).toBe(0)
+    expect(r.managers[0].halfwayPick).toBeNull()
+  })
+
+  it('accumulates league spend in pick order regardless of input order', () => {
+    const r = spendCurve(
+      input({
+        picks: [
+          pick({ id: 3, pickNo: 3, price: 5 }),
+          pick({ id: 1, pickNo: 1, price: 50 }),
+          pick({ id: 2, pickNo: 2, price: 20 }),
+        ],
+      }),
+    )
+    expect(r.league).toEqual([
+      { pickNo: 1, spent: 50 },
+      { pickNo: 2, spent: 70 },
+      { pickNo: 3, spent: 75 },
+    ])
+    expect(r.lastPick).toBe(3)
+  })
+
+  it('holds a manager flat between their own picks', () => {
+    const r = spendCurve(
+      input({
+        picks: [
+          pick({ id: 1, pickNo: 1, managerId: 1, price: 40 }),
+          pick({ id: 2, pickNo: 2, managerId: 2, price: 10 }),
+          pick({ id: 3, pickNo: 3, managerId: 2, price: 10 }),
+          pick({ id: 4, pickNo: 4, managerId: 1, price: 60 }),
+        ],
+      }),
+    )
+    const one = r.managers.find((m) => m.managerId === 1)!
+    // Points only at picks 1 and 4 — nothing at 2 or 3, which is what makes the
+    // drawn line flat across somebody else's buying spree.
+    expect(one.points).toEqual([
+      { pickNo: 0, spent: 0 },
+      { pickNo: 1, spent: 40 },
+      { pickNo: 4, spent: 100 },
+    ])
+    expect(one.total).toBe(100)
+    expect(r.peak).toBe(100)
+  })
+
+  it('reports the pick at which someone was half done spending', () => {
+    const r = spendCurve(
+      input({
+        picks: [
+          // Manager 1 front-loads; manager 2 sits on their money.
+          pick({ id: 1, pickNo: 1, managerId: 1, price: 90 }),
+          pick({ id: 2, pickNo: 2, managerId: 2, price: 5 }),
+          pick({ id: 3, pickNo: 9, managerId: 1, price: 10 }),
+          pick({ id: 4, pickNo: 10, managerId: 2, price: 95 }),
+        ],
+      }),
+    )
+    expect(r.managers.find((m) => m.managerId === 1)!.halfwayPick).toBe(1)
+    expect(r.managers.find((m) => m.managerId === 2)!.halfwayPick).toBe(10)
+  })
+
+  /**
+   * The non-negotiable, on this view: a trade moves the player but not the
+   * salary. Attributing by current ownership would redraw both curves from the
+   * trade onward — a wrong answer that looks perfectly plausible.
+   */
+  it('attributes to the drafter, not the current owner, after a trade', () => {
+    const traded = pick({ id: 1, pickNo: 1, managerId: 2, price: 70 })
+    const r = spendCurve(
+      input({
+        picks: [traded, pick({ id: 2, pickNo: 2, managerId: 2, price: 10 })],
+        trades: [trade({ players: [{ pickId: 1, toManagerId: 2 }] })],
+      }),
+    )
+    // Manager 1 bought them and keeps the charge even though manager 2 has them.
+    expect(r.managers.find((m) => m.managerId === 1)!.total).toBe(70)
+    expect(r.managers.find((m) => m.managerId === 2)!.total).toBe(10)
+    // The league total is unmoved by the trade either way.
+    expect(r.league[r.league.length - 1].spent).toBe(80)
+  })
+
+  it('never reports a peak of zero, so the renderer cannot divide by it', () => {
+    expect(spendCurve(input()).peak).toBe(1)
   })
 })
 

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { SeasonPicker } from '@/components/SeasonPicker'
+import { CurvePanel } from '@/components/stats/CurvePanel'
 import { NominationsPanel } from '@/components/stats/NominationsPanel'
 import { PacePanel } from '@/components/stats/PacePanel'
 import { TeamSpendPanel } from '@/components/stats/TeamSpendPanel'
@@ -11,11 +12,12 @@ import { useDraft } from '@/hooks/useDraft'
 import { useSeasonView } from '@/hooks/useSeasonView'
 import type { StatsInput } from '@/lib/stats'
 
-type View = 'teams' | 'pace' | 'nominations' | 'value'
+type View = 'teams' | 'pace' | 'curve' | 'nominations' | 'value'
 
 const VIEWS = [
   ['teams', 'Teams'],
   ['pace', 'Pace'],
+  ['curve', 'Curve'],
   ['nominations', 'Nominations'],
   ['value', 'Value'],
 ] as const
@@ -127,6 +129,8 @@ export default function StatsPage() {
           <TeamSpendPanel input={input} className="h-full" />
         ) : view === 'pace' ? (
           <PacePanel input={input} className="h-full" />
+        ) : view === 'curve' ? (
+          <CurvePanel input={input} className="h-full" />
         ) : view === 'nominations' ? (
           <NominationsPanel input={input} className="h-full" />
         ) : (

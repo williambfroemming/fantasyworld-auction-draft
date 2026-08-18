@@ -721,3 +721,86 @@ would cancel a lot without returning the turn, which in the room reads as the ap
 
 **Next:** §7's cumulative spend curve and the sidebar positional split, then §4's queue reorder and
 nominate-from-queue, then §2's cross-import player identity.
+
+---
+
+## Step 22 — The spend curve, and where everyone's money went
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** `spendCurve()` in `src/lib/stats.ts` + 6 unit tests; `src/components/stats/CurvePanel.tsx`
+behind a new **Curve** tab on `/stats`; `SpendSplit` in `SidePanel.tsx`. Backlog §7's two remaining
+items — the cumulative curve that was deliberately deferred, and the per-manager positional split on
+the draft screen.
+
+**136 unit tests passing**, build clean, lint clean.
+
+### The curve is small multiples, not ten lines
+
+Ten overlapping series is spaghetti at any size. The league palette passes every colour-separation
+check (I ran the validator: worst adjacent pair ΔE 10.2 under protanopia, 17.8 normal vision) but it
+was designed to label **columns on a wide grid**, not to disambiguate ten crossing lines. So: one
+small panel per manager, all sharing the same axes so the shapes compare directly, each one named —
+identity never rests on colour.
+
+The league total gets its own full-width chart **with a straight reference line from origin to final
+total**. That line is the whole design: a cumulative curve on its own only ever goes up and says
+nothing. The gap to the reference is the finding.
+
+Checked against the real 2026 draft before calling it done, since there is no browser here to look
+with — an ASCII render of the same function:
+
+```
+cumulative % of league spend:  pick 16 → 29%   pick 48 → 68%   pick 96 → 91%
+Gabes  $200  ½ by pick 15      Bolek  $200  ½ by pick 41
+```
+
+**68% of $1,993 was gone by pick 48 of 160.** The room front-loads hard, and the halfway-pick spread
+(15 to 41) is real variation between managers — so the view has something to say rather than ten
+identical ramps.
+
+### Steps, not a line
+
+A manager's total only changes when *they* buy. Drawing a smooth line through their picks would
+render money leaving the room during picks that belonged to somebody else. `stepPath` is step-after,
+and extends flat to the final pick so somebody who stopped buying shows a long flat tail rather than
+a line that ends early and reads as missing data.
+
+### The sidebar split had to be a bar, not a table
+
+§7 warned that the 10 × 4 matrix does not fit a 19rem sidebar, and step 20 proved it by clipping a
+column off Budgets just by adding a sixth. A stacked bar costs **no columns** — it rides under the
+manager's name in the cell that already exists.
+
+**The colour ordering is load-bearing and was not obvious.** Running the palette validator on the
+position tints from `PositionBadge` turned up rose (QB) against emerald (RB) at **ΔE 4.6 under
+deuteranopia** — below even the 6–8 "legal with secondary encoding" floor. `PositionBadge` is fine
+because it carries the position as *text*; a 4px bar has no room for a label. Interleaving the
+segments to `WR · QB · TE · RB · K/DEF` lifts the worst adjacent pair to 10.6 and costs nothing.
+This is the same trick, for the same reason, as `SEAT_ORDER` in `src/lib/colors.ts` — which the
+codebase had already worked out once for seats and I nearly re-learned the hard way.
+
+**Learned:**
+
+- **Run the palette validator even on colours the codebase already uses.** The QB/RB pair has been
+  on screen since the first build and is perfectly safe *there*, because it is always labelled. The
+  same two hues in an unlabelled bar are a real accessibility defect. Safety is a property of the
+  mark, not of the hex.
+- **A stacked bar showing proportion must not be scaled to a league peak.** Each bar fills its own
+  width; scaling to the biggest spender would make every early-draft bar an invisible sliver, and
+  the $ columns directly above already answer "how much".
+- No headless browser is available in this environment, so the curve was verified numerically
+  against the live 2026 data rather than by looking. **The geometry still wants an eyeball** — see
+  below.
+
+**Watch out for:**
+
+- **`spendCurve` attributes to the drafter via `draftersByPick`**, like every other money view. There
+  is a unit test that fails if that is "simplified" to `pick.managerId` — a trade would otherwise
+  redraw two managers' whole curves from the trade onward.
+- `SPLIT_SEGMENTS` order is a colour-vision fix, not a display preference. Re-sorting it to match
+  `SPEND_COLUMNS` reintroduces the ΔE 4.6 pair.
+- The SVGs use `preserveAspectRatio="none"` with `vector-effect="non-scaling-stroke"`: the plot
+  stretches to the container and the 2px lines stay 2px. Dropping the vector-effect makes strokes
+  scale with the box and go fuzzy at small panel sizes.
+
+**Next:** §4's queue reorder and nominate-from-queue, then §2's cross-import player identity.

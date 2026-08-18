@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { autoSlot, pickInRow, positionCounts, slotRows } from '@/lib/draft'
-import { perSlotLeft } from '@/lib/stats'
+import { perSlotLeft, spendColumnFor, type SpendColumn } from '@/lib/stats'
 import type { Board, RosterPick } from '@/hooks/useDraft'
 import type { DraftState, StateManager } from '@/server/draft-service'
 import { PositionBadge } from './LotPanel'
@@ -58,7 +58,11 @@ export function SidePanel({
           />
         )}
         {tab === 'budgets' && (
-          <Budgets managers={state.managers} rosterSize={state.draft.rosterSize} />
+          <Budgets
+            managers={state.managers}
+            rosterSize={state.draft.rosterSize}
+            byManager={byManager}
+          />
         )}
         {tab === 'picks' && <PickLog board={board} managers={state.managers} />}
       </div>
@@ -223,7 +227,74 @@ function RoomMoney({ managers, rosterSize }: { managers: StateManager[]; rosterS
   )
 }
 
-function Budgets({ managers, rosterSize }: { managers: StateManager[]; rosterSize: number }) {
+/**
+ * Where each manager's money has gone, as one thin stacked bar per row.
+ *
+ * Backlog §7 wanted a per-manager positional split on the draft screen and
+ * warned — correctly — that the 10 x 4 matrix from /stats does not fit a 19rem
+ * sidebar; step 20 clipped a column off the Budgets table just by adding a
+ * sixth. A stacked bar is the compact encoding for a four-way split: it costs no
+ * columns at all, riding under the row it belongs to, and answers the only
+ * question worth asking mid-draft — "is he loading up on running backs?" —
+ * without a single number.
+ *
+ * Proportion, not magnitude. Each bar fills its own width, so it says how a
+ * manager split their money, not how much they spent; the $ columns above
+ * already answer that, and scaling these to a league-wide peak would make the
+ * early-draft bars invisible slivers.
+ */
+const SPLIT_SEGMENTS: Array<{ key: SpendColumn; label: string; hex: string }> = [
+  // ⚠️ Not in SPEND_COLUMNS order, deliberately. Rose (QB) against emerald (RB)
+  // is ΔE 4.6 under deuteranopia — indistinguishable for the ~1 in 12 men with
+  // it, and a bar has no room for the labels that make PositionBadge safe.
+  // Interleaving them costs nothing and lifts the worst adjacent pair to 10.6.
+  // Same trick, same reason as SEAT_ORDER in src/lib/colors.ts.
+  { key: 'WR', label: 'WR', hex: '#38bdf8' },
+  { key: 'QB', label: 'QB', hex: '#fb7185' },
+  { key: 'TE', label: 'TE', hex: '#fbbf24' },
+  { key: 'RB', label: 'RB', hex: '#34d399' },
+  // Grey on purpose: K and DEF are the residue, and a residual bucket reading as
+  // "not a real category" is the correct signal, not a palette failure.
+  { key: 'OTHER', label: 'K/DEF', hex: '#64748b' },
+]
+
+function SpendSplit({ picks }: { picks: RosterPick[] }) {
+  const spent = picks.reduce((s, p) => s + p.price, 0)
+  if (spent === 0) return <div className="h-1" />
+
+  const by = picks.reduce<Partial<Record<SpendColumn, number>>>((acc, p) => {
+    const k = spendColumnFor(p.position)
+    acc[k] = (acc[k] ?? 0) + p.price
+    return acc
+  }, {})
+
+  return (
+    <div className="flex h-1 gap-px overflow-hidden rounded-full">
+      {SPLIT_SEGMENTS.map(({ key, label, hex }) => {
+        const v = by[key] ?? 0
+        if (v === 0) return null
+        return (
+          <span
+            key={key}
+            className="h-full"
+            style={{ width: `${(v / spent) * 100}%`, backgroundColor: hex }}
+            title={`${label} $${v} — ${Math.round((v / spent) * 100)}% of $${spent}`}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
+function Budgets({
+  managers,
+  rosterSize,
+  byManager,
+}: {
+  managers: StateManager[]
+  rosterSize: number
+  byManager: Map<number, RosterPick[]>
+}) {
   return (
     <>
     <RoomMoney managers={managers} rosterSize={rosterSize} />
@@ -253,6 +324,9 @@ function Budgets({ managers, rosterSize }: { managers: StateManager[]; rosterSiz
                   <span className="h-3 w-1.5 rounded-full" style={{ backgroundColor: m.color }} />
                   <span className="truncate font-medium">{m.displayName}</span>
                 </span>
+                {/* Rides under the name rather than taking a sixth column,
+                    which does not fit — see SpendSplit. */}
+                <SpendSplit picks={byManager.get(m.id) ?? []} />
               </td>
               <td className="px-2 py-2 text-right tabular-nums font-semibold">${m.budget}</td>
               <td
@@ -275,6 +349,15 @@ function Budgets({ managers, rosterSize }: { managers: StateManager[]; rosterSiz
         })}
       </tbody>
     </table>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-2 pt-1 text-[10px] text-slate-500">
+      <span className="uppercase tracking-wider">Spend split</span>
+      {SPLIT_SEGMENTS.map(({ key, label, hex }) => (
+        <span key={key} className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: hex }} aria-hidden />
+          {label}
+        </span>
+      ))}
+    </div>
     </>
   )
 }
