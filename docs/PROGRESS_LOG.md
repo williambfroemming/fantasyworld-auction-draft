@@ -972,3 +972,86 @@ serialisation boundary** in `draft-service` and `archive-service`. Every compone
   verified; how newsprint actually reads in a dim room on draft night is not.
 
 **Next:** BACKLOG §9 P2 — `voidLot`/`undoPick` decrementing the nomination index by exactly 1.
+
+---
+
+## Step 25 — A player identity that survives the season
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** `playerMatchKey`, `normalizeTeam` and `resolveSleeperIds` in `src/lib/sleeper.ts` + 15
+unit tests; `players.sleeper_id` and `picks.player_sleeper_id`;
+`scripts/migrate-player-identity.ts`; `src/lib/player-overrides.ts`; identity resolution wired into
+`seed.ts` and the snapshot into `awardLot`. Backlog §2's last open item, and the hard half of §1.
+
+**149 unit tests, 78 integration tests passing**, lint clean.
+
+### The problem, restated
+
+`players.id` is a Sleeper id when synced from Sleeper and a derived slug when imported from a CSV —
+and the CSV is the *recommended* path, so in practice the pool is keyed by slugs no other system has
+heard of. The pool is re-imported every season, so nothing survives a year boundary: "what did this
+player cost in 2026 vs 2027" had nothing to join on, and a news provider had nothing to look a
+player up by.
+
+`sleeper_id` is now that key. `players.id` keeps its exact current meaning, so nothing that
+references it changed.
+
+### The matcher refuses to guess, and that is the feature
+
+Tiers, most specific first: **defenses on team code only** (Sleeper synthesises "PHI Defense" and
+keys by abbreviation; a CSV says "Philadelphia Eagles" — those never match as strings and the code
+always does), then name+position+team, then name+position **only when exactly one Sleeper player
+has that key**.
+
+Two players sharing a name and position is precisely where a wrong answer is worse than no answer:
+it would silently attribute one player's price history to another, and look completely plausible.
+There is a test for the negative, and one for the subtler version — a third same-named player must
+not *un*-poison an already-ambiguous key.
+
+### The real backfill found a real bug
+
+First run against live: **497 of 503 players, 159 of 160 picks.** The single miss was the
+Jacksonville defense. FantasyPros writes `JAC`, Sleeper writes `JAX`.
+
+That is not an override-table entry, it is a systematic divergence that would recur every year for
+the same team — and because **defenses match on team code alone**, a spelling difference there is a
+*guaranteed* miss rather than a probable one. So `normalizeTeam` and a `TEAM_ALIASES` map went in
+(plus the relocations, SD/STL/OAK, for archived seasons). Second run: **160 of 160 picks, 498 of
+503 players.**
+
+The 5 unresolved pool players are correct — they are CSV entries with no live Sleeper counterpart.
+
+### Why this one backfills when step 21's did not
+
+Step 21 refused to backfill `lots.nomination_index` because it was unrecoverable: one moving cursor,
+no history, any value a guess dressed as a fact. This one is a **derivation, not an invention** —
+`picks` already snapshots name, team and position, which is exactly what the matcher consumes, so
+the 2026 draft is resolved by the *same* code the import uses, with the same refusal to guess.
+
+**Learned:**
+
+- **Run the backfill before believing the matcher.** Fifteen unit tests covering apostrophes,
+  suffixes, hyphens and ambiguity all passed, and the real data still found a defect none of them
+  described — because I had not thought about team-code *spelling*, only about names. The 160-row
+  live dataset was a better test than the fixtures.
+- **The tier that matches on the least information is the one to be most careful with.** Every other
+  position has three signals; a defense has one. Anything that reduces a match to a single field
+  deserves an alias table.
+- Resolution in `seed.ts` is wrapped in try/catch and skipped entirely on failure: seeding must never
+  depend on a third party being up, which is the same rule §1 puts on the news feed. The upsert uses
+  `COALESCE(excluded.sleeper_id, players.sleeper_id)` so an offline re-import cannot wipe ids an
+  earlier run resolved.
+
+**Watch out for:**
+
+- **`sleeper_id` is nullable and will stay nullable.** Treat null as "unknown", never as an error,
+  and never put it on the draft path. A matcher that reaches 100% is not a goal — §2 said so and it
+  was right.
+- **Re-run `npm run db:migrate-identity` after every pool import**, alongside
+  `db:migrate-pick-ranks`. Both snapshot things that expire when the next CSV lands.
+- `resolveSleeperIds` matches picks from the pick's **own** snapshot columns, never by joining
+  `players` — the archive rule. A 2026 pick must resolve from what was true that night, not from
+  whoever holds that slug today.
+
+**Next:** the backlog is down to §1 (news feed) and §8. §1 is now materially cheaper: its identity
+problem is solved here and its UI collision was solved by §4's sibling-button pattern.

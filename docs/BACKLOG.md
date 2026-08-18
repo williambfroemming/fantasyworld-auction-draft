@@ -285,7 +285,7 @@ Worth remembering why it shipped at all: run the regression suite against the
 *old* code and the even and mildly-lumpy draft shapes **still pass**. They are
 the two anybody would have written first. Only the realistic skewed shape fails.
 
-### 🟡 P1 — "complete" and "stuck" are the same state on screen — MOSTLY FIXED 2026-08-15
+### ✅ P1 — "complete" and "stuck" are the same state on screen — FIXED 2026-08-15, CLOSED 2026-08-17
 
 `onTheClock: null` meant both *finished* and *the app has lost track of whose
 turn it is*, which is why the stall read as a freeze on the night.
@@ -295,7 +295,16 @@ Complete!" panel, an explicit **"Nobody on the clock — N slots still unfilled,
 this is a fault"** warning, and the normal view with a picks-made / to-go
 counter. See [LotPanel.tsx:85](src/components/LotPanel.tsx#L85).
 
-**Still open: `draft.status` is never flipped to `'done'` automatically.**
+**CLOSED 2026-08-17** — `PROGRESS_LOG.md` step 21. `awardLot` flips `draft.status`
+to `'done'` when the award fills the last slot in the league, and `undoLastPick`
+flips it back — 'done' refuses nominations, so undoing the final pick without
+reopening the draft would strand the league one player short.
+
+⚠️ **Nothing was changed to *trust* the flag**, deliberately. `stats.ts` and
+`LotPanel` still ask "is anybody unfilled?", because an archived season has no
+live status and a commissioner can still set it by hand. The flag is now a
+*record* that the draft ended, not a source of truth. The original note, kept
+because the reasoning still applies:
 `setStatus` is only ever called by hand from
 [commish-service.ts:204](src/server/commish-service.ts#L204) or `draft:record`,
 so the database still only learns the draft ended when someone says so. The UI
@@ -307,9 +316,24 @@ So this is now a **data-tidiness bug, not a UI bug**: flip it in the award path
 when the last slot fills. Keep the "is anybody unfilled?" checks as they are —
 do not make them trust the flag.
 
-### 🟡 P2 — `voidLot` and `undoPick` decrement the index by exactly 1
+### ✅ P2 — `voidLot` and `undoPick` decrement the index by exactly 1 — FIXED 2026-08-17
 
-**Still open, and the top item in this file.**
+**CLOSED 2026-08-17** — `PROGRESS_LOG.md` step 21. `lots.nomination_index`
+records the index each lot was opened at; void and undo restore it exactly, with
+`COALESCE(..., GREATEST(0, idx - 1))` keeping the old behaviour for the 160 lots
+from 2026 that predate the column. **The migration deliberately does not
+backfill** — that index is not recoverable, and a guess would be
+indistinguishable from a fact.
+
+**The same root cause was found on a third path while fixing it:**
+`skipNominator` did `nomination_index + 1`, which resolves to the *same manager*
+whenever the cursor sits behind the seat on the clock. The skip button did
+nothing, repeatedly, and nobody reported it because it fails silently.
+
+Worth recording how the reproduction went, because the obvious test does not
+find it: a single nominate-then-void passes under **either** implementation.
+The shortest failing sequence is **two undos across a skip run**. The original
+note follows.
 
 Both do `nomination_index = GREATEST(0, nomination_index - 1)` —
 [commish-service.ts:102](src/server/commish-service.ts#L102) and

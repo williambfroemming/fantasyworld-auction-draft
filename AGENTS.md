@@ -56,6 +56,8 @@ These look like mistakes and are not. Read `docs/PROJECT_PLAN.md` §4 before cha
 - **The player queue is private and stays off the polling path.** It must never enter `/api/state` or the fingerprint in `src/lib/version.ts` — a league-wide payload would leak everyone's targets, and widening the fingerprint would make every client's 204 depend on one person's private edit. `/api/queue` takes the manager id from the session cookie and has no id field to send. There are integration tests for both properties.
 - **`nominatorAt` has no index cap.** It returns null only when every roster is full. The old `n * rosterSize + n` bound stalled the live 2026 draft with 32 picks left, because a skipped seat consumes an index with no pick behind it. Scan a `2n` window, never `n`.
 - **Positional stats group on `players.position`, never the display slot.** A WR shown in FLEX is still a WR, and `positionMarket` excludes K and DEF on purpose (but `SPEND_COLUMNS` keeps them in an OTHER bucket, because a budget row that doesn't total what someone spent is a lie).
+- **`nomination_index` is a cursor, not a seat.** `nominatorAt` scans *forward* from it, so the seat it lands on can be several indices later when full rosters are skipped — which means arithmetic on the cursor (`- 1` to undo, `+ 1` to skip) does not do what it reads like. Void and undo restore `lots.nomination_index`; skip advances past `onTheClock.index`. Three functions had this bug; a single nominate-then-void passes either way, so test across a skip run.
+- **`sleeper_id` is the only player key that survives a season.** `players.id` is a CSV slug or a Sleeper id and the pool is re-imported yearly, so it dies every August; `resolveSleeperIds` pins a stable one at import and `awardLot` snapshots it onto the pick. It is **nullable on purpose** — the matcher refuses to guess between two same-named players, because a wrong match silently moves one player's price history onto another. Treat null as "unknown", never as an error, and never put it on the draft path.
 - **`picks` snapshots `player_rank` as well as name/team/position.** Rank is otherwise recoverable only by joining `players`, and that join dies the moment the next season's CSV replaces the pool. Read it from `pk.`, never the joined `p.` — one source of truth, so live and archive cannot disagree.
 - **Money questions attribute to the drafter, via `draftersByPick()`.** A trade moves `picks.manager_id` but not the salary, and `budget_adjustments` can't recover the original buyer because a trade folds salary and cash into one row. The trade log is the only surviving source.
 - **The value view compares within a position, never across.** A cross-position comparison doesn't measure value, it just rediscovers that this is a superflex league — every top "overpay" comes out a QB. There's a unit test that fails if this is "simplified".
@@ -84,6 +86,10 @@ npm run db:migrate-queue          # adds the private player_queue table
 npm run db:migrate-queue -- --test
 npm run db:migrate-pick-ranks     # snapshots pool rank onto picks. RE-RUN AFTER EVERY DRAFT,
                                   # BEFORE the next season's rankings CSV is imported
+npm run db:migrate-lot-index      # adds lots.nomination_index (no backfill -- see the script)
+npm run db:migrate-identity       # players.sleeper_id + picks.player_sleeper_id, resolved
+                                  # against Sleeper. RE-RUN AFTER EVERY POOL IMPORT
+npm run db:migrate-identity -- --offline   # columns only, no network
 npm run pins -- --clear
 ```
 
