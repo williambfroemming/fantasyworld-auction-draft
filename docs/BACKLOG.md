@@ -19,7 +19,6 @@ August costs the draft.
 
 | # | Item | Size | Where |
 |---|---|---|---|
-| §1 | Player news feed | Large, and July-2027 work at the earliest | not started |
 | §8 | Mobile layout · push to Sleeper · accessibility pass | Unspecified | — |
 
 **Everything else in this file has shipped.** §2, §3, §4, §5, §6, §7 and all three
@@ -36,15 +35,40 @@ visual direction that came second, so it does not have to be re-derived.
 
 ---
 
-## 1. Player news feed
+## 1. ✅ Player news feed
 
 **Want:** click a player anywhere in the app — pool, open lot, League board —
 and see current news for them. "Is this guy hurt?" is the question managers
 currently answer by alt-tabbing to Rotowire mid-auction, which is exactly the
 kind of context the app should own.
 
-**Status: not started.** Notes below are design work already done, not a
-commitment to an approach.
+**BUILT 2026-08-17** — `PROGRESS_LOG.md` step 26. The design notes below were
+written assuming this meant choosing and paying for a provider. **It did not**,
+and the reason is worth keeping:
+
+**Sleeper's player dump — the same file the pool is already seeded from —
+carries `injury_status`, `injury_body_part`, `injury_notes` and
+`practice_participation`.** So the question this section exists to answer, "is
+this guy hurt", is a **stored column with no runtime dependency**. On draft
+night it is in Postgres and no provider being down can take it away.
+
+That inverted the shape into three tiers, most important first:
+
+| Tier | Source | Runtime dependency |
+|---|---|---|
+| 1 — is he hurt | Sleeper dump → `players.injury_status` | **none** |
+| 2 — headlines | ESPN, one league-wide request | optional, degrades to empty |
+| 3 — market buzz | Sleeper trending add/drop | optional |
+
+Two things found by probing rather than assuming, both of which would have been
+expensive to learn late: ESPN's `/news` caps at **50 articles but tags ~129
+athletes in one request**, so a 500-player pool is served without ever fetching
+per player — and ESPN's **per-athlete endpoint returns nothing**, so a design
+built on it would have needed exactly the per-request provider calls rule 2
+below forbids.
+
+**Still open:** nothing required. Possible later: surfacing tier 3 (trending) in
+the UI, which is fetched and cached but not yet drawn anywhere.
 
 ### The hard part is player identity, not the feed
 
@@ -110,7 +134,7 @@ this feature.
    projected value does not. Don't let the feed smuggle opinions back onto the
    board.
 
-### UI collision — mostly resolved by §4
+### ✅ UI collision — resolved by §4's pattern
 
 The original worry was that a click on a player row in
 `src/components/PlayerPool.tsx` **already means "select for nomination"**, and
@@ -123,8 +147,12 @@ while the row is disabled. A news affordance can be a second sibling, or open a
 `LeagueBoard`). Hover cards remain ruled out — cheap to build, bad on the one
 night that matters, and untestable.
 
-**Do this before draft week, or not at all.** A feature that adds a network
-dependency and a new interaction to the pool is a Wednesday-in-July change.
+The ⓘ button is a second sibling next to §4's star, and it opens one
+`PlayerDrawer` with several entry points rather than several components.
+
+⚠️ The advice below still stands for anything that *extends* this — tier 1 is
+safe on draft night because it touches no network, and tiers 2 and 3 are safe
+because they are unreachable from any award path. Keep it that way.
 
 ---
 
