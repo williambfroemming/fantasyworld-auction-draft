@@ -103,7 +103,7 @@ export function TestConsole() {
         </header>
 
         {/* Current lot */}
-        <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+        <section className="mt-4 rounded-xl border border-rule bg-slate-900/60 p-4">
           {lot ? (
             <div className="flex flex-wrap items-center gap-4">
               <div>
@@ -125,7 +125,7 @@ export function TestConsole() {
                 <input
                   value={price}
                   onChange={(e) => setPrice(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  className="ml-2 w-20 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center text-sm tabular-nums"
+                  className="ml-2 w-20 rounded-lg border border-rule bg-slate-950 px-2 py-1.5 text-center text-sm tabular-nums"
                 />
               </label>
               <button
@@ -148,7 +148,7 @@ export function TestConsole() {
                 value={playerQuery}
                 onChange={(e) => setPlayerQuery(e.target.value)}
                 placeholder="search a player…"
-                className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm"
+                className="rounded-lg border border-rule bg-slate-950 px-3 py-1.5 text-sm"
               />
               <button
                 disabled={busy || !pool[0] || !onClock}
@@ -169,7 +169,7 @@ export function TestConsole() {
         {/* Seats */}
         <section className="mt-4 grid gap-2 sm:grid-cols-2">
           {state.managers.map((m) => (
-            <div key={m.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+            <div key={m.id} className="rounded-xl border border-rule bg-slate-900/60 p-3">
               <div className="flex items-center gap-2">
                 <span className="h-4 w-1.5 rounded-full" style={{ backgroundColor: m.color }} />
                 <span className="font-semibold">{m.displayName}</span>
@@ -238,7 +238,7 @@ export function TestConsole() {
         </section>
 
         {/* Log */}
-        <section className="mt-4 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+        <section className="mt-4 rounded-xl border border-rule bg-slate-900/60 p-3">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">
             Activity
           </h2>

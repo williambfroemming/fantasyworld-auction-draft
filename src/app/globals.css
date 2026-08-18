@@ -7,7 +7,7 @@
  *
  * The board is a sports page. Light is newsprint (#f2ede3, ink on paper);
  * dark is the Late Edition (#17150f, cream on press-black). Structure comes
- * from type and rules — no radii, no shadows, no gradients.
+ * from type and RULES — no radii, no shadows, no gradients.
  *
  * ── How the theme switch works, because it looks wrong at first glance ──
  *
@@ -18,13 +18,14 @@
  *
  *      slate-950  page ground        slate-400/300  secondary text
  *      slate-900  panel              slate-200/100  primary text
- *      slate-800  raised + hairline  slate-50       brightest text
- *      slate-700  strong rule        slate-600/500  muted text
+ *      slate-800  raised fill        slate-50       brightest text
+ *      slate-700  strong fill        slate-600/500  muted text
  *
- * Light mode INVERTS that ramp — 950 becomes the lightest value and 100 the
+ * Light mode INVERTS that ramp — 950 is the lightest value and 100 the
  * darkest. So `bg-slate-950 text-slate-100` is a correct pairing in both
- * themes without a single component change. This is why the light values
- * below look upside-down. They are not.
+ * themes without a single component change. Every pair below is written
+ * `light-dark(light, dark)`, so the two themes cannot drift apart: there is
+ * one definition, not two blocks to keep in sync.
  *
  * ⚠️ The ACCENT ramps deliberately do NOT invert. `emerald-600` and friends
  * stay dark fills in both themes because they carry `text-white` (the Award
@@ -35,8 +36,6 @@
  * themes — body text on all three surfaces, white text on every solid fill
  * including hover, tinted chips over their own washes, and all twenty
  * manager colours against their ink. If you retune a stop, re-check it.
- * A generator + validator for this palette lives in the 2026-08 redesign
- * entry in docs/PROGRESS_LOG.md.
  *
  * The runner-up direction (Chalk Talk) is parked with its full palette in
  * docs/BACKLOG.md §10.
@@ -89,6 +88,16 @@
   --color-violet-300: var(--v-300);
   --color-violet-500: var(--v-500);
 
+  /*
+   * The rule. A broadsheet is built out of hairlines, so this is a role in its
+   * own right and NOT a step on the slate ramp — `slate-800` has to double as
+   * a raised fill, and a value subtle enough to be a background is far too
+   * faint to be a rule. Splitting them is what stops the page reading as one
+   * flat slab. `border-rule` / `rule-strong` below.
+   */
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+
   --color-background: var(--s-950);
   --color-foreground: var(--s-100);
 
@@ -113,53 +122,66 @@
   --font-mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
 }
 
-/* ───────────────────────── LIGHT · Broadsheet ───────────────────────── */
 :root {
-  --s-50: #0f0e0c;
-  --s-100: #1a1917;
-  --s-200: #302c20;
-  --s-300: #423d2e;
-  --s-400: #57513f;
-  --s-500: #635c4b;
-  --s-600: #7e7764;
-  --s-700: #c3bba6;
-  --s-800: #ddd5c3;
-  --s-900: #eee8dc;
-  --s-950: #f2ede3;
+  /*
+   * `light dark` means "follow the OS". The toggle overrides it below by
+   * pinning `color-scheme` to one value — that single property is the entire
+   * switch, because every token is a `light-dark()` pair. It also fixes native
+   * scrollbars, form controls and caret colour to match, which a class-based
+   * dark mode does not.
+   */
+  color-scheme: light dark;
 
-  --e-100: #dcebdf;
-  --e-200: #3f7a4c;
-  --e-300: #2a5732;
-  --e-400: #2f6238;
-  --e-500: #2b5a34;
-  --e-600: #244c2c;
-  --e-700: #1e4025;
-  --e-800: #18331e;
-  --e-900: #12281a;
+  --s-50: light-dark(#0f0e0c, #f7f2e6);
+  --s-100: light-dark(#1a1917, #ece5d5);
+  --s-200: light-dark(#302c20, #d9d1bd);
+  --s-300: light-dark(#423d2e, #c2baa5);
+  --s-400: light-dark(#57513f, #a8a08c);
+  --s-500: light-dark(#635c4b, #9c947f);
+  --s-600: light-dark(#7e7764, #7d7663);
+  --s-700: light-dark(#c3bba6, #3d3830);
+  --s-800: light-dark(#ddd5c3, #2f2b23);
+  --s-900: light-dark(#eee8dc, #1e1b14);
+  --s-950: light-dark(#f2ede3, #17150f);
 
-  --a-100: #f5ead0;
-  --a-200: #6b5216;
-  --a-300: #614a13;
-  --a-400: #6d5316;
-  --a-500: #5f4813;
-  --a-600: #523e10;
-  --a-700: #45340d;
-  --a-800: #38290a;
+  --e-100: light-dark(#dcebdf, #dcebdf);
+  --e-200: light-dark(#3f7a4c, #b3d6bb);
+  --e-300: light-dark(#2a5732, #8bc09a);
+  --e-400: light-dark(#2f6238, #63a675);
+  --e-500: light-dark(#2b5a34, #438252);
+  --e-600: light-dark(#244c2c, #356b43);
+  --e-700: light-dark(#1e4025, #2f5e3b);
+  --e-800: light-dark(#18331e, #25492e);
+  --e-900: light-dark(#12281a, #1c3823);
 
-  --r-100: #f7dfdb;
-  --r-200: #fbeae7;
-  --r-300: #8c261e;
-  --r-400: #96281f;
-  --r-500: #b4342a;
-  --r-600: #7a1e17;
-  --r-700: #6b1a14;
-  --r-800: #5c1610;
-  --r-900: #1f0704;
+  --a-100: light-dark(#f5ead0, #f5ead0);
+  --a-200: light-dark(#6b5216, #e6d3a0);
+  --a-300: light-dark(#614a13, #d4bb7d);
+  --a-400: light-dark(#6d5316, #bfa05e);
+  --a-500: light-dark(#5f4813, #8a7134);
+  --a-600: light-dark(#523e10, #745d28);
+  --a-700: light-dark(#45340d, #6d5727);
+  --a-800: light-dark(#38290a, #57441e);
 
-  --k-300: #175a7b;
-  --k-500: #2a6fb0;
-  --v-300: #57327a;
-  --v-500: #7a52a3;
+  --r-100: light-dark(#f7dfdb, #f7dfdb);
+  --r-200: light-dark(#fbeae7, #f0cfc9);
+  --r-300: light-dark(#8c261e, #e08a7c);
+  --r-400: light-dark(#96281f, #d16a58);
+  --r-500: light-dark(#b4342a, #c04e3c);
+  --r-600: light-dark(#7a1e17, #a53e2e);
+  --r-700: light-dark(#6b1a14, #8a3124);
+  --r-800: light-dark(#5c1610, #6f261c);
+  --r-900: light-dark(#1f0704, #551d15);
+
+  --k-300: light-dark(#175a7b, #8fb8d0);
+  --k-500: light-dark(#2a6fb0, #4a90b5);
+  --v-300: light-dark(#57327a, #bfa8cf);
+  --v-500: light-dark(#7a52a3, #8a6ba3);
+
+  /* Hairline, and the heavy rule that opens a section — the two weights a
+     newspaper actually uses. */
+  --rule: light-dark(#c2b9a4, #464034);
+  --rule-strong: light-dark(#1a1917, #ece5d5);
 
   /*
    * The ten manager colours. `managers.color` in the database stores the
@@ -169,83 +191,42 @@
    * `-ink` is the text laid ON that fill, and is chosen from the fill's own
    * luminance, never from the theme.
    */
-  --mgr-red: #a8322c;      --mgr-red-ink: #f7f2e6;
-  --mgr-orange: #9c5310;   --mgr-orange-ink: #f7f2e6;
-  --mgr-amber: #7d5606;    --mgr-amber-ink: #f7f2e6;
-  --mgr-lime: #4f6b0f;     --mgr-lime-ink: #f7f2e6;
-  --mgr-green: #217039;    --mgr-green-ink: #f7f2e6;
-  --mgr-teal: #0f6b61;     --mgr-teal-ink: #f7f2e6;
-  --mgr-sky: #1d6f96;      --mgr-sky-ink: #f7f2e6;
-  --mgr-indigo: #414a94;   --mgr-indigo-ink: #f7f2e6;
-  --mgr-purple: #68398f;   --mgr-purple-ink: #f7f2e6;
-  --mgr-pink: #a3316c;     --mgr-pink-ink: #f7f2e6;
-
-  /* Paper grain. Inline SVG, so no request and nothing to 404. */
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  --mgr-red: light-dark(#a8322c, #f87171);
+  --mgr-red-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-orange: light-dark(#9c5310, #fb923c);
+  --mgr-orange-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-amber: light-dark(#7d5606, #fbbf24);
+  --mgr-amber-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-lime: light-dark(#4f6b0f, #a3e635);
+  --mgr-lime-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-green: light-dark(#217039, #4ade80);
+  --mgr-green-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-teal: light-dark(#0f6b61, #2dd4bf);
+  --mgr-teal-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-sky: light-dark(#1d6f96, #38bdf8);
+  --mgr-sky-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-indigo: light-dark(#414a94, #818cf8);
+  --mgr-indigo-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-purple: light-dark(#68398f, #c084fc);
+  --mgr-purple-ink: light-dark(#f7f2e6, #17150f);
+  --mgr-pink: light-dark(#a3316c, #f472b6);
+  --mgr-pink-ink: light-dark(#f7f2e6, #17150f);
 }
 
-/* ──────────────────────── DARK · Late Edition ───────────────────────── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --s-50: #f7f2e6;
-    --s-100: #ece5d5;
-    --s-200: #d9d1bd;
-    --s-300: #c2baa5;
-    --s-400: #a8a08c;
-    --s-500: #9c947f;
-    --s-600: #7d7663;
-    --s-700: #3d3830;
-    --s-800: #2f2b23;
-    --s-900: #1e1b14;
-    --s-950: #17150f;
+/* The toggle. One property, because every token is a light-dark() pair. */
+:root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
 
-    --e-100: #dcebdf;
-    --e-200: #b3d6bb;
-    --e-300: #8bc09a;
-    --e-400: #63a675;
-    --e-500: #438252;
-    --e-600: #356b43;
-    --e-700: #2f5e3b;
-    --e-800: #25492e;
-    --e-900: #1c3823;
-
-    --a-100: #f5ead0;
-    --a-200: #e6d3a0;
-    --a-300: #d4bb7d;
-    --a-400: #bfa05e;
-    --a-500: #8a7134;
-    --a-600: #745d28;
-    --a-700: #6d5727;
-    --a-800: #57441e;
-
-    --r-100: #f7dfdb;
-    --r-200: #f0cfc9;
-    --r-300: #e08a7c;
-    --r-400: #d16a58;
-    --r-500: #c04e3c;
-    --r-600: #a53e2e;
-    --r-700: #8a3124;
-    --r-800: #6f261c;
-    --r-900: #551d15;
-
-    --k-300: #8fb8d0;
-    --k-500: #4a90b5;
-    --v-300: #bfa8cf;
-    --v-500: #8a6ba3;
-
-    --mgr-red: #f87171;      --mgr-red-ink: #17150f;
-    --mgr-orange: #fb923c;   --mgr-orange-ink: #17150f;
-    --mgr-amber: #fbbf24;    --mgr-amber-ink: #17150f;
-    --mgr-lime: #a3e635;     --mgr-lime-ink: #17150f;
-    --mgr-green: #4ade80;    --mgr-green-ink: #17150f;
-    --mgr-teal: #2dd4bf;     --mgr-teal-ink: #17150f;
-    --mgr-sky: #38bdf8;      --mgr-sky-ink: #17150f;
-    --mgr-indigo: #818cf8;   --mgr-indigo-ink: #17150f;
-    --mgr-purple: #c084fc;   --mgr-purple-ink: #17150f;
-    --mgr-pink: #f472b6;     --mgr-pink-ink: #17150f;
-
-    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
-  }
+body {
+  background-color: var(--s-950);
+  color: var(--s-100);
+  font-family: var(--font-source-serif), Charter, Georgia, serif;
+  /*
+   * Money lines up in columns on nearly every screen here. Without this,
+   * proportional digits make each figure a different width and the dollar
+   * columns visibly shiver on every poll.
+   */
+  font-variant-numeric: tabular-nums;
 }
 
 /*
@@ -261,15 +242,40 @@
   font-family: var(--font-oswald), "Haettenschweiler", "Arial Narrow", sans-serif;
 }
 
-body {
-  background-color: var(--s-950);
-  background-image: var(--grain);
-  color: var(--s-100);
-  font-family: var(--font-source-serif), Charter, Georgia, serif;
-  /*
-   * Money lines up in columns on nearly every screen here. Without this,
-   * proportional digits make each figure a different width and the dollar
-   * columns visibly shiver on every poll.
-   */
-  font-variant-numeric: tabular-nums;
+/*
+ * The heavy rule that opens a section, printed hard against the ground. This
+ * is the single strongest structural mark in the design — it is what makes a
+ * panel read as a panel now that nothing has a border radius or a shadow.
+ */
+.rule-strong {
+  border-top: 2px solid var(--rule-strong);
+}
+
+/*
+ * Dot leaders, as used down the agate columns of a box score: a label on the
+ * left, a figure hard right, dots carrying the eye across the gap.
+ *
+ * Wants `display:flex` and a `<span>` label followed by the value.
+ */
+.leaders {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.leaders > :first-child::after {
+  content: '................................................................'
+    '................................................................';
+  color: var(--rule);
+  letter-spacing: 0.14em;
+  padding-left: 0.35em;
+}
+.leaders > :first-child {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.leaders > :last-child {
+  flex: 0 0 auto;
 }

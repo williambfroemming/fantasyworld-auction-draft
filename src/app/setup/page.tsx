@@ -6,6 +6,7 @@ import { randomOrder, snakeSlot } from '@/lib/draft'
 import { useDraft } from '@/hooks/useDraft'
 import type { StateManager } from '@/server/draft-service'
 import { managerTint } from '@/lib/colors'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 /**
  * Pre-draft setup. Commissioner only.
@@ -115,9 +116,12 @@ export default function SetupPage() {
           <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-300">
             {state.draft.status}
           </span>
-          <Link href="/draft" className="ml-auto text-sm text-slate-400 underline">
-            → draft
-          </Link>
+          <div className="ml-auto flex items-center gap-3">
+            <ThemeToggle />
+            <Link href="/draft" className="text-sm text-slate-400 underline">
+              → draft
+            </Link>
+          </div>
         </header>
 
         {msg && <p className="mt-4 rounded-lg bg-slate-800 px-3 py-2 text-sm">{msg}</p>}
@@ -146,7 +150,7 @@ export default function SetupPage() {
               <button
                 onClick={() => { setOrder(state.managers); setDirty(false) }}
                 disabled={busy}
-                className="rounded-lg border border-slate-700 px-4 py-2 text-sm hover:bg-slate-800"
+                className="rounded-lg border border-rule px-4 py-2 text-sm hover:bg-slate-800"
               >
                 Discard
               </button>
@@ -164,7 +168,7 @@ export default function SetupPage() {
             {order.map((m, i) => (
               <li
                 key={m.id}
-                className={`flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 ${
+                className={`flex items-center gap-3 rounded-lg border border-rule bg-slate-900/60 px-3 py-2 ${
                   rolling ? 'transition-transform duration-75' : ''
                 }`}
               >
@@ -199,7 +203,7 @@ export default function SetupPage() {
               ['Round 1', preview.one],
               ['Round 2 (reversed)', preview.two],
             ].map(([label, list]) => (
-              <div key={label as string} className="rounded-lg border border-slate-800 p-3">
+              <div key={label as string} className="rounded-lg border border-rule p-3">
                 <div className="mb-2 text-[10px] uppercase tracking-widest text-slate-500">
                   {label as string}
                 </div>
@@ -238,7 +242,7 @@ export default function SetupPage() {
               <button
                 onClick={() => act({ action: 'setStatus', status: 'setup' }, 'Back to setup.')}
                 disabled={busy}
-                className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm hover:bg-slate-800"
+                className="rounded-lg border border-rule px-4 py-2.5 text-sm hover:bg-slate-800"
               >
                 Back to setup
               </button>
@@ -263,7 +267,7 @@ export default function SetupPage() {
                 ).then(() => { setMsg('All PINs cleared.'); refresh() })
               }}
               disabled={busy}
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm hover:bg-slate-800"
+              className="rounded-lg border border-rule px-4 py-2 text-sm hover:bg-slate-800"
             >
               Clear all PINs
             </button>
@@ -361,7 +365,7 @@ function Field({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 5))}
-        className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center text-lg tabular-nums text-slate-100 disabled:opacity-40"
+        className="mt-1 w-full rounded-lg border border-rule bg-slate-950 px-3 py-2 text-center text-lg tabular-nums text-slate-100 disabled:opacity-40"
       />
     </label>
   )
@@ -377,7 +381,7 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <section className="mt-6 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+    <section className="mt-6 rounded-xl border border-rule bg-slate-900/40 p-4">
       <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-400">{title}</h2>
       {note && <p className="mb-3 mt-1 text-xs text-slate-500">{note}</p>}
       <div className={note ? '' : 'mt-3'}>{children}</div>

@@ -45,7 +45,7 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
   if (input.picks.length === 0) {
     return (
       <div
-        className={`grid place-items-center rounded-xl border border-slate-800 bg-slate-900/60 text-sm text-slate-500 ${className}`}
+        className={`grid place-items-center rounded-xl border border-rule bg-slate-900/60 text-sm text-slate-500 ${className}`}
       >
         Nothing drafted yet — the curve starts with the first sale.
       </div>
@@ -71,8 +71,8 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
   return (
     <div className={`flex min-h-0 flex-col gap-3 overflow-auto ${className}`}>
       {/* ---------- the league's own curve ---------- */}
-      <section className="shrink-0 rounded-xl border border-slate-800 bg-slate-900/60">
-        <div className="flex flex-wrap items-baseline gap-2 border-b border-slate-800 px-3 py-2">
+      <section className="shrink-0 rounded-xl border border-rule bg-slate-900/60">
+        <div className="flex flex-wrap items-baseline gap-2 border-b border-rule px-3 py-2">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
             League spend over the draft
           </h2>
@@ -159,8 +159,8 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
       </section>
 
       {/* ---------- one panel per manager ---------- */}
-      <section className="rounded-xl border border-slate-800 bg-slate-900/60">
-        <div className="flex flex-wrap items-baseline gap-2 border-b border-slate-800 px-3 py-2">
+      <section className="rounded-xl border border-rule bg-slate-900/60">
+        <div className="flex flex-wrap items-baseline gap-2 border-b border-rule px-3 py-2">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
             Who bought early
           </h2>
@@ -177,7 +177,7 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
             return (
               <figure
                 key={m.managerId}
-                className="rounded-lg border border-slate-800 bg-slate-950/40 p-2"
+                className="rounded-lg border border-rule bg-slate-950/40 p-2"
               >
                 <figcaption className="mb-1 flex items-baseline gap-1.5">
                   <span

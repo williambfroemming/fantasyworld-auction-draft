@@ -17,8 +17,8 @@ export function TeamSpendPanel({ input, className = '' }: { input: StatsInput; c
   const anyDrift = rows.some((r) => r.drift !== 0)
 
   return (
-    <div className={`flex min-h-0 flex-col rounded-xl border border-slate-800 bg-slate-900/60 ${className}`}>
-      <div className="flex shrink-0 flex-wrap items-baseline gap-2 border-b border-slate-800 px-3 py-2">
+    <div className={`flex min-h-0 flex-col rounded-xl border border-rule bg-slate-900/60 ${className}`}>
+      <div className="flex shrink-0 flex-wrap items-baseline gap-2 border-b border-rule px-3 py-2">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           Spend by team
         </h2>
@@ -30,7 +30,7 @@ export function TeamSpendPanel({ input, className = '' }: { input: StatsInput; c
       <div className="min-h-0 flex-1 overflow-auto p-3">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-rule text-[10px] uppercase tracking-wider text-slate-500">
               <th className="py-2 pr-2 text-left">Team</th>
               {SPEND_COLUMNS.map((c) => (
                 <th key={c} className="px-2 py-2 text-right">
@@ -46,7 +46,7 @@ export function TeamSpendPanel({ input, className = '' }: { input: StatsInput; c
             {rows.map((r) => {
               const m = byId.get(r.managerId)
               return (
-                <tr key={r.managerId} className="border-b border-slate-800/60">
+                <tr key={r.managerId} className="border-b border-rule/60">
                   <td className="py-2 pr-2">
                     <span
                       className="inline-block max-w-[9rem] truncate rounded px-1.5 py-0.5 text-xs font-semibold"

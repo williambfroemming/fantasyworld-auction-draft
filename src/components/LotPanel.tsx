@@ -5,19 +5,31 @@ import { validateAward } from '@/lib/draft'
 import { sounds } from '@/lib/sounds'
 import type { DraftState, StateManager } from '@/server/draft-service'
 
+/**
+ * Position badges are solid blocks of ink, not tinted washes — a newspaper
+ * prints a block or it prints nothing, and a wash reads as mush at this size.
+ *
+ * The fill is the `-300` step and the ink is `slate-950`. That pairing is
+ * correct in BOTH themes because they move in opposite directions: `-300` is
+ * the readable accent on each ground (dark on newsprint, bright on press
+ * black) while `slate-950` inverts to the page colour behind it. Every
+ * combination clears 6.4:1.
+ */
 const POSITION_TINT: Record<string, string> = {
-  QB: 'bg-rose-500/15 text-rose-300 ring-rose-500/30',
-  RB: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30',
-  WR: 'bg-sky-500/15 text-sky-300 ring-sky-500/30',
-  TE: 'bg-amber-500/15 text-amber-300 ring-amber-500/30',
-  DEF: 'bg-violet-500/15 text-violet-300 ring-violet-500/30',
-  K: 'bg-slate-500/15 text-slate-300 ring-slate-500/30',
+  QB: 'bg-rose-300 text-slate-950',
+  RB: 'bg-emerald-300 text-slate-950',
+  WR: 'bg-sky-300 text-slate-950',
+  TE: 'bg-amber-300 text-slate-950',
+  DEF: 'bg-violet-300 text-slate-950',
+  K: 'bg-slate-300 text-slate-950',
 }
 
 export function PositionBadge({ position }: { position: string }) {
   return (
     <span
-      className={`rounded px-1.5 py-0.5 text-[11px] font-bold ring-1 ${
+      // `uppercase` carries the condensed gothic (see globals.css); the ring is
+      // gone because the fill is solid now and a ring on it just muddies the edge.
+      className={`px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
         POSITION_TINT[position] ?? POSITION_TINT.K
       }`}
     >
@@ -87,7 +99,7 @@ export function LotPanel({
     const stuck = !finished && !onClock && state.draft.status === 'live'
 
     return (
-      <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-slate-800 bg-slate-900/60 p-8 text-center">
+      <div className="rule-strong flex h-full flex-col items-center justify-center rounded-2xl border border-rule bg-slate-900/60 p-8 text-center">
         {finished ? (
           <>
             <div className="text-7xl">🏈</div>
@@ -199,7 +211,7 @@ export function LotPanel({
   }
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-emerald-600/40 bg-slate-900/60 p-5 sm:p-7">
+    <div className="rule-strong flex h-full flex-col rounded-2xl border border-emerald-600/40 bg-slate-900/60 p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -222,7 +234,7 @@ export function LotPanel({
       </div>
 
       {!canRecord ? (
-        <div className="mt-auto border-t border-slate-800 pt-6 text-slate-400">
+        <div className="mt-auto border-t border-rule pt-6 text-slate-400">
           <p className="text-lg">
             Bidding is open in the room.{' '}
             <span className="font-semibold" style={{ color: nominator?.color }}>
@@ -242,7 +254,7 @@ export function LotPanel({
           )}
         </div>
       ) : (
-        <div className="mt-auto border-t border-slate-800 pt-5">
+        <div className="mt-auto border-t border-rule pt-5">
           <div className="flex flex-wrap items-end gap-4">
             <label className="text-xs uppercase tracking-widest text-slate-500">
               Sold for
@@ -258,7 +270,7 @@ export function LotPanel({
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && ready && submit()}
                   placeholder="0"
-                  className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center font-display text-4xl font-bold tabular-nums outline-none focus:border-emerald-500"
+                  className="w-28 rounded-lg border border-rule bg-slate-950 px-3 py-2 text-center font-display text-4xl font-bold tabular-nums outline-none focus:border-emerald-500"
                 />
               </div>
             </label>
@@ -289,7 +301,7 @@ export function LotPanel({
                   className={`rounded-lg border px-2 py-2 text-left transition disabled:cursor-not-allowed disabled:opacity-30 ${
                     selected
                       ? 'border-emerald-500 bg-emerald-600/20'
-                      : 'border-slate-700 hover:bg-slate-800'
+                      : 'border-rule hover:bg-slate-800'
                   }`}
                   style={selected ? { borderColor: m.color } : undefined}
                 >

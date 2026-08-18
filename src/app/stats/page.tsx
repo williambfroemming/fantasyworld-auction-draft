@@ -11,6 +11,7 @@ import { ValuePanel } from '@/components/stats/ValuePanel'
 import { useDraft } from '@/hooks/useDraft'
 import { useSeasonView } from '@/hooks/useSeasonView'
 import type { StatsInput } from '@/lib/stats'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 type View = 'teams' | 'pace' | 'curve' | 'nominations' | 'value'
 
@@ -69,7 +70,7 @@ export default function StatsPage() {
 
   return (
     <main className="flex h-dvh flex-col bg-slate-950 text-slate-100">
-      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-2.5">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <Link
           href="/draft"
           className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold hover:bg-slate-700"
@@ -106,6 +107,7 @@ export default function StatsPage() {
         </Link>
 
         <div className="ml-auto flex items-center gap-3">
+          <ThemeToggle />
           {isArchive ? (
             <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
               Archived · read only

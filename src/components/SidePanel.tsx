@@ -28,8 +28,8 @@ export function SidePanel({
   }, [board, state.managers])
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-900/60">
-      <div className="flex shrink-0 gap-1 border-b border-slate-800 p-2">
+    <div className="rule-strong flex h-full min-h-0 flex-col rounded-2xl border border-rule bg-slate-900/60">
+      <div className="flex shrink-0 gap-1 border-b border-rule p-2">
         {(
           [
             ['me', 'My Roster'],
@@ -102,7 +102,7 @@ function MyRoster({
 
   return (
     <div className="p-3">
-      <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-slate-800 pb-2">
+      <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-rule pb-2">
         <span className="text-sm">
           <span className="font-bold tabular-nums text-slate-100">
             {picks.length}
@@ -142,7 +142,7 @@ function MyRoster({
             const entry = pickInRow(laid, rowIndex)
             const pick = entry ? byId.get(entry.id) : null
             return (
-              <tr key={slot.key} className="border-b border-slate-800/60 last:border-0">
+              <tr key={slot.key} className="border-b border-rule/60 last:border-0">
                 {/* Narrow enough that the name sits next to its slot instead of
                     across a gap — SUPERFLEX is the longest label and still fits. */}
                 <td className="w-[4.5rem] py-1.5 pr-1 align-middle text-[10px] uppercase tracking-wide text-slate-600">
@@ -206,7 +206,7 @@ function RoomMoney({ managers, rosterSize }: { managers: StateManager[]; rosterS
   const sidelined = managers.length - active.length
 
   return (
-    <div className="border-b border-slate-800 bg-slate-900/80 px-3 py-2">
+    <div className="border-b border-rule bg-slate-900/80 px-3 py-2">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[10px] uppercase tracking-wider text-slate-500">
           The room{sidelined > 0 && ` · ${sidelined} full`}
@@ -300,7 +300,7 @@ function Budgets({
     <RoomMoney managers={managers} rosterSize={rosterSize} />
     <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+        <tr className="border-b border-rule text-[10px] uppercase tracking-wider text-slate-500">
           <th className="px-2 py-2 text-left">Team</th>
           <th className="px-2 py-2 text-right">Budget</th>
           <th className="px-2 py-2 text-right">Max</th>
@@ -318,7 +318,7 @@ function Budgets({
           const full = m.rostered >= rosterSize
           const perSlot = perSlotLeft(m.budget, m.rostered, rosterSize)
           return (
-            <tr key={m.id} className="border-b border-slate-800/60">
+            <tr key={m.id} className="border-b border-rule/60">
               <td className="px-2 py-2">
                 <span className="flex items-center gap-2">
                   <span className="h-3 w-1.5 rounded-full" style={{ backgroundColor: m.color }} />
@@ -411,7 +411,7 @@ function PickLog({ board, managers }: { board: Board | null; managers: StateMana
 
   return (
     <div>
-      <div className="sticky top-0 z-10 border-b border-slate-800 bg-slate-900 px-2 py-2">
+      <div className="sticky top-0 z-10 border-b border-rule bg-slate-900 px-2 py-2">
         <div className="flex flex-wrap gap-1">
           {PICK_FILTERS.map((f) => {
             const n = f === 'ALL' ? all.length : all.filter((p) => p.position === f).length
@@ -442,7 +442,7 @@ function PickLog({ board, managers }: { board: Board | null; managers: StateMana
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-slate-800 text-[10px] uppercase tracking-wider text-slate-500">
+            <tr className="border-b border-rule text-[10px] uppercase tracking-wider text-slate-500">
               <th className="w-10 cursor-pointer px-2 py-1.5 text-right hover:text-slate-300">
                 <button onClick={() => sortBy('pickNo')}>
                   # <SortArrow active={sort === 'pickNo'} desc={desc} />
@@ -465,7 +465,7 @@ function PickLog({ board, managers }: { board: Board | null; managers: StateMana
             {picks.map((p) => {
               const m = byId.get(p.managerId)
               return (
-                <tr key={p.id} className="border-b border-slate-800/60">
+                <tr key={p.id} className="border-b border-rule/60">
                   <td className="w-10 px-2 py-1.5 text-right tabular-nums text-slate-600">
                     {p.pickNo}
                   </td>

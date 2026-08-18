@@ -39,7 +39,23 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${oswald.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        {/*
+          Applies the saved theme BEFORE first paint. This has to be a blocking
+          inline script in <head>: doing it in an effect runs after paint, which
+          is a visible flash of the wrong theme on every single load.
+
+          No stored value means no attribute, which leaves `color-scheme:
+          light dark` in globals.css to follow the OS.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

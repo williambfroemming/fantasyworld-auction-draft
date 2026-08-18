@@ -13,6 +13,7 @@ import { useQueue } from '@/hooks/useQueue'
 import { sounds, unlockAudio } from '@/lib/sounds'
 import type { BoardPlayer } from '@/hooks/useDraft'
 import { managerTint } from '@/lib/colors'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function DraftPage() {
   const router = useRouter()
@@ -102,7 +103,7 @@ export default function DraftPage() {
       onClickCapture={unlockAudio}
     >
       {/* Header */}
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-3">
+      <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-3">
         <h1 className="text-lg font-bold tracking-tight">Auction Draft</h1>
         <Link
           href="/board"
@@ -140,6 +141,7 @@ export default function DraftPage() {
         )}
 
         <div className="ml-auto flex items-center gap-3 text-sm">
+          <ThemeToggle />
           {myManager && (
             <>
               <span className="hidden text-slate-500 sm:inline">
@@ -225,7 +227,7 @@ export default function DraftPage() {
                 return (
                   <div
                     key={p.pickNo}
-                    className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-1.5"
+                    className="flex shrink-0 items-center gap-2 rounded-lg border border-rule bg-slate-900/60 px-2.5 py-1.5"
                   >
                     <PositionBadge position={p.playerPosition} />
                     <span className="text-sm font-medium">{p.playerName}</span>

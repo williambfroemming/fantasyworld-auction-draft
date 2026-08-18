@@ -1055,3 +1055,70 @@ the 2026 draft is resolved by the *same* code the import uses, with the same ref
 
 **Next:** the backlog is down to §1 (news feed) and §8. §1 is now materially cheaper: its identity
 problem is solved here and its UI collision was solved by §4's sibling-button pattern.
+
+---
+
+## Step 25 — A theme toggle, and the rules that were holding the page together
+
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** a Paper / Night / Auto toggle in every page header; `light-dark()` replacing the two
+duplicated palette blocks; `--color-rule` split out as a role of its own; solid-ink position
+badges; the heavy `rule-strong` section head.
+
+**149 unit tests passing**, typecheck and build clean.
+
+### Step 24 shipped the colour half of the identity and none of the structure
+
+The board came out flat — one uniform slab. The reason was specific: Broadsheet's structure lives
+in its **rules**, and the app's borders were all `border-slate-800`, a value that also has to work
+as a *raised fill*. Something subtle enough to be a background is far too faint to be a hairline,
+so the compromise value satisfied neither and every panel edge disappeared.
+
+The fix is to stop treating the rule as a step on the slate ramp. `--color-rule` is now its own
+token, tuned only for visibility, and all 95 `border-slate-700|800` sites became `border-rule`.
+`rule-strong` is the second weight — the 2px head that opens a panel, which is what makes a panel
+read as a panel now that nothing has a radius or a shadow.
+
+Position badges went the same way: `bg-X-500/15 text-X-300` washes became solid `bg-X-300
+text-slate-950` blocks. A newspaper prints a block or it prints nothing.
+
+### `light-dark()` deleted a whole class of bug
+
+Step 24 warned that `--mgr-*` had "two sets that must stay in sync". That warning is now obsolete —
+**every token is a single `light-dark(light, dark)` pair**, so there is no second block to forget.
+The toggle is then one property: `color-scheme`. No class to propagate down the tree, no second
+stylesheet, and native scrollbars, form controls and caret colour follow along for free.
+
+Three states fall out of it: `color-scheme: light dark` on `:root` follows the OS, and
+`[data-theme='light'|'dark']` pins it. Lightning CSS polyfills `light-dark()` into
+`--lightningcss-light/dark` sentinels and emits the matching `prefers-color-scheme` block, so all
+three resolve correctly in the built CSS.
+
+**Learned:**
+
+- **A palette can be fully validated and still look wrong.** Every pairing in Step 24 passed AA,
+  and the page still read as a flat slab, because contrast between *text and its ground* says
+  nothing about whether the page has visible **structure**. Rules, weights and edges are a separate
+  axis that no contrast checker looks at.
+- **One token cannot be both a fill and a rule.** The moment a value has two jobs with opposite
+  requirements, the compromise fails both. Splitting the role was a smaller change than tuning the
+  shared value ever could have been.
+- **`light-dark()` is the right primitive for a two-theme app** and removes the duplicated-block
+  failure mode entirely. Worth reaching for before hand-rolling `prefers-color-scheme` twice.
+- A theme's initial value **has to be applied by a blocking inline script in `<head>`**. Doing it in
+  an effect runs after first paint, which is a visible flash of the wrong theme on every load.
+
+**Watch out for:**
+
+- **`--rule` is not on the slate ramp, deliberately.** Do not "tidy" `border-rule` back to
+  `border-slate-800`; that is the exact change that made the page flat.
+- **Solid badges depend on `-300` and `slate-950` moving in opposite directions.** `-300` is the
+  readable accent on each ground while `slate-950` inverts to the page colour. Swapping either for
+  a fixed value breaks one theme silently.
+- **`suppressHydrationWarning` is on `<html>` and on the toggle button** because both legitimately
+  differ between server and client — the server cannot know what is in `localStorage`.
+- Supersedes Step 24's "two sets that must stay in sync" note: there is one definition per token now.
+- **Still unverified on a phone.** Both themes are confirmed only on a desktop browser.
+
+**Next:** BACKLOG §9 P2 — `voidLot`/`undoPick` decrementing the nomination index by exactly 1.

@@ -63,7 +63,7 @@ export function CommishDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={() => setOpen(false)}>
       <div
-        className="h-full w-full max-w-sm overflow-y-auto border-l border-slate-800 bg-slate-900 p-4"
+        className="h-full w-full max-w-sm overflow-y-auto border-l border-rule bg-slate-900 p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -215,7 +215,7 @@ function EditPick({
         <input
           value={price}
           onChange={(e) => setPrice(e.target.value.replace(/\D/g, '').slice(0, 3))}
-          className="w-20 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center tabular-nums"
+          className="w-20 rounded-lg border border-rule bg-slate-950 px-2 py-1.5 text-center tabular-nums"
         />
         <Btn onClick={() => act({ action: 'editPrice', pickId: pick.id, price: Number(price) })} disabled={busy}>
           Set price
@@ -225,7 +225,7 @@ function EditPick({
         <select
           value={managerId}
           onChange={(e) => setManagerId(e.target.value)}
-          className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-sm"
+          className="flex-1 rounded-lg border border-rule bg-slate-950 px-2 py-1.5 text-sm"
         >
           {state.managers.map((m) => (
             <option key={m.id} value={m.id}>
@@ -246,7 +246,7 @@ function EditPick({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-5 border-t border-slate-800 pt-4">
+    <section className="mt-5 border-t border-rule pt-4">
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-widest text-slate-500">{title}</h3>
       {children}
     </section>

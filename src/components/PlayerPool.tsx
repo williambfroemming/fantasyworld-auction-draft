@@ -129,13 +129,13 @@ export function PlayerPool({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-900/60">
-      <div className="border-b border-slate-800 p-3">
+    <div className="rule-strong flex h-full min-h-0 flex-col rounded-2xl border border-rule bg-slate-900/60">
+      <div className="border-b border-rule p-3">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search players…"
-          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-emerald-500"
+          className="w-full rounded-lg border border-rule bg-slate-950 px-3 py-2 text-sm outline-none focus:border-emerald-500"
         />
         <div className="mt-2 flex flex-wrap gap-1">
           {FILTERS.map((f) => (
@@ -167,7 +167,7 @@ export function PlayerPool({
       </div>
 
       {!canNominate && disabledReason && (
-        <div className="border-b border-slate-800 bg-slate-800/40 px-3 py-2 text-xs text-slate-400">
+        <div className="border-b border-rule bg-slate-800/40 px-3 py-2 text-xs text-slate-400">
           {disabledReason}
         </div>
       )}
@@ -176,7 +176,7 @@ export function PlayerPool({
           a bug; naming the loss is the difference between "the app ate my list"
           and "I got outbid on two guys". */}
       {takenTargets.length > 0 && (
-        <div className="flex items-center gap-2 border-b border-slate-800 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+        <div className="flex items-center gap-2 border-b border-rule bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
           <span className="min-w-0 flex-1">
             {takenTargets.length} of your targets{' '}
             {takenTargets.length === 1 ? 'was' : 'were'} drafted
@@ -310,7 +310,7 @@ export function PlayerPool({
 
       {/* Nomination tray */}
       {selected && canNominate && (
-        <div className="border-t border-slate-800 bg-slate-900 p-3">
+        <div className="border-t border-rule bg-slate-900 p-3">
           <div className="flex items-center gap-2">
             <PositionBadge position={selected.position} />
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">{selected.name}</span>

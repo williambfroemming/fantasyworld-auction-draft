@@ -54,7 +54,7 @@ export function NominationOrder({
   const n = state.managers.length
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-800 bg-slate-900/40 px-4 py-2">
+    <div className="flex items-center gap-2 overflow-x-auto border-b border-rule bg-slate-900/40 px-4 py-2">
       <span className="shrink-0 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
         Order
       </span>

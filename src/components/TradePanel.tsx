@@ -161,7 +161,7 @@ export function TradePanel({
       </div>
 
       {a && b && (
-        <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+        <div className="rounded-xl border border-rule bg-slate-950/60 p-3">
           <div className="text-xs uppercase tracking-widest text-slate-500">After the trade</div>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             <Outcome
@@ -208,21 +208,21 @@ export function TradePanel({
         </button>
         <button
           onClick={reset}
-          className="rounded-lg border border-slate-700 px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
+          className="rounded-lg border border-rule px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800"
         >
           Clear
         </button>
       </div>
 
       {board && board.trades.length > 0 && (
-        <div className="border-t border-slate-800 pt-3">
+        <div className="border-t border-rule pt-3">
           <div className="text-xs uppercase tracking-widest text-slate-500">Completed trades</div>
           <ul className="mt-2 space-y-2">
             {board.trades.map((t) => {
               const ma = state.managers.find((m) => m.id === t.managerAId)
               const mb = state.managers.find((m) => m.id === t.managerBId)
               return (
-                <li key={t.id} className="rounded-lg border border-slate-800 bg-slate-900/60 p-2.5 text-xs">
+                <li key={t.id} className="rounded-lg border border-rule bg-slate-900/60 p-2.5 text-xs">
                   <div className="font-semibold">
                     <span style={{ color: ma?.color }}>{ma?.displayName}</span>
                     <span className="text-slate-600"> ↔ </span>
@@ -290,12 +290,12 @@ function Side({
   manager: StateManager | null
 }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+    <div className="rounded-xl border border-rule bg-slate-900/60 p-3">
       <div className="text-xs uppercase tracking-widest text-slate-500">{label} gives</div>
       <select
         value={selectedId ?? ''}
         onChange={(e) => onSelect(Number(e.target.value))}
-        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-sm"
+        className="mt-2 w-full rounded-lg border border-rule bg-slate-950 px-2 py-2 text-sm"
       >
         <option value="">Choose a manager…</option>
         {managers
@@ -336,7 +336,7 @@ function Side({
               value={cash}
               onChange={(e) => onCash(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="0"
-              className="w-20 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center tabular-nums outline-none focus:border-emerald-500"
+              className="w-20 rounded-lg border border-rule bg-slate-950 px-2 py-1.5 text-center tabular-nums outline-none focus:border-emerald-500"
             />
             of auction budget
           </label>

@@ -90,7 +90,7 @@ export function LeagueBoard({
       <table className="w-full border-separate border-spacing-0 text-xs">
         <thead>
           <tr>
-            <th className="sticky left-0 top-0 z-30 w-20 border-b border-r border-slate-800 bg-slate-900 px-2 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500">
+            <th className="sticky left-0 top-0 z-30 w-20 border-b border-r border-rule bg-slate-900 px-2 py-2 text-left text-[10px] uppercase tracking-wider text-slate-500">
               Slot
             </th>
             {managers.map((m) => {
@@ -98,7 +98,7 @@ export function LeagueBoard({
               return (
                 <th
                   key={m.id}
-                  className="sticky top-0 z-20 border-b border-slate-800 px-2 py-1.5 text-left"
+                  className="sticky top-0 z-20 border-b border-rule px-2 py-1.5 text-left"
                   style={{ backgroundColor: m.color, color: textOn(m.color), minWidth: '9rem' }}
                 >
                   <div className="truncate font-semibold">{m.displayName}</div>
@@ -115,7 +115,7 @@ export function LeagueBoard({
           {rows.map((slot, rowIndex) => (
             <tr key={slot.key}>
               <td
-                className={`sticky left-0 z-10 border-b border-r border-slate-800 bg-slate-900 px-2 py-1.5 text-[10px] uppercase tracking-wider ${
+                className={`sticky left-0 z-10 border-b border-r border-rule bg-slate-900 px-2 py-1.5 text-[10px] uppercase tracking-wider ${
                   slot.label === 'BENCH' ? 'text-slate-600' : 'text-slate-400'
                 }`}
               >
@@ -128,7 +128,7 @@ export function LeagueBoard({
                 return (
                   <td
                     key={m.id}
-                    className={`border-b border-slate-800/60 px-2 py-1.5 ${
+                    className={`border-b border-rule/60 px-2 py-1.5 ${
                       isMine ? 'ring-1 ring-inset ring-slate-600/40' : ''
                     } ${rowIndex === 9 ? 'border-b-slate-700' : ''}`}
                     style={{ backgroundColor: pick ? managerTint(m.color, 12) : undefined }}
@@ -152,7 +152,7 @@ export function LeagueBoard({
   )
 
   const header = (
-    <div className="flex shrink-0 items-center gap-2 border-b border-slate-800 px-3 py-2">
+    <div className="flex shrink-0 items-center gap-2 border-b border-rule px-3 py-2">
       <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">{title}</h2>
       <span className="text-[11px] text-slate-600">
         {board?.rosters.length ?? 0} picks · scroll sideways for every team
@@ -169,7 +169,7 @@ export function LeagueBoard({
   if (expanded) {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 p-3">
-        <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-slate-800 bg-slate-900/60">
+        <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-rule bg-slate-900/60">
           {header}
           {grid}
         </div>
@@ -179,7 +179,7 @@ export function LeagueBoard({
 
   return (
     <div
-      className={`flex min-h-0 flex-col rounded-xl border border-slate-800 bg-slate-900/60 ${className}`}
+      className={`flex min-h-0 flex-col rounded-xl border border-rule bg-slate-900/60 ${className}`}
     >
       {header}
       {grid}
