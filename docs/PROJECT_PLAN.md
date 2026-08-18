@@ -277,6 +277,7 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 - [x] **19.** **`/stats`** — spend by team, market pace, nomination analysis, and bargains/overpays, live and for every archived season. Plus the `picks.player_rank` snapshot, which had a hard deadline: rank stops being recoverable once the pool is re-imported.
 - [x] **18.** **§9 P0/P1 + backlog §3–§6** — `nominatorAt` no longer stalls near the end of a draft; a real "Draft Complete!" panel that distinguishes finished from stuck; the board grows bench rows so a manager with no defense doesn't lose a player; average remaining budget; on deck; market by position; the private player queue.
 - [x] **17.** **Seasons + archive** (BACKLOG §2) — `season` on every per-draft table, season-scoped `manager_totals`, the player snapshot on `picks`, `season_orders`, `/api/archive` and the year picker on `/board`. `season:new` replaces "reset and start over". The 2026 draft's final 8 picks recorded and the draft closed at 160.
+- [x] **24.** **Sunday Broadsheet** — the app gets a visual identity instead of Tailwind's default. Newsprint in light, Late Edition in dark, off one redefined set of scales whose ramp is semantic by position and inverts between themes. Oswald / Source Serif 4 / Geist Mono. `managers.color` becomes theme-aware via `--mgr-*`. Runner-up palette parked in BACKLOG §10.
 
 ### Timeline
 

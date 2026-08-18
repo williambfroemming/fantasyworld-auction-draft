@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { autoSlot, extraBenchRows, pickInRow, slotRows } from '@/lib/draft'
-import { textOn } from '@/lib/colors'
+import { textOn, managerTint } from '@/lib/colors'
 
 /**
  * A column header. Deliberately narrower than `StateManager` so the same grid
@@ -131,7 +131,7 @@ export function LeagueBoard({
                     className={`border-b border-slate-800/60 px-2 py-1.5 ${
                       isMine ? 'ring-1 ring-inset ring-slate-600/40' : ''
                     } ${rowIndex === 9 ? 'border-b-slate-700' : ''}`}
-                    style={{ backgroundColor: pick ? `${m.color}1f` : undefined }}
+                    style={{ backgroundColor: pick ? managerTint(m.color, 12) : undefined }}
                   >
                     {pick ? (
                       <span className="flex items-baseline justify-between gap-1">

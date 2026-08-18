@@ -217,7 +217,7 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
                   <path
                     d={stepPath(m.points, curve.lastPick, curve.peak, W, SMALL_H)}
                     fill="none"
-                    stroke={color}
+                    style={{ stroke: color }}
                     strokeWidth={2}
                     strokeLinejoin="round"
                     vectorEffect="non-scaling-stroke"
@@ -228,7 +228,7 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
                       x2={(m.halfwayPick / Math.max(1, curve.lastPick)) * W}
                       y1={0}
                       y2={SMALL_H}
-                      stroke={color}
+                      style={{ stroke: color }}
                       strokeWidth={1}
                       strokeOpacity={0.45}
                       vectorEffect="non-scaling-stroke"

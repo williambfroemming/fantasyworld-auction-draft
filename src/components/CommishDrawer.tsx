@@ -58,6 +58,8 @@ export function CommishDrawer({
     )
   }
 
+  // The scrim stays absolute black: it has to darken the page in BOTH themes,
+  // which makes it one of the few colours here that must not follow the palette.
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={() => setOpen(false)}>
       <div

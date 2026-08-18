@@ -17,22 +17,22 @@ August costs the draft.
 
 ## What is actually open
 
-Everything else in this file shipped between 2026-08-15 and 2026-08-16; those
-sections are now stubs pointing at `PROGRESS_LOG.md`.
-
 | # | Item | Size | Where |
 |---|---|---|---|
-| §9 P2 | `voidLot` / `undoPick` decrement `nomination_index` by exactly 1 | Small, has a real fix | [commish-service.ts:102](src/server/commish-service.ts#L102), [:199](src/server/commish-service.ts#L199) |
-| §9 P1 | `draft.status` never flips to `'done'` on its own | Small | [draft-service.ts](src/server/draft-service.ts) award path |
-| §7 | Cumulative spend curve on `/stats` | Medium — needs a new visual primitive | `src/components/` |
-| §4 | Queue drag-to-reorder, and nominate straight from the queue | Small each | `src/components/PlayerPool.tsx` |
-| §7 | Per-manager positional split on the draft screen itself | Small | `SidePanel.tsx` My Roster |
-| §2 | `players.id` identity across pool imports | Medium, and blocks cross-year price queries | shared with §1 |
 | §1 | Player news feed | Large, and July-2027 work at the earliest | not started |
 | §8 | Mobile layout · push to Sleeper · accessibility pass | Unspecified | — |
 
-**The two P-items are the top of the list**, in that order — they are bugs in a
-finished system rather than new surface, and both are half a day.
+**Everything else in this file has shipped.** §2, §3, §4, §5, §6, §7 and all three
+of §9's items are closed; those sections are stubs pointing at `PROGRESS_LOG.md`.
+Steps 21–24 (2026-08-17) cleared the last of them.
+
+§1 is now **materially cheaper than it was written**: its "the hard part is
+player identity" problem was solved by §2's `players.sleeper_id`, and its UI
+collision was solved by §4's sibling-button pattern. What remains is choosing a
+provider and drawing a panel.
+
+§10 is not open work — it is the **Chalk Talk** palette, kept on file as the
+visual direction that came second, so it does not have to be re-derived.
 
 ---
 
@@ -142,10 +142,13 @@ never join an archived pick back to `players`.
 
 **Still open:**
 
-- **`players.id` identity across imports.** Untouched — it is the §1 problem. The
-  denormalized display fields sidestep it for the archive, but a cross-year "what
-  did this player cost in 2026 vs 2027" query still has nothing reliable to join
-  on. Single-season stats are unaffected.
+- ~~**`players.id` identity across imports.**~~ **CLOSED 2026-08-17** —
+  `PROGRESS_LOG.md` step 24. `players.sleeper_id` and `picks.player_sleeper_id`,
+  resolved at import time by `resolveSleeperIds` and snapshotted onto each pick.
+  The 2026 backfill resolved **160 of 160 picks and 498 of 503 pool players**.
+  Cross-year price comparison now has a real key to join on, and so does §1.
+  ⚠️ It is nullable and will stay nullable — treat null as "unknown", never as an
+  error, and never put it on the draft path.
 - **Bye weeks are null in the archive**, deliberately — they belong to a finished
   season and the only source is today's pool. Not a defect; don't "fix" it.
 - **Nothing prunes `backups/`.** Three files. They are gitignored as of commit
@@ -178,15 +181,13 @@ Privacy was the whole feature and is now a non-negotiable in `AGENTS.md`: the
 queue never enters `/api/state` or the fingerprint in `src/lib/version.ts`, and
 two integration tests pin exactly that.
 
-**Still open:**
+**Nothing open. CLOSED 2026-08-17** — `PROGRESS_LOG.md` step 23. Drag-to-reorder
+and a per-row Nominate button in the ★ view.
 
-- **Drag-to-reorder.** `player_queue.sort_order` exists and is honoured by
-  `queue-service.ts`, but nothing writes it except append — entries keep
-  insertion order.
-- **Nominate straight from the queue.** The ★ filter shows the list, but
-  selecting from it still goes through the normal row-select. This was called
-  "the payoff" when the section was written, and it is still the cheapest
-  remaining win in the file after the two P-items.
+Worth keeping from that step: a reorder **renumbers the whole queue**, not just
+the ids it was sent. Writing only the named rows collides with the ones it left
+alone whenever the caller's list is stale by even one entry, and the result is a
+silent tie broken by row id rather than by the person dragging.
 
 ---
 
@@ -234,15 +235,14 @@ via `draftersByPick()`, because a trade folds salary and cash into one
 `player_pos_rank` are snapshotted at award time, because rank is otherwise only
 recoverable by joining `players` and that join dies at the next pool import.
 
-**Still open:**
+**Nothing open. CLOSED 2026-08-17** — `PROGRESS_LOG.md` step 22. The cumulative
+curve is the **Curve** tab on `/stats` (small multiples, not ten crossing lines),
+and the positional split rides under each manager's name in the Budgets panel as
+a thin stacked bar — no extra column, because a 19rem sidebar has none to give.
 
-- **The cumulative spend curve.** Deliberately deferred — it is the only view
-  here that needs a new visual primitive.
-- **A per-manager positional split on the draft screen itself.** `/stats` has the
-  10 × 4 matrix; the draft-screen sidebar still shows only your own totals.
-  ⚠️ The reason it isn't there already stands: the draft screen gives its space
-  to the lot (commit 725518d), and a 19rem sidebar does not fit a wide grid —
-  step 20 clipped a column just by adding a sixth. Keep it to one compact line.
+⚠️ That bar's segment order (`WR · QB · TE · RB · K/DEF`) is a colour-vision fix,
+not a display preference: QB-rose against RB-emerald is ΔE 4.6 under
+deuteranopia. Re-sorting it to `SPEND_COLUMNS` order reintroduces the defect.
 
 ---
 
@@ -334,3 +334,48 @@ statement — a data-modifying CTE, like awards and trades.
 
 **Test it either way**, whichever fix lands: `src/lib/draft.test.ts` has
 end-of-draft coverage now, but nothing exercises void/undo across a skip-run.
+
+---
+
+## 10. Chalk Talk — the visual direction not taken
+
+The app shipped the **Sunday Broadsheet** look (newsprint light / Late Edition
+dark) in 2026-08. **Chalk Talk** was the runner-up and was liked enough to keep
+on file — the palette is recorded here so it does not have to be re-derived.
+
+The idea: the board is a coach's chalkboard. Ground is slate, marks are chalk,
+and the structural rule is that **nothing is a filled box** — every divider is a
+dashed line, drawn rather than built. Chalk is never pure white, which is what
+kills halation on a dark ground without lowering contrast below AA.
+
+```
+Ground        #1c2622   the board itself (page)
+Panel         #24302b   raised surface
+Raised        #2b3833   rows, cells, borders
+Chalk         #eef0e6   primary text — deliberately not #fff
+Chalk 2       #c3cabb   secondary text
+Chalk 3       #8b978a   muted / labels
+Chalk yellow  #e8d27a   highlight, max bid, caution   (the `amber` role)
+Chalk green   #a8c88f   money, confirm, good          (the `emerald` role)
+Chalk orange  #e0836a   over budget, destructive      (the `rose` role)
+Chalk blue    #8fb8d0   WR badge                      (the `sky` role)
+Chalk lilac   #b9a6c8   DEF badge                     (the `violet` role)
+```
+
+Chalk dust is an inline SVG `feTurbulence` at ~5% opacity as a `background-image`
+on the ground — no asset, no request.
+
+Two things that made it work, if it is ever revived:
+
+- **Dashed borders everywhere except one element.** The primary Award button stays
+  a solid fill, precisely because everything around it is not. One solid element
+  on the screen is the thing you cannot miss in a room of ten people.
+- **It is dark-only by design.** Its light counterpart is a whiteboard (ground
+  `#f5f6f2`, marker `#2a6fb0` / `#c0392b` / `#2e7d4f`), which works, but see the
+  manager-colour note below before building it.
+
+⚠️ **The reason a theme swap is not free here** is `managers.color` — the ten
+manager hues are stored in the database, tuned to sit on a *dark* ground, and are
+constrained four ways at once (§`src/lib/colors.ts`). Any light ground needs a
+second set of ten, re-checked and kept in sync forever. Broadsheet pays that cost
+because it ships both themes; a dark-only Chalk Talk would not have to.

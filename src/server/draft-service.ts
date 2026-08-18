@@ -27,6 +27,7 @@
 import { getSql } from './sql'
 import { fingerprint } from '@/lib/version'
 import { nominatorAt } from '@/lib/draft'
+import { managerColor } from '@/lib/colors'
 
 export interface StateManager {
   id: number
@@ -130,7 +131,10 @@ export async function getState(): Promise<DraftState> {
     id: m.id,
     name: m.name,
     displayName: m.display_name,
-    color: m.color,
+    // Mapped here rather than in each component: `color` reaches the client as
+    // a theme-aware `var(--mgr-*)` so the board is correct on newsprint and on
+    // the Late Edition ground alike. See src/lib/colors.ts.
+    color: managerColor(m.color),
     draftSlot: m.draft_slot,
     isCommish: m.is_commish,
     hasPin: m.has_pin,
@@ -319,6 +323,11 @@ export async function awardLot(
   // Rank rides along for the same reason and is what lets /stats score a
   // finished season's bargains and overpays. It costs nothing here: `players`
   // is already joined to read the name.
+  //
+  // `sleeper_id` rides along too, and is the only value here that will still
+  // mean the same thing in three years: `player_id` is a slug that dies with
+  // the pool that produced it. Nullable, and often null — treat it as
+  // "unknown", never as an error. See docs/BACKLOG.md §2.
   const rows = await sql`
     WITH sold AS (
       UPDATE lots
@@ -333,10 +342,11 @@ export async function awardLot(
     )
     INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
                        player_position, player_rank, player_pos_rank,
-                       manager_id, nominator_id, price)
+                       player_sleeper_id, manager_id, nominator_id, price)
     SELECT ${season},
            (SELECT COALESCE(MAX(pick_no), 0) FROM picks WHERE season = ${season}) + 1,
            sold.player_id, p.name, p.team, p.position, p.search_rank, p.pos_rank,
+           p.sleeper_id,
            ${winnerId}, sold.nominator_id, ${price}
     FROM sold JOIN players p ON p.id = sold.player_id
     ON CONFLICT (season, player_id) DO NOTHING

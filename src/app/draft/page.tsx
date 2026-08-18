@@ -12,6 +12,7 @@ import { useDraft } from '@/hooks/useDraft'
 import { useQueue } from '@/hooks/useQueue'
 import { sounds, unlockAudio } from '@/lib/sounds'
 import type { BoardPlayer } from '@/hooks/useDraft'
+import { managerTint } from '@/lib/colors'
 
 export default function DraftPage() {
   const router = useRouter()
@@ -147,7 +148,7 @@ export default function DraftPage() {
               </span>
               <span
                 className="rounded-full px-3 py-1 text-xs font-semibold"
-                style={{ backgroundColor: `${myManager.color}33`, color: myManager.color }}
+                style={{ backgroundColor: managerTint(myManager.color, 20), color: myManager.color }}
               >
                 {myManager.displayName}
               </span>

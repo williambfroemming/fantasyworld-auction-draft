@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { randomOrder, snakeSlot } from '@/lib/draft'
 import { useDraft } from '@/hooks/useDraft'
 import type { StateManager } from '@/server/draft-service'
+import { managerTint } from '@/lib/colors'
 
 /**
  * Pre-draft setup. Commissioner only.
@@ -137,7 +138,7 @@ export default function SetupPage() {
             <button
               onClick={() => act({ action: 'setDraftOrder', managerIds: order.map((m) => m.id) }, 'Draft order saved.')}
               disabled={busy || rolling || !dirty || locked}
-              className="rounded-lg bg-slate-100 px-4 py-2 font-semibold text-slate-900 hover:bg-white disabled:opacity-40"
+              className="rounded-lg bg-slate-100 px-4 py-2 font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-40"
             >
               Save order
             </button>
@@ -207,7 +208,7 @@ export default function SetupPage() {
                     <span
                       key={`${m.id}-${i}`}
                       className="rounded px-1.5 py-0.5 text-xs font-medium"
-                      style={{ backgroundColor: `${m.color}26`, color: m.color }}
+                      style={{ backgroundColor: managerTint(m.color, 15), color: m.color }}
                     >
                       {i + 1}. {m.displayName}
                     </span>
@@ -331,7 +332,7 @@ function Settings({
           )
         }
         disabled={busy || locked}
-        className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white disabled:opacity-40"
+        className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-40"
       >
         Save rules
       </button>

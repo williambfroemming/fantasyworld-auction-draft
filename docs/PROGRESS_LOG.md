@@ -872,3 +872,103 @@ the payoff; one tap from a 500-row pool would be a hazard.
   first condition puts a one-tap nomination beside all 300 pool rows.
 
 **Next:** §2's cross-import player identity — the last open item that is not §1 or §8.
+
+---
+
+## Step 24 — Sunday Broadsheet: the app gets a visual identity, and a light theme
+
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** the whole app reskinned as a sports page — **Broadsheet** on newsprint (`#f2ede3`) in
+light, **Late Edition** on press-black (`#17150f`) in dark. New type: Oswald (condensed gothic) for
+heads and labels, Source Serif 4 for body, Geist Mono for agate. `managers.color` became
+theme-aware. The runner-up direction is parked with its palette in **BACKLOG §10**.
+
+**149 unit tests passing**, typecheck and build clean, smoke-tested against the live database.
+
+### The complaint was "it looks like every other website", and it was correct
+
+The board wore Tailwind's factory setting — `slate` ground, `emerald` accent, `rounded-lg`
+everywhere. That is the house style of roughly every dark-mode SaaS app, and swapping the hue only
+produces a different anonymous app. The fix had to come from type and structure, not colour.
+
+### The ramp is semantic by POSITION, which is what makes one theme flip into two
+
+~4,200 lines of TSX hardcode `bg-slate-950` / `text-slate-100`. Rather than touch any of it, the
+built-in scales are redefined in `globals.css` and the ramp is read as a role, not a lightness:
+
+```
+slate-950 page · 900 panel · 800 raised+rule · 700 strong rule
+600/500 muted · 400/300 secondary · 200/100/50 primary text
+```
+
+**Light mode inverts that ramp** — 950 becomes the lightest value, 100 the darkest. So
+`bg-slate-950 text-slate-100` is correct in both themes with zero component changes. The light
+values in the file look upside-down and are not.
+
+The **accent** ramps deliberately do *not* invert: `emerald-600` and friends stay dark fills in
+both themes because they carry `text-white`. Only `emerald-100` and `rose-200` stay light, for the
+one reversed-chip pattern in the test console.
+
+The same trick squared the corners. Zeroing `--radius-*` in `@theme` flattens every
+`rounded-sm|md|lg|xl|2xl|3xl` at once, while `rounded-full` — a static utility, not a scale entry —
+keeps dots and progress bars round. Boxes go square, circles stay circles, no component edits.
+
+### The palette was generated and validated, not eyeballed
+
+A script defines both themes, checks every pairing the app actually uses, and emits the CSS. It
+caught nine real failures on the first run — the muted tiers on raised surfaces, white text on
+hover fills, `text-X-300` on its own `/15` wash in light mode, and a rule so close to the ground it
+was invisible. Rather than tune-and-squint, the source of truth is the validated table.
+
+### `managers.color` was the real cost of a light theme, exactly as predicted
+
+The ten hues live in the **database**, are tuned for a dark ground, and vanish on newsprint. They
+also satisfy four constraints at once (ten distinguishable, readable as text *and* as a fill behind
+their own ink, never colour-alone). So there are now two sets, as `--mgr-*` variables that swap on
+`prefers-color-scheme`, and `managerColor()` maps the stored hex to the variable **once, at the
+serialisation boundary** in `draft-service` and `archive-service`. Every component that does
+`style={{ color: m.color }}` became theme-correct without knowing any of this exists.
+
+**Learned:**
+
+- **A colour comparison has to be rendered, not described.** Three rounds of prose got nowhere; one
+  page showing the same board under four palettes settled it in minutes. The decisive artifact was
+  the *same markup* under swapped tokens — anything else compares layout as well as colour.
+- **The generator caught a bug that reads as correct.** The ink-picker chose text for a manager
+  swatch from the theme-inverted `slate` ramp, so light mode put near-black text on near-black
+  fills. Ink laid ON a colour must be picked from *that colour's own* luminance, absolutely — it is
+  the one value in the system that must not follow the theme.
+- **`textOn`'s old 0.45 threshold was already failing AA.** White on `#f87171` is 2.8:1, and that
+  has been shipping. 0.25 puts near-black on all ten, which is both correct and what the mockups
+  had.
+- **Hex-alpha string concatenation is a trap that only springs later.** `` `${m.color}33` `` worked
+  for a year and produced silent garbage the moment the colour became a `var()`. `color-mix()`
+  takes either.
+- Geist was being downloaded and never rendered — `globals.css` overrode `body` with
+  `Arial, Helvetica, sans-serif`, straight from `create-next-app`. Worth grepping for the
+  boilerplate you inherited rather than assuming it is inert.
+
+**Watch out for:**
+
+- **The light ramp is inverted on purpose.** `--s-950: #f2ede3` is not a typo. Anyone "fixing" it
+  to a dark value inverts every page at once.
+- **`--mgr-*` has two sets that must stay in sync.** Adding an eleventh manager colour means adding
+  it in three places: `PALETTE` in `colors.ts`, and both blocks in `globals.css`. Miss the light
+  block and that manager is invisible on newsprint.
+- **`colorForSeat()` must keep returning a raw hex.** It is what gets written to `managers.color`,
+  and that value has to survive outside a browser — exports, scripts, `db:verify`. Only
+  `managerColor()` returns a `var()`.
+- **`var()` does not reliably resolve in an SVG presentation *attribute*.** `CurvePanel` had
+  `stroke={color}` and now goes through `style={{ stroke: color }}`. Any new SVG that takes a
+  manager colour has the same constraint.
+- **`.uppercase` carries the display face** by a rule in `globals.css`, because in this app every
+  use of it is a label or badge. Set body copy in caps and it will come out gothic — add
+  `font-sans` to opt out.
+- **The drawer scrim stays `bg-black/50`.** It has to darken the page in *both* themes, so it is
+  one of the few colours that must not follow the palette. `bg-slate-950/70` is wrong: slate-950 is
+  *light* in the light theme, and the scrim stops dimming anything.
+- **Neither theme has been checked on a phone, or by anyone but the build.** The contrast maths is
+  verified; how newsprint actually reads in a dim room on draft night is not.
+
+**Next:** BACKLOG §9 P2 — `voidLot`/`undoPick` decrementing the nomination index by exactly 1.

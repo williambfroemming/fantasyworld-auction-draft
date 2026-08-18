@@ -91,7 +91,7 @@ export function LotPanel({
         {finished ? (
           <>
             <div className="text-7xl">🏈</div>
-            <div className="mt-4 bg-gradient-to-r from-emerald-300 to-sky-300 bg-clip-text text-6xl font-black tracking-tight text-transparent">
+            <div className="mt-4 font-display text-6xl font-bold uppercase tracking-tight text-rose-500">
               Draft Complete!
             </div>
             <p className="mt-4 text-lg text-slate-300">
@@ -134,7 +134,7 @@ export function LotPanel({
           <>
             <span className="text-sm uppercase tracking-[0.3em] text-slate-500">On the clock</span>
             <span
-              className="mt-3 text-7xl font-bold leading-none tracking-tight"
+              className="mt-3 font-display text-7xl font-bold leading-none tracking-tight"
               style={{ color: onClock?.color }}
             >
               {onClock?.displayName ?? '—'}
@@ -209,7 +209,7 @@ export function LotPanel({
               {lot.playerByeWeek ? ` · bye ${lot.playerByeWeek}` : ''}
             </span>
           </div>
-          <h2 className="mt-1 truncate text-4xl font-bold tracking-tight sm:text-6xl">
+          <h2 className="mt-1 truncate font-display text-4xl font-bold tracking-tight sm:text-6xl">
             {lot.playerName}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -247,7 +247,7 @@ export function LotPanel({
             <label className="text-xs uppercase tracking-widest text-slate-500">
               Sold for
               <div className="mt-1 flex items-center gap-1">
-                <span className="text-4xl font-bold text-slate-500">$</span>
+                <span className="font-display text-4xl font-bold text-slate-500">$</span>
                 <input
                   autoFocus
                   inputMode="numeric"
@@ -258,7 +258,7 @@ export function LotPanel({
                   }}
                   onKeyDown={(e) => e.key === 'Enter' && ready && submit()}
                   placeholder="0"
-                  className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center text-4xl font-bold tabular-nums outline-none focus:border-emerald-500"
+                  className="w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-center font-display text-4xl font-bold tabular-nums outline-none focus:border-emerald-500"
                 />
               </div>
             </label>

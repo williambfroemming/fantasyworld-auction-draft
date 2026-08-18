@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { TradePanel } from '@/components/TradePanel'
 import { useDraft } from '@/hooks/useDraft'
+import { managerTint } from '@/lib/colors'
 
 /**
  * Trades, on their own page.
@@ -58,7 +59,7 @@ export default function TradesPage() {
         {myManager && (
           <span
             className="ml-auto rounded-full px-3 py-1 text-xs font-semibold"
-            style={{ backgroundColor: `${myManager.color}33`, color: myManager.color }}
+            style={{ backgroundColor: managerTint(myManager.color, 20), color: myManager.color }}
           >
             {myManager.displayName}
           </span>
