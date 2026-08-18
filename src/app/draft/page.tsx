@@ -20,7 +20,12 @@ export default function DraftPage() {
   const [checked, setChecked] = useState(false)
   // Private, off the shared poll, refetched when the board moves so drafted
   // targets get marked. See docs/BACKLOG.md §4.
-  const { queue, toggle: toggleQueue, prune: pruneQueue } = useQueue(state?.version, me !== null)
+  const {
+    queue,
+    toggle: toggleQueue,
+    prune: pruneQueue,
+    reorder: reorderQueue,
+  } = useQueue(state?.version, me !== null)
 
   useEffect(() => {
     fetch('/api/session')
@@ -196,6 +201,7 @@ export default function DraftPage() {
             queue={queue}
             onToggleQueue={toggleQueue}
             onPruneQueue={pruneQueue}
+            onReorderQueue={reorderQueue}
           />
         </div>
 

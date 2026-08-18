@@ -13,7 +13,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { getSql } from './sql'
 import { awardLot, getState, nominate } from './draft-service'
-import { addToQueue, getQueue, pruneQueue, removeFromQueue } from './queue-service'
+import {
+  addToQueue,
+  getQueue,
+  pruneQueue,
+  removeFromQueue,
+  reorderQueue,
+} from './queue-service'
 
 const ENABLED = process.env.ALLOW_DB_RESET === '1' && !!process.env.DATABASE_URL
 const d = ENABLED ? describe : describe.skip
@@ -42,6 +48,102 @@ d('queue-service (real Postgres)', () => {
     await sql`DELETE FROM picks`
     await sql`DELETE FROM lots`
     await sql`UPDATE draft SET status='setup' WHERE id = 1`
+  })
+
+  // -------------------------------------------------------------------------
+  // Reordering
+  // -------------------------------------------------------------------------
+
+  describe('reorder', () => {
+    it('puts the queue in the order it was given', async () => {
+      const me = managers[0].id
+      for (const p of players.slice(0, 4)) await addToQueue(me, p.id)
+      expect((await getQueue(me)).map((q) => q.playerId)).toEqual(
+        players.slice(0, 4).map((p) => p.id),
+      )
+
+      // Reverse it.
+      const reversed = players.slice(0, 4).map((p) => p.id).reverse()
+      const r = await reorderQueue(me, reversed)
+      expect(r.ok && r.data.moved).toBe(4)
+      expect((await getQueue(me)).map((q) => q.playerId)).toEqual(reversed)
+    })
+
+    /**
+     * The privacy property, on the write path. Sending somebody else's player
+     * ids must not touch their queue — and must not report back whether those
+     * ids were in it, which would make this an oracle for reading it.
+     */
+    it('cannot reorder, or probe, another manager\u2019s queue', async () => {
+      const me = managers[0].id
+      const them = managers[1].id
+      for (const p of players.slice(0, 3)) await addToQueue(them, p.id)
+      const before = (await getQueue(them)).map((q) => q.playerId)
+
+      const r = await reorderQueue(me, [...before].reverse())
+      expect(r.ok).toBe(true)
+      // Nothing of mine matched, so nothing moved -- and their order is intact.
+      expect(r.ok && r.data.moved).toBe(0)
+      expect((await getQueue(them)).map((q) => q.playerId)).toEqual(before)
+    })
+
+    it('ignores ids that are not in the queue rather than erroring', async () => {
+      const me = managers[0].id
+      await addToQueue(me, players[0].id)
+      await addToQueue(me, players[1].id)
+
+      const r = await reorderQueue(me, [players[1].id, 'not-a-real-player', players[0].id])
+      expect(r.ok).toBe(true)
+      expect(r.ok && r.data.moved).toBe(2)
+      expect((await getQueue(me)).map((q) => q.playerId)).toEqual([players[1].id, players[0].id])
+    })
+
+    it('is a no-op on an empty list', async () => {
+      const r = await reorderQueue(managers[0].id, [])
+      expect(r.ok && r.data.moved).toBe(0)
+    })
+
+    /**
+     * A caller working from a stale list omits an entry. The positions it does
+     * write must not collide with the ones it left alone — otherwise two rows
+     * share a sort_order and the tiebreak, not the person dragging, decides the
+     * order.
+     */
+    it('renumbers the whole queue when given a partial order', async () => {
+      const me = managers[0].id
+      for (const p of players.slice(0, 4)) await addToQueue(me, p.id)
+
+      // Name only the last two, swapped.
+      const r = await reorderQueue(me, [players[3].id, players[2].id])
+      expect(r.ok && r.data.moved).toBe(2)
+
+      const after = await getQueue(me)
+      const orders = after.map((q) => q.sortOrder)
+      expect(new Set(orders).size).toBe(orders.length)
+      // Named entries lead, in the order given; the unnamed keep their relative
+      // order behind them, which is where a newly starred player would sit.
+      expect(after.map((q) => q.playerId)).toEqual([
+        players[3].id,
+        players[2].id,
+        players[0].id,
+        players[1].id,
+      ])
+    })
+
+    it('scopes to the season, so a reorder cannot reach last year\u2019s queue', async () => {
+      const me = managers[0].id
+      await addToQueue(me, players[0].id)
+      await sql`
+        INSERT INTO player_queue (season, manager_id, player_id, sort_order)
+        VALUES ((SELECT season FROM draft WHERE id=1) - 1, ${me}, ${players[1].id}, 99)`
+
+      await reorderQueue(me, [players[1].id, players[0].id])
+      const [old] = await sql`
+        SELECT sort_order FROM player_queue
+        WHERE manager_id = ${me} AND player_id = ${players[1].id}
+          AND season = (SELECT season FROM draft WHERE id=1) - 1`
+      expect(Number(old.sort_order)).toBe(99)
+    })
   })
 
   // -------------------------------------------------------------------------

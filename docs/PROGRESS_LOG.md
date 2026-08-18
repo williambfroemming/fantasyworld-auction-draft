@@ -804,3 +804,71 @@ codebase had already worked out once for seats and I nearly re-learned the hard 
   scale with the box and go fuzzy at small panel sizes.
 
 **Next:** §4's queue reorder and nominate-from-queue, then §2's cross-import player identity.
+
+---
+
+## Step 23 — The queue reorders, and nominates
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** `reorderQueue()` + a `reorder` action on `/api/queue`; optimistic `reorder` in
+`useQueue`; drag handles and a per-row **Nominate** button in `PlayerPool`. Backlog §4's two
+remaining items — the last of §4 is now closed.
+
+**136 unit tests, 78 integration tests passing** (6 new, all on reorder), build and lint clean.
+
+### Reorder sends the whole order, not a move
+
+"Move this one to index 3" has to be applied against a base the server also has, and two quick drags
+race. Sending the full list means the last request simply wins, and there is nothing to reconcile.
+
+**The interesting bug was found by a test I nearly did not write.** The first implementation wrote
+`sort_order` only for the ids it was given, which is correct whenever the client's list is complete —
+and the client's list *is* complete, until it isn't. A star added in a second tab, or between the
+fetch and the drop, leaves one entry unnamed; the positions the reorder writes then **collide with
+the ones it left alone**, two rows share a `sort_order`, and the order is settled by the `q.id`
+tiebreak rather than by the person who just dragged. It would have looked like an occasional
+mysterious re-shuffle and been nearly impossible to reproduce on purpose.
+
+So a reorder now renumbers the **whole** queue in one statement: named entries take positions 1..n,
+and anything unnamed keeps its relative order at `UNNAMED_BASE + rank` — behind them, which is
+exactly where a newly starred player would have been anyway.
+
+### Privacy holds on the write path too
+
+`reorderQueue` filters on the session manager id like everything else here, so ids the caller does
+not own match no row. The test asserts the stronger property: it returns `moved: 0` rather than
+reporting how many of the sent ids existed. A count would have been a working oracle for reading
+somebody else's queue one id at a time.
+
+### Nominate straight from the shortlist
+
+The ★ view already showed the list; selecting from it still went through the pool's
+select-then-confirm tray. Queue rows now carry their own **Nominate** button when it is your turn.
+
+Deliberately a distinct labelled button rather than making the row itself one-tap: the row gesture
+means "select" everywhere else in the pool, and a mis-click that puts the wrong player on the block
+in front of the room needs the commissioner to void it. One tap from a list you built on purpose is
+the payoff; one tap from a 500-row pool would be a hazard.
+
+**Learned:**
+
+- **"The client always sends the full list" is an assumption, not a guarantee**, and the failure it
+  produces is a silent tie rather than an error. Any partial-update statement wants a test that
+  feeds it a partial input.
+- **A count can be an oracle.** Returning how many of the given ids matched would leak the contents
+  of another manager's queue to anyone willing to send one id at a time — the same class of leak §4
+  exists to prevent, arriving through the write path instead of the read path.
+- Optimistic reorder is worth the extra code here: waiting on the round trip snaps the dragged row
+  back for ~200ms, which reads as a failed drag and invites a second drag on top of the first.
+
+**Watch out for:**
+
+- **Dragging is offered only when the queue filter is on and the search box is empty** (`canDrag`).
+  Indices are positions in the queue, so reordering a filtered subset would move entries relative to
+  rows that are not on screen.
+- `UNNAMED_BASE` is 1,000,000 against a queue capped at 60. It is a sentinel, not a magic number to
+  tune — the gap is what makes a collision impossible.
+- The **Nominate** button is gated on `filter === 'QUEUE' && canNominate && !p.gone`. Loosening the
+  first condition puts a one-tap nomination beside all 300 pool rows.
+
+**Next:** §2's cross-import player identity — the last open item that is not §1 or §8.

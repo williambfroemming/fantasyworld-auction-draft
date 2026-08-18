@@ -118,6 +118,70 @@ export async function addToQueue(
   return { ok: true, data: { added: true } }
 }
 
+/**
+ * Put the queue in a given order.
+ *
+ * Takes the full list of player ids in their new order and rewrites
+ * `sort_order` to match. Sending the whole order rather than a "move this one to
+ * index N" instruction means the client and the server cannot end up disagreeing
+ * about the arrangement — there is no increment to apply against a stale base,
+ * so two quick drags settle on whichever arrived last rather than interleaving.
+ *
+ * One statement, `unnest … WITH ORDINALITY` supplying the new positions. Ids the
+ * caller does not own simply match no row: no error, and no way to probe or
+ * reorder somebody else's queue by sending their player ids.
+ *
+ * ⚠️ **It renumbers the whole queue, not just the ids it was given.** Writing
+ * only the named rows looks equivalent and is not: a caller working from a
+ * slightly stale list — a second tab, or a star added between the fetch and the
+ * drag — omits an entry, and the positions it *does* write collide with the ones
+ * it left alone. Two entries then share a `sort_order` and the order is decided
+ * by the tiebreak instead of by the person who dragged.
+ *
+ * So anything not named keeps its relative order and goes to the back, which is
+ * where a newly starred player would have been anyway.
+ */
+export async function reorderQueue(
+  managerId: number,
+  playerIds: string[],
+): Promise<ActionResult<{ moved: number }>> {
+  if (playerIds.length === 0) return { ok: true, data: { moved: 0 } }
+  if (playerIds.length > QUEUE_LIMIT) {
+    return { ok: false, reason: 'That is more players than a queue can hold' }
+  }
+
+  const sql = getSql()
+  const season = await currentSeason()
+  const rows = await sql`
+    WITH given AS (
+      SELECT player_id, ord
+      FROM unnest(${playerIds}::text[]) WITH ORDINALITY AS v(player_id, ord)
+    ), renumbered AS (
+      SELECT q.id,
+             COALESCE(
+               g.ord,
+               ${UNNAMED_BASE} + row_number() OVER (ORDER BY q.sort_order, q.id)
+             ) AS ord
+      FROM player_queue q
+      LEFT JOIN given g ON g.player_id = q.player_id
+      WHERE q.manager_id = ${managerId} AND q.season = ${season}
+    )
+    UPDATE player_queue q
+    SET sort_order = r.ord
+    FROM renumbered r
+    WHERE q.id = r.id
+    RETURNING q.id, (r.ord < ${UNNAMED_BASE}) AS named`
+
+  return { ok: true, data: { moved: rows.filter((r) => r.named).length } }
+}
+
+/**
+ * Sort-order floor for entries a reorder did not name. Far above any real
+ * position (the queue caps at 60), so a named entry can never collide with an
+ * unnamed one no matter how stale the caller's list was.
+ */
+const UNNAMED_BASE = 1_000_000
+
 export async function removeFromQueue(
   managerId: number,
   playerId: string,

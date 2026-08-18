@@ -31,6 +31,7 @@ export function PlayerPool({
   queue,
   onToggleQueue,
   onPruneQueue,
+  onReorderQueue,
 }: {
   pool: BoardPlayer[]
   canNominate: boolean
@@ -41,12 +42,15 @@ export function PlayerPool({
   queue: QueuedPlayer[]
   onToggleQueue: (playerId: string, queued: boolean) => Promise<string | null>
   onPruneQueue: () => Promise<string | null>
+  onReorderQueue: (from: number, to: number) => Promise<string | null>
 }) {
   const [filter, setFilter] = useState<Filter>('ALL')
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<BoardPlayer | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [dragFrom, setDragFrom] = useState<number | null>(null)
+  const [dragOver, setDragOver] = useState<number | null>(null)
 
   const queuedIds = useMemo(() => new Set(queue.map((q) => q.playerId)), [queue])
   const takenTargets = useMemo(() => queue.filter((q) => q.drafted), [queue])
@@ -88,6 +92,40 @@ export function PlayerPool({
       setSelected(null)
       setQuery('')
     }
+  }
+
+  /**
+   * Nominate straight from the queue — the payoff §4 was built for.
+   *
+   * Skips the select-then-confirm tray, because in the queue view the list *is*
+   * the shortlist: you put these players there yourself, on purpose, and the
+   * whole point is not fumbling through a 500-row pool with nine people
+   * watching. It stays a distinct labelled button rather than making the row
+   * itself one-tap — a mis-click that puts the wrong player on the block in
+   * front of the room needs the commissioner to void it.
+   */
+  async function nominateNow(p: BoardPlayer) {
+    setPending(true)
+    setError(null)
+    const reason = await onNominate(p)
+    setPending(false)
+    if (reason) setError(reason)
+    else setSelected(null)
+  }
+
+  // Drag state is tracked by index into the *queue*, which is only the visible
+  // list when the queue filter is on and nothing is being searched. Reordering
+  // a filtered subset would move entries relative to rows that are not on
+  // screen, so dragging is offered only when what you see is the whole list.
+  const canDrag = filter === 'QUEUE' && query.trim() === ''
+
+  async function dropAt(to: number) {
+    const from = dragFrom
+    setDragFrom(null)
+    setDragOver(null)
+    if (from === null || from === to) return
+    const reason = await onReorderQueue(from, to)
+    if (reason) setError(reason)
   }
 
   return (
@@ -166,18 +204,53 @@ export function PlayerPool({
               : 'No players match.'}
           </p>
         )}
+        {canDrag && visible.length > 1 && (
+          <p className="px-3 py-1.5 text-[11px] text-slate-600">
+            Drag ⠿ to reorder — your order, nobody else sees it.
+          </p>
+        )}
         {/* Deliberately no tiers and no auction values. Both are one source's
             opinion, and managers bring their own — the board shows facts
             (rank, team, bye) and lets people apply their own judgement. */}
-        {visible.map((p) => {
+        {visible.map((p, index) => {
           const queued = queuedIds.has(p.id)
           return (
             <div
               key={p.id}
+              draggable={canDrag}
+              onDragStart={() => canDrag && setDragFrom(index)}
+              onDragOver={(e) => {
+                if (!canDrag || dragFrom === null) return
+                // Without preventDefault the browser refuses the drop outright.
+                e.preventDefault()
+                setDragOver(index)
+              }}
+              onDrop={(e) => {
+                if (!canDrag) return
+                e.preventDefault()
+                void dropAt(index)
+              }}
+              onDragEnd={() => {
+                setDragFrom(null)
+                setDragOver(null)
+              }}
               className={`flex w-full items-center transition ${
                 selected?.id === p.id ? 'bg-emerald-600/20' : 'hover:bg-slate-800/60'
+              } ${dragFrom === index ? 'opacity-40' : ''} ${
+                dragOver === index && dragFrom !== index
+                  ? 'border-t-2 border-amber-300'
+                  : 'border-t-2 border-transparent'
               }`}
             >
+              {canDrag && (
+                <span
+                  aria-hidden
+                  title="Drag to reorder your queue"
+                  className="cursor-grab select-none pl-2 text-xs text-slate-600 active:cursor-grabbing"
+                >
+                  ⠿
+                </span>
+              )}
               <button
                 onClick={() => {
                   setSelected(p)
@@ -204,6 +277,18 @@ export function PlayerPool({
                   {p.byeWeek ? ` ·${p.byeWeek}` : ''}
                 </span>
               </button>
+
+              {/* One tap from the shortlist to the block. Queue view only: in
+                  the full pool this would sit beside 300 rows you never chose. */}
+              {filter === 'QUEUE' && canNominate && !p.gone && (
+                <button
+                  onClick={() => nominateNow(p)}
+                  disabled={pending}
+                  className="shrink-0 rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+                >
+                  Nominate
+                </button>
+              )}
 
               {/* Its own control, always live — the value of a queue is highest
                   exactly when it is not your turn and the row is disabled. */}
