@@ -2012,3 +2012,56 @@ beside them. Tidying that away would be the stored-budget lie this app exists to
   drawn order was never recorded, and the note on the board says exactly that.
 
 **Next:** H9 — the 2025 auction from the Google Sheet.
+
+---
+
+## Step 41 — Phase 2 H9: the 2025 auction
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `data/history/auction_2025.csv` from the league's Google Sheet, 2025 folded into
+`import-history-picks.ts`, a `ROSTER_EXCEPTIONS` list, `RECORDED_ORDERS`, and automatic
+over-budget notes on every season.
+
+**800 picks across 2021–2025.** Every season the league has ever auctioned is now in `picks`.
+274 unit tests, `db:verify` green, `manager_totals` unchanged.
+
+### The sheet disagrees with itself, and that is the whole origin story
+
+The 2025 sheet's **pick log** and its **budget summary** both account for exactly $1,979 and split
+it differently across four managers: Bolek is $187 in the log and $201 in the summary, with Bill,
+Bryan and Mario making up the difference. Six managers match to the dollar.
+
+The log wins. It is 160 explicit rows, each naming a player and a price, and **all 160 of its
+player-to-manager assignments match Sleeper's draft exactly**. The summary is a derived total that
+drifted — which is precisely the failure this app was built to remove, and the famous **−$1** that
+`PROJECT_PLAN` §1 cites turns out to live in that summary rather than in any pick.
+
+### Two draft-time sources beat two post-hoc ones
+
+Pick 106 reads Jayden Reed in the sheet's log **and** in its player pool; Sleeper's draft and the
+sheet's roster board both say Dylan Sampson. The first two are draft-time artifacts; the second two
+could equally reflect an early-season waiver swap, since 2025's results were typed into Sleeper
+after the fact. Reed stays, in a `ROSTER_EXCEPTIONS` list with the reasoning, and the season note
+says so on the board.
+
+**Learned:**
+
+- **Transcription is not a source; a check is.** The first pass at this CSV was written out by hand
+  and four managers' budgets did not reconcile. Diffing against Sleeper proved the *assignments*
+  were right, which localised the problem to prices — and re-reading the sheet showed the prices
+  were right too, and the sheet's own summary was wrong. Without a numeric check the error would
+  have been silently inverted.
+- **A per-row record beats a summary of it, every time.** Both are "the sheet", and only one can be
+  audited line by line.
+
+**Watch out for:**
+
+- **2025 has a real drawn draft order** — it is on the sheet's first tab — so it is recorded rather
+  than reconstructed. The workbook years still fall back to first nomination and say so.
+- Every season now auto-generates an over-budget note when a manager finishes above $200, so the
+  explanation travels with the data rather than living in a commit message.
+- 2025's over-budget managers are Bill (−$1) and Bryan (−$8), which are **not** the ones the sheet's
+  summary flagged. Same cause, different arithmetic.
+
+**Next:** H10 — member pages and the head-to-head grid.

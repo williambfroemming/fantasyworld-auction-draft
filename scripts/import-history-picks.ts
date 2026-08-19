@@ -1,5 +1,5 @@
 /**
- * Import the 2021–2024 auction drafts into `picks`.
+ * Import the 2021–2025 auction drafts into `picks`.
  *
  *   npm run history:picks
  *   npm run history:picks -- --dry-run
@@ -36,7 +36,27 @@ if (!url) throw new Error('DATABASE_URL is not set.')
 const sql: NeonQueryFunction<false, false> = neon(url)
 
 const ROOT = process.cwd()
-const SEASONS = [2021, 2022, 2023, 2024] as const
+const SEASONS = [2021, 2022, 2023, 2024, 2025] as const
+
+/**
+ * Rosters we knowingly differ from Sleeper on, and why.
+ *
+ * Sleeper's record of who drafted whom has been right every other time, so a
+ * disagreement is only allowed here with a reason written down.
+ */
+const ROSTER_EXCEPTIONS = [
+  {
+    season: 2025,
+    player: 'Jayden Reed',
+    reason:
+      "The draft sheet's pick log AND its player pool both record Jayden Reed as drafted at pick " +
+      '106, and both are draft-time artifacts. Sleeper\'s draft and the sheet\'s roster board both ' +
+      'show Dylan Sampson instead, and both of those could reflect an early-season waiver swap — ' +
+      'the 2025 results were typed into Sleeper after the fact. The draft-time sources win for a ' +
+      'table that records a draft.',
+    dated: '2026-08-18',
+  },
+]
 
 /**
  * Every departure from the source, in one reviewable list.
@@ -72,6 +92,18 @@ const CORRECTIONS = [
   },
 ]
 
+/**
+ * Draft orders that were actually written down.
+ *
+ * Only 2025 has one: its Google Sheet carries the drawn order on its first tab.
+ * The workbook years have no order on record at all, so those fall back to each
+ * manager's first nomination — a real recorded fact, but not the drawn seat, and
+ * the season note says so.
+ */
+const RECORDED_ORDERS: Record<number, string[]> = {
+  2025: ['Daniel', 'Gabes', 'Mario', 'Bolek', 'Justin', 'Nate', 'Grossman', 'Bill', 'Jack', 'Bryan'],
+}
+
 // ---------------------------------------------------------------------------
 
 function csv(path: string): Array<Record<string, string>> {
@@ -103,6 +135,38 @@ function playerIndex() {
   const byKey = new Map<string, { id: string; team: string | null; position: string }>()
   const byName = new Map<string, Array<{ id: string; team: string | null; position: string }>>()
   const latest = new Map<string, { name: string; team: string | null; position: string; season: number }>()
+
+  // 2025 is not in the workbook's player sheet, so its ids come from Sleeper's
+  // own draft record — which carries a player_id on every pick.
+  for (const season of [2025]) {
+    const dir = join(ROOT, 'data', 'sleeper', String(season))
+    if (!existsSync(join(dir, 'draft_picks.json'))) continue
+    const players = JSON.parse(readFileSync(join(ROOT, 'data', 'sleeper', 'players-min.json'), 'utf8')) as Record<string, [string, string, string | null]>
+    for (const p of JSON.parse(readFileSync(join(dir, 'draft_picks.json'), 'utf8')) as Array<{
+      player_id: string
+      metadata: { first_name?: string; last_name?: string; position?: string; team?: string }
+    }>) {
+      const name = `${p.metadata.first_name ?? ''} ${p.metadata.last_name ?? ''}`.trim()
+      const position = normalizePosition(p.metadata.position || players[p.player_id]?.[1] || 'UNKNOWN').position
+      const team = normalizeTeam(p.metadata.team ?? players[p.player_id]?.[2] ?? null)
+      const entry = { id: p.player_id, team, position }
+      byKey.set(`${season}:${playerMatchKey(name, position)}`, entry)
+      const nameKey = `${season}:${name.toLowerCase()}`
+      byName.set(nameKey, [...(byName.get(nameKey) ?? []), entry])
+      if (!latest.has(p.player_id)) latest.set(p.player_id, { name, team, position, season })
+    }
+    // Anything drafted in 2025 that Sleeper's draft does not list (see
+    // ROSTER_EXCEPTIONS) still needs an id; the player map has every id the
+    // league has rostered since 2020.
+    for (const [id, [name, position, team]] of Object.entries(
+      JSON.parse(readFileSync(join(ROOT, 'data', 'sleeper', 'players-min.json'), 'utf8')) as Record<string, [string, string, string | null]>,
+    )) {
+      const key = `${season}:${playerMatchKey(name, position)}`
+      if (!byKey.has(key)) byKey.set(key, { id, team, position })
+      const nameKey = `${season}:${name.toLowerCase()}`
+      if (!byName.has(nameKey)) byName.set(nameKey, [{ id, team, position }])
+    }
+  }
 
   for (const r of csv('data/history/player_total_points.csv')) {
     const season = Number(r.year)
@@ -161,9 +225,12 @@ async function main() {
   const [{ season: liveSeason }] = await sql`SELECT season FROM draft WHERE id = 1`
   const totalsBefore = await sql`SELECT id, budget, rostered, max_bid FROM manager_totals ORDER BY id`
 
-  const rows = csv('data/history/auction_drafts.csv').filter((r) =>
-    (SEASONS as readonly number[]).includes(Number(r.year)),
-  )
+  // Two sources, one shape: the workbook covers 2021-2024 and the league's
+  // Google Sheet covers 2025, converted to the same columns.
+  const rows = [
+    ...csv('data/history/auction_drafts.csv'),
+    ...csv('data/history/auction_2025.csv'),
+  ].filter((r) => (SEASONS as readonly number[]).includes(Number(r.year)))
   const index = playerIndex()
 
   // --- 1. the duplicate gate, before anything else -------------------------
@@ -270,11 +337,24 @@ async function main() {
       const managerId = managerIdForSleeperOwner(r.owner_id)
       const theirs = sleeper.get(r.roster_id) ?? new Set<string>()
       const ours = new Set(picks.filter((p) => p.season === season && p.managerId === managerId).map((p) => p.playerId))
+      const excusedCount = ROSTER_EXCEPTIONS.filter((e) => e.season === season).length
+      let unexplained = 0
       for (const id of theirs) {
-        if (!ours.has(id)) mismatches.push(`${season} manager ${managerId}: Sleeper has ${id}, we do not`)
+        if (ours.has(id)) continue
+        unexplained++
+        if (unexplained > excusedCount) mismatches.push(`${season} manager ${managerId}: Sleeper has ${id}, we do not`)
       }
       for (const id of ours) {
-        if (!theirs.has(id)) mismatches.push(`${season} manager ${managerId}: we have ${id}, Sleeper does not`)
+        if (theirs.has(id)) continue
+        const pick = picks.find((p) => p.season === season && p.playerId === id)
+        const excused = ROSTER_EXCEPTIONS.some(
+          (e) => e.season === season && pick && playerMatchKey(e.player, pick.position) === playerMatchKey(pick.name, pick.position),
+        )
+        if (excused) {
+          console.log(`  · ${season}: keeping ${pick?.name} over Sleeper — see ROSTER_EXCEPTIONS`)
+          continue
+        }
+        mismatches.push(`${season} manager ${managerId}: we have ${id} (${pick?.name}), Sleeper does not`)
       }
     }
   }
@@ -362,30 +442,50 @@ async function main() {
   // nomination is a real recorded fact, so it stands in — and `seasons.notes`
   // says so, rather than letting a reconstruction pass as the drawn seat.
   for (const season of SEASONS) {
-    const firstNomination = new Map<number, number>()
-    for (const p of [...picks].filter((x) => x.season === season).sort((a, b) => a.pickNo - b.pickNo)) {
-      if (!firstNomination.has(p.nominatorId)) firstNomination.set(p.nominatorId, p.pickNo)
+    const recorded = RECORDED_ORDERS[season]
+    let seats: number[]
+    if (recorded) {
+      seats = recorded.map((name) => managerIdForName(name))
+    } else {
+      const firstNomination = new Map<number, number>()
+      for (const p of [...picks].filter((x) => x.season === season).sort((a, b) => a.pickNo - b.pickNo)) {
+        if (!firstNomination.has(p.nominatorId)) firstNomination.set(p.nominatorId, p.pickNo)
+      }
+      seats = [...firstNomination.entries()].sort((a, b) => a[1] - b[1]).map(([m]) => m)
     }
-    const order = [...firstNomination.entries()].sort((a, b) => a[1] - b[1])
+
     await sql.query('DELETE FROM season_orders WHERE season = $1', [season])
-    for (const [managerId, , ] of order.map(([m, p], i) => [m, p, i] as const)) {
-      const slot = order.findIndex(([m]) => m === managerId)
+    for (const [slot, managerId] of seats.entries()) {
       await sql.query(
         `INSERT INTO season_orders (season, manager_id, draft_slot, display_name, color)
          SELECT $1, m.id, $2, m.display_name, m.color FROM managers m WHERE m.id = $3`,
         [season, slot, managerId],
       )
     }
-    await sql.query(
-      `UPDATE seasons SET notes = $2 WHERE season = $1`,
-      [
-        season,
-        [
-          'Draft order shown is each manager’s first nomination, not the drawn seat — the drawn order was never recorded.',
-          ...CORRECTIONS.filter((c) => c.season === season).map((c) => `${c.action === 'drop' ? 'Removed' : 'Added'} ${c.player}: ${c.reason}`),
-        ],
-      ],
-    )
+
+    // Everything a reader of this season needs told, in the season's own row.
+    const overspent = new Map<number, number>()
+    for (const p of picks.filter((x) => x.season === season)) {
+      overspent.set(p.managerId, (overspent.get(p.managerId) ?? 0) + p.price)
+    }
+    const over = [...overspent.entries()].filter(([, spent]) => spent > 200)
+
+    const notes = [
+      recorded
+        ? null
+        : 'Draft order shown is each manager’s first nomination, not the drawn seat — the drawn order was never recorded.',
+      over.length
+        ? `${over.length} manager${over.length === 1 ? '' : 's'} finished over the $200 budget. Auction dollars were traded between managers, and the running totals were kept by hand — so the record does not balance and is imported exactly as written rather than adjusted.`
+        : null,
+      ...CORRECTIONS.filter((c) => c.season === season).map(
+        (c) => `${c.action === 'drop' ? 'Removed' : 'Added'} ${c.player}: ${c.reason}`,
+      ),
+      ...ROSTER_EXCEPTIONS.filter((e) => e.season === season).map(
+        (e) => `Kept ${e.player} over Sleeper: ${e.reason}`,
+      ),
+    ].filter((n): n is string => n !== null)
+
+    await sql.query(`UPDATE seasons SET notes = $2 WHERE season = $1`, [season, notes])
   }
   console.log('  ✓ seating and notes recorded')
 
