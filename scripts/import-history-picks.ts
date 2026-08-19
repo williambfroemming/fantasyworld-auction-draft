@@ -39,33 +39,27 @@ const ROOT = process.cwd()
 const SEASONS = [2021, 2022, 2023, 2024, 2025] as const
 
 /**
- * Rosters we knowingly differ from Sleeper on, and why.
- *
- * Sleeper's record of who drafted whom has been right every other time, so a
- * disagreement is only allowed here with a reason written down.
- */
-const ROSTER_EXCEPTIONS = [
-  {
-    season: 2025,
-    player: 'Jayden Reed',
-    reason:
-      "The draft sheet's pick log AND its player pool both record Jayden Reed as drafted at pick " +
-      '106, and both are draft-time artifacts. Sleeper\'s draft and the sheet\'s roster board both ' +
-      'show Dylan Sampson instead, and both of those could reflect an early-season waiver swap — ' +
-      'the 2025 results were typed into Sleeper after the fact. The draft-time sources win for a ' +
-      'table that records a draft.',
-    dated: '2026-08-18',
-  },
-]
-
-/**
  * Every departure from the source, in one reviewable list.
  *
- * Both entries were found by diffing the workbook against Sleeper's record of
- * which players each manager actually drafted. Nothing here is a guess about a
- * price except Boyd's, and that one is arithmetic rather than judgement.
+ * All three were found by diffing the written record against Sleeper's account
+ * of which players each manager actually drafted. **Where Sleeper's draft has an
+ * answer, it wins** — it has been right every time it could be checked, across
+ * three seasons and 480 picks. Nothing here is a guess about a price except
+ * Boyd's, and that one is arithmetic rather than judgement.
  */
 const CORRECTIONS = [
+  {
+    season: 2025,
+    action: 'replace' as const,
+    pickNo: 106,
+    player: 'Jayden Reed',
+    replacement: 'Dylan Sampson',
+    reason:
+      "The draft sheet's log records Jayden Reed at pick 106; Sleeper's draft records Dylan Sampson, " +
+      "and so does the sheet's own roster board. Same manager (Nate), same $1 — only the player " +
+      'differs, so nothing about the budget moves. Sleeper is the draft record.',
+    dated: '2026-08-18',
+  },
   {
     season: 2022,
     action: 'drop' as const,
@@ -244,8 +238,11 @@ async function main() {
   for (const r of rows) {
     const season = Number(r.year)
     if (drops.has(`${season}:${Number(r.pick)}`)) continue
+    const swapped = CORRECTIONS.find(
+      (c) => c.action === 'replace' && c.season === season && c.pickNo === Number(r.pick),
+    )
     const position = normalizePosition(r.position || 'DEF').position
-    const key = `${season}:${playerMatchKey(r.player, position)}`
+    const key = `${season}:${playerMatchKey(swapped?.replacement ?? r.player, position)}`
     if (seen.has(key)) duplicates.push(`${season} pick ${r.pick} "${r.player}" — also ${seen.get(key)}`)
     seen.set(key, `pick ${r.pick}`)
   }
@@ -269,10 +266,16 @@ async function main() {
     return byName.length === 1 ? byName[0] : null
   }
 
+  const replacements = new Map(
+    CORRECTIONS.filter((c) => c.action === 'replace').map((c) => [`${c.season}:${c.pickNo}`, c.replacement!]),
+  )
+
   for (const r of rows) {
     const season = Number(r.year)
     const pickNo = Number(r.pick)
     if (drops.has(`${season}:${pickNo}`)) continue
+    const swap = replacements.get(`${season}:${pickNo}`)
+    if (swap) r.player = swap
     const position = normalizePosition(r.position || 'DEF').position
     const found = resolve(season, r.player, position)
     if (!found) {
@@ -337,23 +340,12 @@ async function main() {
       const managerId = managerIdForSleeperOwner(r.owner_id)
       const theirs = sleeper.get(r.roster_id) ?? new Set<string>()
       const ours = new Set(picks.filter((p) => p.season === season && p.managerId === managerId).map((p) => p.playerId))
-      const excusedCount = ROSTER_EXCEPTIONS.filter((e) => e.season === season).length
-      let unexplained = 0
       for (const id of theirs) {
-        if (ours.has(id)) continue
-        unexplained++
-        if (unexplained > excusedCount) mismatches.push(`${season} manager ${managerId}: Sleeper has ${id}, we do not`)
+        if (!ours.has(id)) mismatches.push(`${season} manager ${managerId}: Sleeper has ${id}, we do not`)
       }
       for (const id of ours) {
         if (theirs.has(id)) continue
         const pick = picks.find((p) => p.season === season && p.playerId === id)
-        const excused = ROSTER_EXCEPTIONS.some(
-          (e) => e.season === season && pick && playerMatchKey(e.player, pick.position) === playerMatchKey(pick.name, pick.position),
-        )
-        if (excused) {
-          console.log(`  · ${season}: keeping ${pick?.name} over Sleeper — see ROSTER_EXCEPTIONS`)
-          continue
-        }
         mismatches.push(`${season} manager ${managerId}: we have ${id} (${pick?.name}), Sleeper does not`)
       }
     }
@@ -478,10 +470,8 @@ async function main() {
         ? `${over.length} manager${over.length === 1 ? '' : 's'} finished over the $200 budget. Auction dollars were traded between managers, and the running totals were kept by hand — so the record does not balance and is imported exactly as written rather than adjusted.`
         : null,
       ...CORRECTIONS.filter((c) => c.season === season).map(
-        (c) => `${c.action === 'drop' ? 'Removed' : 'Added'} ${c.player}: ${c.reason}`,
-      ),
-      ...ROSTER_EXCEPTIONS.filter((e) => e.season === season).map(
-        (e) => `Kept ${e.player} over Sleeper: ${e.reason}`,
+        (c) =>
+          `${c.action === 'drop' ? 'Removed' : c.action === 'add' ? 'Added' : 'Replaced'} ${c.player}${c.action === 'replace' ? ` with ${c.replacement}` : ''}: ${c.reason}`,
       ),
     ].filter((n): n is string => n !== null)
 
