@@ -53,7 +53,8 @@
     "history:import-workbook": "dotenv -e .env.local -- tsx scripts/import-workbook-history.ts",
     "history:picks": "dotenv -e .env.local -- tsx scripts/import-history-picks.ts",
     "history:refresh": "dotenv -e .env.local -- tsx scripts/history/refresh-season.ts",
-    "season:info": "dotenv -e .env.local -- tsx scripts/set-season-info.ts"
+    "season:info": "dotenv -e .env.local -- tsx scripts/set-season-info.ts",
+    "draft:recap": "tsx scripts/history/draft-recap.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

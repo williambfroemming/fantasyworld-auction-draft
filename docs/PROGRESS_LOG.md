@@ -2382,3 +2382,58 @@ four. That is the third summary table in this project to disagree with its own b
   it cannot be cross-checked against anything.
 - If the 2021–2023 or 2025 sheets ever surface, they slot in the same way — add the path to
   `RECORDED_BOARDS` and the log to the cross-check. Nothing else needs to change.
+
+## Draft recaps, and a value measure that knows how the season went
+
+`/history/drafts` read like an errata sheet: five cards, each headed by a price and then three or
+four footnotes about duplicate picks and budgets that don't balance. Correct, and nobody's idea of
+a good time. It now leads with a paragraph about what actually happened in the room, and the
+provenance sits behind a **Data notes** disclosure — demoted, never dropped. "Departures from a
+source are never silent" is still the rule; it just isn't the headline.
+
+**Recaps are generated once and stored**, on `seasons.draft_recap`. A finished draft never changes,
+so generating on render would pay for and wait on an identical paragraph forever — and it would put
+a third party in the request path of an app whose first rule is that nothing on a request path makes
+an outbound call. `scripts/history/draft-recap.ts` computes a fact pack from the database and asks
+a model only to choose what to tell and how; `--facts` prints exactly what it was given, and the
+prompt forbids any figure not in the pack.
+
+**The value question was the real find.** Bargains and overpays came from `valueVsRoom`, which
+compares a price against what the room paid for similarly-ranked players *that night*. It answers
+"did you pay over the odds" and is silent on whether the player was any good — which is the only
+thing computable during a draft, and the wrong question on a history page years later. So
+`valueVsResults` joins each pick to the season it bought and compares **where the price slotted a
+player against where they actually finished**, within their own position:
+
+- Justin, 2024: $1 on Brian Thomas → WR4. $1 on Jaxon Smith-Njigba → WR7.
+- Jack, 2021: $2 on Ja'Marr Chase → WR4. Jack, 2024: $47 on McCaffrey → RB44.
+- Daniel, 2023: $1 on Raheem Mostert → RB2.
+
+**Learned:**
+
+- **Points per dollar is a broken metric and it looks fine.** The minimum bid is $1, so any $1
+  player who scores well posts a number nothing else can approach; every "best value" list built
+  that way is just $1 picks sorted by points. Rank-against-rank is scale-free and reads the way
+  people actually talk — "a dollar flier who finished WR4".
+- **Two questions were wearing one name.** "Value" on draft night and "value" in hindsight are
+  genuinely different measures, and only one of them can be computed at each moment. Naming them
+  apart (`valueVsRoom` / `valueVsResults`) was most of the fix.
+- **A model that is handed numbers cannot get them wrong.** Everything quotable is computed and
+  passed in; the model picks and phrases. That is the difference between a generated paragraph and
+  a paragraph you have to fact-check.
+- **The backtick rule is not just about SQL.** A prompt written as a template literal broke the
+  same way the SQL ones do — an inline `value` in backticks terminated the string and surfaced as
+  two unrelated parse errors. Second time this project has lost time to it.
+
+**Watch out for:**
+
+- `valueVsResults` needs a **finished** season. 2026 has no season row yet and correctly reports
+  null; a recap generated mid-season must not claim a verdict, and the prompt says so.
+- **Null points mean unknown, never zero.** A player with no Sleeper season row would otherwise
+  rank as the league's worst bust on no evidence. There is a test for it, and a second one asserting
+  unmeasured players still occupy their price rank — dropping them would quietly promote everyone
+  below.
+- Recaps live in `data/history/draft-recaps.json` as well as Postgres, and `--seed` loads them. A
+  database rebuild does not lose the text, and a re-generation is reviewable in a diff.
+- The recaps currently on record were written in-session from the committed fact packs, because no
+  `ANTHROPIC_API_KEY` was available. Setting one and re-running replaces them.

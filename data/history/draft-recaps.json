@@ -1,0 +1,20 @@
+{
+  "_comment": [
+    "Draft recaps, written from the fact pack that scripts/history/draft-recap.ts builds.",
+    "Committed rather than only stored in Postgres so they are reviewable in a diff and",
+    "survive a database rebuild — the same reason every other source here is a file.",
+    "",
+    "Every figure in these paragraphs comes from that fact pack; run",
+    "  npm run draft:recap -- <year> --facts",
+    "to see exactly what was available, and --seed to load this file into the database.",
+    "Re-running without --seed regenerates them through the API and overwrites these."
+  ],
+  "model": "claude-opus-5",
+  "recaps": {
+    "2021": "Denver was the year the room decided the game was running backs and nothing else: 51 cents of every dollar went to the position, four backs cleared $58, and Bryan's $66 on Christian McCaffrey set the mark. Jack got Ja'Marr Chase for $2 and watched him finish WR4 — then lost the final to Daniel, who put together the best draft in the room and converted it into the title. Bill's $38 on Calvin Ridley bought him WR50.",
+    "2022": "Bryan paid $52 for Jonathan Taylor, the most expensive pick of the night, and got RB28 out of it; Jack's $32 on Javonte Williams came back RB42. Bolek spent to the dollar — all $200, topped by Austin Ekeler at $44 — and picked up Tyler Lockett for $1 on the way to WR16 and the title, beating Bill in the final. Justin took the regular season, and Nate drafted the best board of the ten.",
+    "2023": "Daniel found Raheem Mostert for $1 and got RB2 out of him, which is roughly how you win a regular season and grade out as the best drafter in Nashville. It bought him neither trophy: Mario took the title with $194 spent and nothing pricier than $44 on Christian McCaffrey, beating Gabes in the final. Nate's $42 Nick Chubb finished RB45, and Eric/Blakey's $47 Justin Jefferson finished WR28.",
+    "2024": "Justin spent two dollars in total on Brian Thomas and Jaxon Smith-Njigba and got back WR4 and WR7 — the best draft anyone has had in this room. Nate went about it differently, burning $169 of his $200 before pick 40 with nothing pricier than $37 on Derrick Henry, and won the whole thing; his victim in the final was Eric/Blakey, who had both the night's most expensive pick ($55 on Josh Allen) and the best regular season. Jack's $47 on Christian McCaffrey finished RB44.",
+    "2025": "Bryan had $188 of his budget gone by pick 40, which is one way to attack a room. Gabes did the opposite — nothing over $35, CeeDee Lamb the priciest thing he owned — and won the title anyway, despite $27 on Malik Nabers turning into WR42. Jack took the regular season and lost the final, though his $3 on Travis Etienne came back RB10, and Mario quietly drafted the best board in Scottsdale."
+  }
+}

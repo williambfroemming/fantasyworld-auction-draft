@@ -519,6 +519,14 @@ export const seasons = pgTable('seasons', {
    * contributes nothing to a net total rather than being treated as free.
    */
   buyIn: integer('buy_in'),
+  /**
+   * The draft's story in a few sentences, written once by a model from a fact
+   * pack computed here and stored — never generated on request. See
+   * `scripts/history/draft-recap.ts`. Null just means nobody has run it yet.
+   */
+  draftRecap: text('draft_recap'),
+  draftRecapModel: text('draft_recap_model'),
+  draftRecapAt: timestamp('draft_recap_at', { withTimezone: true }),
   /** Anything a reader of this season needs told. Rendered in the archive. */
   notes: text('notes').array().notNull().default([]),
 })

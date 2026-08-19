@@ -202,6 +202,11 @@ export interface AuctionSummary {
   /** Managers who finished above the budget. The record does not always balance. */
   overBudget: Array<{ displayName: string; spent: number }>
   topPick: { playerName: string; price: number; displayName: string } | null
+  /**
+   * The draft's story, written once and stored. Null until someone runs
+   * `npm run draft:recap` for that season.
+   */
+  recap: string | null
   notes: string[]
   isCurrent: boolean
 }
@@ -236,8 +241,11 @@ export async function listAuctions(): Promise<AuctionSummary[]> {
       FROM picks pk JOIN managers m ON m.id = pk.manager_id
      ORDER BY pk.season, pk.price DESC, pk.pick_no`
 
-  const noteRows = await sql`SELECT season, notes FROM seasons`
+  const noteRows = await sql`SELECT season, notes, draft_recap FROM seasons`
   const notes = new Map(noteRows.map((r) => [Number(r.season), (r.notes as string[] | null) ?? []]))
+  const recaps = new Map(
+    noteRows.map((r) => [Number(r.season), (r.draft_recap as string | null) ?? null]),
+  )
 
   return rows.map((r) => {
     const season = Number(r.season)
@@ -246,6 +254,7 @@ export async function listAuctions(): Promise<AuctionSummary[]> {
       season,
       picks: Number(r.picks),
       spent: Number(r.spent),
+      recap: recaps.get(season) ?? null,
       overBudget: spendRows
         .filter((s) => Number(s.season) === season)
         .map((s) => ({ displayName: String(s.display_name), spent: Number(s.spent) })),

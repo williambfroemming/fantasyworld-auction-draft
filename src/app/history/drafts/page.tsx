@@ -83,23 +83,47 @@ export default async function DraftsPage() {
               )}
 
               {/*
-                The record does not always balance, and saying so here is the
-                point — a negative budget that turns up unexplained on a board
-                looks exactly like the bug this app was built to remove.
+                The recap leads, because this is a page people read for fun and
+                a wall of caveats made a complete record look like an errata
+                sheet. Written once from computed facts and stored — see
+                scripts/history/draft-recap.ts.
               */}
-              {a.overBudget.length > 0 && (
-                <p className="mt-1 text-xs text-amber-200/80">
-                  Over budget:{' '}
-                  {a.overBudget.map((m) => `${m.displayName} $${m.spent}`).join(' · ')}
+              {a.recap && (
+                <p className="mt-2 max-w-3xl text-[0.92rem] leading-relaxed text-slate-300">
+                  {a.recap}
                 </p>
               )}
 
-              {a.notes.length > 0 && (
-                <ul className="mt-1.5 space-y-0.5 text-[0.7rem] leading-relaxed text-slate-500">
-                  {a.notes.map((n) => (
-                    <li key={n}>※ {n}</li>
-                  ))}
-                </ul>
+              {/*
+                Provenance is demoted, never dropped. "Departures from a source
+                are never silent" (PROJECT_PLAN §12) — a negative budget or a
+                removed duplicate that turns up unexplained on a board looks
+                exactly like the bug this app was built to remove. So it stays
+                one click away rather than above the fold.
+              */}
+              {(a.notes.length > 0 || a.overBudget.length > 0) && (
+                <details className="group/notes mt-2">
+                  <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-[0.68rem] uppercase tracking-[0.1em] text-slate-500 hover:text-slate-300">
+                    <span aria-hidden className="transition-transform group-open/notes:rotate-90">
+                      ▸
+                    </span>
+                    Data notes
+                    <span className="font-mono normal-case tracking-normal text-slate-600">
+                      ({a.notes.length + (a.overBudget.length > 0 ? 1 : 0)})
+                    </span>
+                  </summary>
+                  <ul className="mt-1.5 space-y-1 border-l border-rule pl-3 text-[0.7rem] leading-relaxed text-slate-500">
+                    {a.overBudget.length > 0 && (
+                      <li className="text-amber-200/70">
+                        Over budget:{' '}
+                        {a.overBudget.map((m) => `${m.displayName} $${m.spent}`).join(' · ')}
+                      </li>
+                    )}
+                    {a.notes.map((n) => (
+                      <li key={n}>{n}</li>
+                    ))}
+                  </ul>
+                </details>
               )}
             </li>
           ))}
