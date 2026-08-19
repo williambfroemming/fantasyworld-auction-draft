@@ -1349,3 +1349,68 @@ The loop is now fast when it matters and quiet when it does not:
   client to draft cadence immediately instead of leaving it on the 30s timer it was already sitting on.
 
 **Next:** H2 remains blocked until the Neon quota clears.
+
+
+---
+
+## Step 29 — The news feed comes back out
+**Date:** 2026-08-18  **Status:** done
+
+**Removed:** `src/lib/news.ts`, `src/lib/news.test.ts`, `src/server/news-service.ts`,
+`/api/news`, `src/components/PlayerDrawer.tsx`, and the ⓘ button on pool rows.
+**Kept:** everything in tier 1 — the injury columns, `npm run news:refresh`, and `InjuryBadge`.
+
+**184 unit tests passing**, build and lint clean.
+
+### Built one day, removed the next, on purpose
+
+Step 26 shipped a working ESPN + Sleeper-trending aggregator, verified end to end. The user looked
+at it and cut it:
+
+> "I like the questionable tags but maybe we get rid of the news. People can go to Sleeper and look
+> things up on their own, and in our app it won't be current at all times."
+
+That is the right call and the reasoning generalises, so it is worth writing down rather than just
+deleting the files:
+
+- **A feed is only as fresh as its last refresh, and it does not look stale.** A panel of headlines
+  renders identically whether it is four minutes or four weeks old. That invites trust at exactly
+  the moment it should not be given — somebody about to commit $60. Injury *status* survives the
+  same objection because it is one field with an explicit "as of", not a wall of prose.
+- **Don't rebuild what a better tool already does.** Sleeper is one tab away, always current, and
+  already where these managers look. The app's edge is the auction.
+- **It was the only third party on a request path.** Removing it deleted a whole class of failure,
+  and the surviving rules got *simpler* rather than more carefully guarded.
+
+The distinction that survived is a good one to keep: **a small factual field attached to a price you
+are about to pay earns its place; a general feed does not.**
+
+### What was kept from the removal
+
+The structural test moved rather than died. `news.test.ts` asserted that `draft-service.ts` never
+calls `fetch(`; that rule is older and broader than the news feature — `/api/state` is polled by
+every client several times a second — so it now lives in `sleeper.test.ts`, with a second assertion
+that `draft-service` does not import the Sleeper client either.
+
+`BACKLOG.md` §1 went from ✅ to 🟡 and records **both halves**: what shipped, and why the feed was
+cut, with the commit to recover it from. A section that just said "done" would invite the next
+person to rebuild the removed half.
+
+**Learned:**
+
+- **Shipping something is a legitimate way to find out you do not want it.** The aggregator took a
+  few hours and the decision to cut it took one look at the running app. That is a cheaper path to
+  the right answer than a longer argument beforehand would have been.
+- **Record removals as decisions, not as absence.** An empty space in a codebase reads as an
+  oversight; `AGENTS.md` now carries "there is no live news feed, and that is a decision rather than
+  a gap" precisely so the next agent does not helpfully fill it in.
+
+**Watch out for:**
+
+- `git rm` leaves the directory behind, and an open editor buffer **rewrote `route.ts` back to
+  disk** after the delete — the build kept listing `/api/news` long after it should have been gone.
+  Check `find`, not `ls`, and clear `.next` before trusting a route listing.
+- The injury data is still a **snapshot**. The user's objection to stale news applies to it too, and
+  the answer is `injury_updated_at` being visible — do not let that "as of" disappear from the UI.
+
+**Next:** §8 is all that remains in the backlog.
