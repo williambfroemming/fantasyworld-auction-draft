@@ -51,7 +51,10 @@ const SECTIONS: Record<Section, { label: string; home: string; items: NavItem[] 
     home: '/history',
     // Listed as they are built. A nav that points at a 404 is worse than a
     // short nav — it makes the section look broken rather than unfinished.
-    items: [{ href: '/history', label: 'Summary' }],
+    items: [
+      { href: '/history', label: 'Summary' },
+      { href: '/history/records', label: 'Records' },
+    ],
   },
 }
 

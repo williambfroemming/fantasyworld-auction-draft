@@ -1844,3 +1844,65 @@ time-critical.
   unsigned visitor to the join screen — a page-level decision a shared hook should not impose.
 
 **Next:** H6 — the record book, which adds the second History entry to the nav.
+
+---
+
+## Step 38 — Phase 2 H6: the record book
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `records()`, `seasonInReview()` and `longestStreaks()` in `src/lib/history.ts` (+17
+tests), `RecordLine` and `SeasonReviewCard`, and `/history/records`.
+
+**271 unit tests passing.** Verified in a browser against the real imported data.
+
+### Three groups, because they do not cover the same years
+
+Single-game records reach back to 2020, when week-by-week results start. Season and career records
+reach to 2011. Each group carries its own `EraBadge`, and the two weekly-era records that sit in the
+season column (the streaks) carry theirs individually rather than inheriting the column's.
+
+### What it reproduces, and the three places the workbook is wrong
+
+Matches the dashboard exactly: 234.96 (Daniel, wk12 2023), 37.12 (Bryan, wk5 2021), the 132.74
+blowout, the 0.10 narrowest win, 1051.92 fewest points, 1995.22 most points against, and both
+streaks (7 wins, 8 losses).
+
+The workbook's **hidden `All-time Records` sheet** disagrees with its own standings sheet on three
+records, and it is wrong every time:
+
+| Hidden sheet | The standings data |
+|---|---|
+| High score 203.9 — Nate, 2014 | 234.96 — Daniel, wk12 2023 |
+| Best season 12-1 — Mario, 2013 | Mario went 10-3 in 2013; the real best is 12-2 |
+| Worst season 1-12 — Justin, 2012 | Justin went 2-11; the real worst is Daniel, 2016 |
+
+`xlsm-to-csv.py` already refuses to convert that sheet. This is why.
+
+One genuine difference from the dashboard, and it is the league's own decision: the highest playoff
+score is now **192.44 (Daniel, wk17 2023)** rather than 181.16, because that game was the
+third-place game — which the league says counts, and the workbook excluded.
+
+**Learned:**
+
+- **A margin is not a rate.** Best and worst record were first ranked by wins minus losses, which
+  quietly favours the longer seasons: the league played 13 games through 2020 and 14 from 2021, so
+  12-3 (.800) would have beaten 11-2 (.846) on margin alone. Ranked by percentage now, with a test
+  built from exactly that pair.
+- **The number is not always the record.** "Best regular-season record" is `12-2`, not `12`, so
+  `RecordEntry` grew a `display` string that overrides the formatted value. A formatter that only
+  sees a number cannot know this.
+- **Margins are taken from the winner's side only.** Reading them from both sides would make every
+  blowout simultaneously the narrowest loss.
+
+**Watch out for:**
+
+- **Streaks do not cross a season boundary.** Eight months and a fresh draft sit between the last
+  game of one year and the first of the next; a streak spanning them describes two different teams.
+- **A standings-era season's review card says so**, rather than showing empty rows. "Not recorded
+  that way" and "we lost it" are different claims and must not look the same.
+- Ties keep the earliest holder so a record has one name. The workbook lists two for the 7-win
+  streak (Jon and Justin); this shows Justin.
+- The "draft steal" is deliberately absent until the auction import lands.
+
+**Next:** H7 — `getArchivedSeason` reads `seasons`, which fixes a live bug.

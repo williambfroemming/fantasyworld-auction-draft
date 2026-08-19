@@ -5,6 +5,9 @@ import {
   highLowWeeks,
   isCountedPlayoff,
   leagueSummary,
+  longestStreaks,
+  records,
+  seasonInReview,
   type HistoryInput,
   type HistoryMatchup,
   type HistoryMember,
@@ -304,5 +307,181 @@ describe('coverage excludes seasons that exist but have not been played', () => 
     expect(report.allTime.to).toBe(2021)
     expect(report.weekly.to).toBe(2021)
     expect(report.allTime.seasons).not.toContain(2026)
+  })
+})
+
+describe('longestStreaks', () => {
+  const run = (results: Array<'W' | 'L'>, s = 2021) =>
+    results.map((result, i) => ({
+      season: s,
+      week: i + 1,
+      managerId: 1,
+      points: 100,
+      opponentManagerId: 2,
+      opponentPoints: result === 'W' ? 90 : 110,
+      isPlayoff: false,
+      playoffRound: null,
+      playoffPlacement: null,
+      result,
+    }))
+
+  it('finds the longest run of wins', () => {
+    const { wins } = longestStreaks(run(['W', 'L', 'W', 'W', 'W', 'L']))
+    expect(wins).toMatchObject({ value: 3, managerId: 1 })
+  })
+
+  it('finds the longest run of losses', () => {
+    const { losses } = longestStreaks(run(['L', 'L', 'W', 'L']))
+    expect(losses).toMatchObject({ value: 2 })
+  })
+
+  it('does not let a streak cross a season boundary', () => {
+    // Eight months and a fresh draft sit between these two runs of four. A
+    // "streak" spanning them describes two different teams.
+    const streak = longestStreaks([...run(['W', 'W', 'W', 'W'], 2021), ...run(['W', 'W', 'W', 'W'], 2022)])
+    expect(streak.wins!.value).toBe(4)
+  })
+
+  it('ignores playoff games', () => {
+    const games = run(['W', 'W']).concat(
+      run(['W', 'W']).map((g) => ({ ...g, isPlayoff: true, week: g.week + 14 })),
+    )
+    expect(longestStreaks(games).wins!.value).toBe(2)
+  })
+})
+
+describe('records', () => {
+  const seasons = [
+    season(2015, 'standings', { championManagerId: 1, championPrize: 500 }),
+    season(2021, 'weekly', { championManagerId: 1, championPrize: 1000 }),
+  ]
+  const input: HistoryInput = {
+    members,
+    seasons,
+    standings: [
+      ...members.map((m) => standing(2015, m.managerId, { pointsFor: 1000 + m.managerId })),
+      ...members.map((m) => standing(2021, m.managerId, { pointsFor: 1500 + m.managerId })),
+    ],
+    matchups: [...week(2021, 1, [140, 30, 100, 99]), ...week(2021, 2, [50, 60, 70, 80])],
+    lineups: [],
+  }
+
+  it('finds the highest and lowest single scores', () => {
+    const book = records(input)
+    expect(book.games.find((g) => g.key === 'highScore')).toMatchObject({ value: 140, managerId: 1 })
+    expect(book.games.find((g) => g.key === 'lowScore')).toMatchObject({ value: 30, managerId: 2 })
+  })
+
+  it('measures a margin from the winner only', () => {
+    // Taking margins from both sides would make every blowout also the
+    // narrowest loss.
+    const book = records(input)
+    expect(book.games.find((g) => g.key === 'biggestBlowout')).toMatchObject({
+      value: 110,
+      managerId: 1,
+      opponentManagerId: 2,
+    })
+    expect(book.games.find((g) => g.key === 'closestGame')!.value).toBe(1)
+  })
+
+  it('labels game records with the weekly era and season records with all-time', () => {
+    const book = records(input)
+    expect(book.gameCoverage.from).toBe(2021)
+    expect(book.seasonCoverage.from).toBe(2015)
+    // The distinction the workbook loses: these two spans are different.
+    expect(book.gameCoverage.from).not.toBe(book.seasonCoverage.from)
+  })
+
+  it('reaches back to the standings era for season totals', () => {
+    const book = records(input)
+    expect(book.seasons.find((s) => s.key === 'fewestPointsSeason')).toMatchObject({ season: 2015 })
+  })
+
+  it('ranks the top scoring seasons', () => {
+    const book = records(input)
+    expect(book.topScoringSeasons).toHaveLength(5)
+    expect(book.topScoringSeasons[0].points).toBeGreaterThanOrEqual(book.topScoringSeasons[4].points)
+  })
+
+  it('reports career money and titles', () => {
+    const book = records(input)
+    expect(book.careers.find((c) => c.key === 'mostTitles')).toMatchObject({ value: 2, managerId: 1 })
+    expect(book.careers.find((c) => c.key === 'mostMoney')).toMatchObject({ value: 1500 })
+  })
+
+  it('omits a record nobody holds rather than inventing a zero', () => {
+    const empty = records({ members, seasons: [], standings: [], matchups: [], lineups: [] })
+    expect(empty.games).toEqual([])
+    expect(empty.careers).toEqual([])
+  })
+})
+
+describe('seasonInReview', () => {
+  const input: HistoryInput = {
+    members,
+    seasons: [season(2021, 'weekly', { championManagerId: 2, runnerUpManagerId: 3, thirdManagerId: 1 })],
+    standings: members.map((m) => standing(2021, m.managerId)),
+    matchups: [...week(2021, 1, [140, 30, 100, 99]), ...week(2021, 2, [50, 60, 70, 80])],
+    lineups: [],
+  }
+
+  it('names the podium and the regular-season winner separately', () => {
+    const r = seasonInReview(input, 2021)!
+    expect(r.champion).toBe(2)
+    expect(r.third).toBe(1)
+    // place 1 in the standings fixture is manager 1 — often not the champion.
+    expect(r.regularSeasonWinner).toBe(1)
+  })
+
+  it('finds the season’s extremes', () => {
+    const r = seasonInReview(input, 2021)!
+    expect(r.highestScore).toMatchObject({ value: 140 })
+    expect(r.lowestScore).toMatchObject({ value: 30 })
+    expect(r.closestGame!.value).toBe(1)
+  })
+
+  it('ranks consistency by standard deviation', () => {
+    const r = seasonInReview(input, 2021)!
+    expect(r.mostConsistent!.stdev).toBeLessThanOrEqual(r.mostVolatile!.stdev)
+  })
+
+  it('returns null for a season nobody has a record of', () => {
+    expect(seasonInReview(input, 1999)).toBeNull()
+  })
+
+  it('leaves game-level fields null for a standings-only season', () => {
+    const older: HistoryInput = {
+      members,
+      seasons: [season(2015, 'standings', { championManagerId: 1 })],
+      standings: members.map((m) => standing(2015, m.managerId)),
+      matchups: [],
+      lineups: [],
+    }
+    const r = seasonInReview(older, 2015)!
+    expect(r.champion).toBe(1)
+    expect(r.highestScore).toBeNull()
+    expect(r.mostConsistent).toBeNull()
+  })
+})
+
+describe('best and worst record rank by percentage, not margin', () => {
+  it('prefers the better rate over the bigger margin', () => {
+    // 11-2 in a 13-game season (.846) beats 12-3 in a 15-game one (.800),
+    // even though both are +9. The league played 13-game seasons through 2020
+    // and 14 from 2021, so margin quietly favours the longer years.
+    const input: HistoryInput = {
+      members,
+      seasons: [season(2019, 'standings'), season(2021, 'weekly')],
+      standings: [
+        standing(2019, 1, { wins: 11, losses: 2 }),
+        standing(2021, 2, { wins: 12, losses: 3 }),
+        ...members.slice(2).map((m) => standing(2019, m.managerId, { wins: 5, losses: 8 })),
+      ],
+      matchups: [],
+      lineups: [],
+    }
+    const bestRec = records(input).seasons.find((r) => r.key === 'bestRecord')!
+    expect(bestRec.managerId).toBe(1)
+    expect(bestRec.display).toBe('11-2')
   })
 })

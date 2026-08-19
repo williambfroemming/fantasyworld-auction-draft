@@ -28,7 +28,7 @@ import type {
   HistorySeason,
   HistoryStanding,
 } from '@/lib/history'
-import { leagueSummary, type LeagueSummaryReport } from '@/lib/history'
+import { leagueSummary, records, seasonInReview, type LeagueSummaryReport } from '@/lib/history'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v))
@@ -150,4 +150,25 @@ export async function listHistorySeasons(): Promise<SeasonListing[]> {
     city: r.draft_city === null ? null : String(r.draft_city),
     state: r.draft_state === null ? null : String(r.draft_state),
   }))
+}
+
+export async function getRecordBook() {
+  const input = await getHistoryInput()
+  return { book: records(input), members: input.members }
+}
+
+/**
+ * A review card per season, newest first.
+ *
+ * Every season the league has any record of is included — a standings-era season
+ * yields a champion and nothing else, which is the honest answer rather than a
+ * gap in the deck.
+ */
+export async function getSeasonReviews() {
+  const input = await getHistoryInput()
+  const reviews = input.seasons
+    .map((s) => seasonInReview(input, s.season))
+    .filter((r): r is NonNullable<typeof r> => r !== null)
+    .sort((a, b) => b.season - a.season)
+  return { reviews, members: input.members }
 }
