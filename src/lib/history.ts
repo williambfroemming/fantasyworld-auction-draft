@@ -51,8 +51,6 @@ export interface HistorySeason {
   championPrize: number | null
   runnerUpPrize: number | null
   thirdPrize: number | null
-  highScorePayout: number | null
-  lowScorePenalty: number | null
   draftCity: string | null
   draftState: string | null
 }
@@ -240,23 +238,21 @@ export interface HighLowRow {
   managerId: number
   highWeeks: number
   lowWeeks: number
-  /** Positive is money won. Null when no rate is on record for those seasons. */
-  net: number | null
 }
 
 /**
- * Who topped and who propped the table each week, and what it cost.
+ * How often each manager topped and propped the table.
  *
- * Regular season only. The payout is per season, because the rate can change and
- * a season with no rate recorded contributes **null rather than zero** — the
- * league's own dashboard reports $0 for a manager whose lookup silently failed,
- * which is precisely the failure this avoids.
+ * Regular season only. There is deliberately **no money here**: the league runs
+ * a weekly side bet, but the interesting number is how often somebody was the
+ * best or worst team that week, and attaching a dollar figure meant carrying a
+ * per-season rate that mostly is not on record. The count says the same thing
+ * and cannot be wrong.
  */
 export function highLowWeeks(
   matchups: HistoryMatchup[],
   seasons: HistorySeason[],
-): { rows: HighLowRow[]; coverage: Coverage; seasonsMissingRate: number[] } {
-  const rate = new Map(seasons.map((s) => [s.season, s]))
+): { rows: HighLowRow[]; coverage: Coverage } {
   const byWeek = new Map<string, HistoryMatchup[]>()
   for (const m of matchups) {
     if (m.isPlayoff) continue
@@ -266,42 +262,26 @@ export function highLowWeeks(
     byWeek.set(key, list)
   }
 
-  const tally = new Map<number, { highWeeks: number; lowWeeks: number; net: number; known: boolean }>()
-  const missing = new Set<number>()
-  const bump = (id: number) =>
-    tally.get(id) ?? { highWeeks: 0, lowWeeks: 0, net: 0, known: true }
+  const tally = new Map<number, HighLowRow>()
+  const bump = (id: number) => tally.get(id) ?? { managerId: id, highWeeks: 0, lowWeeks: 0 }
 
-  for (const [key, week] of byWeek) {
+  for (const [, week] of byWeek) {
     if (week.length < 2) continue
-    const season = Number(key.split(':')[0])
-    const s = rate.get(season)
     const high = week.reduce((a, b) => (b.points > a.points ? b : a))
     const low = week.reduce((a, b) => (b.points < a.points ? b : a))
 
     const h = bump(high.managerId)
     h.highWeeks++
-    if (s?.highScorePayout != null) h.net += s.highScorePayout
-    else { h.known = false; missing.add(season) }
     tally.set(high.managerId, h)
 
     const l = bump(low.managerId)
     l.lowWeeks++
-    if (s?.lowScorePenalty != null) l.net -= s.lowScorePenalty
-    else { l.known = false; missing.add(season) }
     tally.set(low.managerId, l)
   }
 
   return {
-    rows: [...tally.entries()]
-      .map(([managerId, v]) => ({
-        managerId,
-        highWeeks: v.highWeeks,
-        lowWeeks: v.lowWeeks,
-        net: v.known ? v.net : null,
-      }))
-      .sort((a, b) => b.highWeeks - a.highWeeks),
+    rows: [...tally.values()].sort((a, b) => b.highWeeks - a.highWeeks),
     coverage: coverageFor(seasons, ['weekly'], 'since Sleeper', playedSeasons(matchups)),
-    seasonsMissingRate: [...missing].sort(),
   }
 }
 
@@ -342,7 +322,6 @@ export interface WeeklyStats {
   lineupEfficiency: number | null
   highScoreWeeks: number
   lowScoreWeeks: number
-  highLowNet: number | null
   playoffPointsFor: number
   playoffPointsAgainst: number
 }
@@ -455,7 +434,6 @@ export function leagueSummary(input: HistoryInput): LeagueSummaryReport {
           lineupEfficiency: optimal > 0 ? round(actual / optimal, 4) : null,
           highScoreWeeks: hl?.highWeeks ?? 0,
           lowScoreWeeks: hl?.lowWeeks ?? 0,
-          highLowNet: hl?.net ?? null,
           playoffPointsFor: round(sum(myPlayoffs.map((m) => m.points))),
           playoffPointsAgainst: round(sum(myPlayoffs.map((m) => m.opponentPoints))),
         }

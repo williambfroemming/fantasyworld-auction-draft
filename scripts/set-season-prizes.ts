@@ -4,7 +4,6 @@
  *   npm run season:prizes                                   # show every season
  *   npm run season:prizes -- 2025                           # show one
  *   npm run season:prizes -- 2025 --champion 2100 --runner-up 600 --third 300
- *   npm run season:prizes -- 2025 --high 10 --low 10        # the weekly side bet
  *   npm run season:prizes -- 2025 --champion none           # back to unknown
  *
  * Prize money is a league fact that exists in no API and changes from year to
@@ -48,19 +47,15 @@ const FIELDS: Array<[string, string]> = [
   ['champion', 'champion_prize'],
   ['runner-up', 'runner_up_prize'],
   ['third', 'third_prize'],
-  ['high', 'high_score_payout'],
-  ['low', 'low_score_penalty'],
 ]
 
 const money = (v: unknown) => (v === null || v === undefined ? '—' : `$${v}`)
 
 async function show(only: number | null) {
   const rows = only
-    ? await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize,
-                       high_score_payout, low_score_penalty
+    ? await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize
                   FROM seasons WHERE season = ${only}`
-    : await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize,
-                       high_score_payout, low_score_penalty
+    : await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize
                   FROM seasons ORDER BY season`
   if (!rows.length) {
     console.log(`\nNo season ${only} on record.\n`)
@@ -74,8 +69,6 @@ async function show(only: number | null) {
       champion: money(r.champion_prize),
       'runner-up': money(r.runner_up_prize),
       third: money(r.third_prize),
-      'high wk': money(r.high_score_payout),
-      'low wk': money(r.low_score_penalty),
     })),
   )
   console.log('  — means unknown, which is not the same as $0.\n')

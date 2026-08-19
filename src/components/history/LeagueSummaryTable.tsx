@@ -98,13 +98,6 @@ function Row({ row, rank }: { row: LeagueSummaryRow; rank: number }) {
       <Num>{w?.lineupEfficiency == null ? '—' : `${(w.lineupEfficiency * 100).toFixed(1)}%`}</Num>
       <Num className={w && w.highScoreWeeks ? 'text-emerald-400' : ''}>{w?.highScoreWeeks || '—'}</Num>
       <Num className={w && w.lowScoreWeeks ? 'text-rose-400' : ''}>{w?.lowScoreWeeks || '—'}</Num>
-      <Num
-        className={
-          w?.highLowNet == null ? 'text-slate-500' : w.highLowNet >= 0 ? 'text-emerald-400' : 'text-rose-400'
-        }
-      >
-        {w?.highLowNet == null ? '—' : `${w.highLowNet < 0 ? '−' : ''}$${Math.abs(w.highLowNet)}`}
-      </Num>
       <Num>{w ? w.playoffPointsFor.toFixed(0) : '—'}</Num>
       <Num>{w ? w.playoffPointsAgainst.toFixed(0) : '—'}</Num>
     </tr>
@@ -121,7 +114,7 @@ export function LeagueSummaryTable({ report }: { report: LeagueSummaryReport }) 
             <th colSpan={11} className="px-2.5 pb-1 text-left">
               <EraBadge coverage={report.allTime} />
             </th>
-            <th colSpan={8} className="border-l-2 border-rule-strong px-2.5 pb-1 text-left">
+            <th colSpan={7} className="border-l-2 border-rule-strong px-2.5 pb-1 text-left">
               <EraBadge coverage={report.weekly} />
             </th>
           </tr>
@@ -148,7 +141,6 @@ export function LeagueSummaryTable({ report }: { report: LeagueSummaryReport }) 
             <Head title="Points started as a share of the best lineup available">Lineup</Head>
             <Head title="Weeks as the league's high scorer">Hi</Head>
             <Head title="Weeks as the league's low scorer">Lo</Head>
-            <Head title="Net from the weekly high/low side bet">Net</Head>
             <Head title="Playoff points for">Plf PF</Head>
             <Head title="Playoff points against">Plf PA</Head>
           </tr>

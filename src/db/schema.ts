@@ -507,9 +507,6 @@ export const seasons = pgTable('seasons', {
   championPrize: integer('champion_prize'),
   runnerUpPrize: integer('runner_up_prize'),
   thirdPrize: integer('third_prize'),
-  /** The weekly high/low side bet. $10 today; it is not in any base sheet. */
-  highScorePayout: integer('high_score_payout'),
-  lowScorePenalty: integer('low_score_penalty'),
   /** Anything a reader of this season needs told. Rendered in the archive. */
   notes: text('notes').array().notNull().default([]),
 })

@@ -33,8 +33,6 @@ const season = (season: number, dataTier: HistorySeason['dataTier'], over: Parti
   championPrize: null,
   runnerUpPrize: null,
   thirdPrize: null,
-  highScorePayout: null,
-  lowScorePenalty: null,
   draftCity: null,
   draftState: null,
   ...over,
@@ -170,27 +168,27 @@ describe('allPlay', () => {
 })
 
 describe('highLowWeeks', () => {
-  it('pays the high week and charges the low one', () => {
-    const seasons = [season(2021, 'weekly', { highScorePayout: 10, lowScorePenalty: 10 })]
+  const seasons = [season(2021, 'weekly')]
+
+  it('credits the top scorer and the bottom one', () => {
     const { rows } = highLowWeeks(week(2021, 1, [40, 30, 20, 10]), seasons)
-    expect(rows.find((r) => r.managerId === 1)).toMatchObject({ highWeeks: 1, net: 10 })
-    expect(rows.find((r) => r.managerId === 4)).toMatchObject({ lowWeeks: 1, net: -10 })
+    expect(rows.find((r) => r.managerId === 1)).toMatchObject({ highWeeks: 1, lowWeeks: 0 })
+    expect(rows.find((r) => r.managerId === 4)).toMatchObject({ highWeeks: 0, lowWeeks: 1 })
   })
 
-  it('returns null money — never zero — when the rate is unknown', () => {
-    // This is the exact failure the league's own dashboard has: a manager whose
-    // lookup silently failed reads as $0, which is indistinguishable from a
-    // manager who genuinely broke even.
-    const seasons = [season(2021, 'weekly')]
-    const { rows, seasonsMissingRate } = highLowWeeks(week(2021, 1, [40, 30, 20, 10]), seasons)
-    expect(rows.find((r) => r.managerId === 1)!.net).toBeNull()
-    expect(seasonsMissingRate).toEqual([2021])
+  it('counts across weeks and seasons', () => {
+    const { rows } = highLowWeeks(
+      [...week(2021, 1, [40, 30, 20, 10]), ...week(2021, 2, [40, 30, 20, 10])],
+      seasons,
+    )
+    expect(rows.find((r) => r.managerId === 1)!.highWeeks).toBe(2)
+    expect(rows.find((r) => r.managerId === 4)!.lowWeeks).toBe(2)
   })
 
-  it('still counts the weeks when the rate is unknown', () => {
-    const seasons = [season(2021, 'weekly')]
-    const { rows } = highLowWeeks(week(2021, 1, [40, 30, 20, 10]), seasons)
-    expect(rows.find((r) => r.managerId === 1)!.highWeeks).toBe(1)
+  it('ignores playoff weeks — the whole field is not playing', () => {
+    const playoff = week(2021, 15, [1, 2, 3, 99], { isPlayoff: true })
+    const { rows } = highLowWeeks([...week(2021, 1, [40, 30, 20, 10]), ...playoff], seasons)
+    expect(rows.find((r) => r.managerId === 4)!.highWeeks).toBe(0)
   })
 })
 
@@ -198,7 +196,7 @@ describe('leagueSummary', () => {
   const seasons = [
     season(2008, 'legacy'),
     season(2015, 'standings', { championManagerId: 1, championPrize: 500, runnerUpManagerId: 2, runnerUpPrize: 100 }),
-    season(2021, 'weekly', { championManagerId: 2, championPrize: 1000, highScorePayout: 10, lowScorePenalty: 10 }),
+    season(2021, 'weekly', { championManagerId: 2, championPrize: 1000 }),
   ]
   const standings: HistoryStanding[] = [
     ...members.map((m) => standing(2015, m.managerId)),

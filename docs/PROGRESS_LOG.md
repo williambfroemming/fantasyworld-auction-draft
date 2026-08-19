@@ -1760,3 +1760,35 @@ ships no JavaScript at all.
   `npm run season:prizes -- <year> --high 10 --low 10` once the league confirms the rate per era.
 
 **Next:** H6 — the record book and the Season in Review card.
+
+---
+
+## Step 36 — The side bet loses its money, and keeps its point
+
+**Date:** 2026-08-18  **Status:** done
+
+**Removed:** `highLowNet` from the summary, the Net column from the table, `--high`/`--low` from
+`season:prizes`, and the `high_score_payout` / `low_score_penalty` columns from `seasons`.
+**Kept:** how often each manager was the league's high or low scorer.
+
+The count is the interesting number and it cannot be wrong. The dollar figure needed a per-season
+rate that mostly is not on record, which meant an entire column of `—` and a schema field nobody
+could fill. Dropped rather than left dangling: a half-wired feature is worse than no feature,
+because the next reader cannot tell which it is.
+
+Third place stays part of the playoff record — confirmed with the league rather than assumed. Only
+the fifth-place game is excluded.
+
+**Learned:**
+
+- **Removing a metric is easier than justifying one.** The rule that null must never render as zero
+  was correct and the column still had to go, because "correct but permanently blank" is not a
+  column. The rule earned its keep anyway — it is what made the blankness visible instead of
+  silently reading `$0`, which is exactly the bug the workbook has.
+
+**Watch out for:**
+
+- The columns are dropped in `migrate-history.ts` with `DROP COLUMN IF EXISTS`, so the migration
+  stays idempotent and safe to re-run on a database that never had them.
+
+**Next:** H6 — the record book.

@@ -60,8 +60,6 @@ const TABLES: Array<[string, string]> = [
        champion_prize       integer,
        runner_up_prize      integer,
        third_prize          integer,
-       high_score_payout    integer,
-       low_score_penalty    integer,
        notes                text[]  NOT NULL DEFAULT '{}',
        CONSTRAINT seasons_data_tier_check
          CHECK (data_tier IN ('legacy', 'standings', 'weekly'))
@@ -194,6 +192,16 @@ async function main() {
   await step(
     'add season_matchups.playoff_placement',
     'ALTER TABLE season_matchups ADD COLUMN IF NOT EXISTS playoff_placement integer',
+  )
+
+  // The weekly high/low side bet was modelled as money and then cut: the count
+  // of high and low weeks is the interesting number and cannot be wrong, while a
+  // per-season payout rate is mostly not on record. Dropped rather than left
+  // dangling, so nothing half-wired survives.
+  await step(
+    'drop the side-bet payout columns',
+    `ALTER TABLE seasons DROP COLUMN IF EXISTS high_score_payout,
+                         DROP COLUMN IF EXISTS low_score_penalty`,
   )
 
   console.log('')
