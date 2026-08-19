@@ -32,7 +32,7 @@ import { EraBadge } from './EraBadge'
  */
 
 type SortKey =
-  | 'name' | 'titles' | 'money' | 'record' | 'winPct' | 'avgFinish' | 'avgPts'
+  | 'name' | 'titles' | 'money' | 'net' | 'record' | 'winPct' | 'avgFinish' | 'avgPts'
   | 'pf' | 'pa' | 'diff' | 'playoffs' | 'playoffRec'
   | 'allPlay' | 'allPlayPct' | 'lineup' | 'hi' | 'lo' | 'plfPF' | 'plfPA'
 
@@ -41,6 +41,7 @@ const VALUE: Record<SortKey, (r: LeagueSummaryRow) => number | string | null> = 
   name: (r) => r.member.displayName.toLowerCase(),
   titles: (r) => r.allTime.titles,
   money: (r) => r.allTime.moneyWon,
+  net: (r) => r.allTime.netWinnings,
   record: (r) => r.allTime.wins,
   winPct: (r) => r.allTime.winPct,
   avgFinish: (r) => r.allTime.avgFinish,
@@ -148,6 +149,25 @@ function Row({ row, rank }: { row: LeagueSummaryRow; rank: number }) {
       <Num title={a.moneyUnknownSeasons.length ? `unknown for ${a.moneyUnknownSeasons.join(', ')}` : undefined}>
         {money(a.moneyWon)}
       </Num>
+      {/* Prizes minus entry fees — the number people actually mean. */}
+      <Num
+        className={
+          a.netWinnings === null
+            ? 'text-slate-500'
+            : a.netWinnings >= 0
+              ? 'text-emerald-400'
+              : 'text-rose-400'
+        }
+        title={
+          a.netSeasons.length
+            ? `${a.netSeasons.length} season${a.netSeasons.length === 1 ? '' : 's'} with a buy-in on record (${a.netSeasons.join(', ')}): $${a.buyInsPaid.toLocaleString()} paid in`
+            : 'No season has a buy-in on record yet'
+        }
+      >
+        {a.netWinnings === null
+          ? '—'
+          : `${a.netWinnings < 0 ? '−' : ''}$${Math.abs(a.netWinnings).toLocaleString()}`}
+      </Num>
       <Num>{`${a.wins}-${a.losses}${a.ties ? `-${a.ties}` : ''}`}</Num>
       <Num>{pct(a.winPct)}</Num>
       <Num>{one(a.avgFinish)}</Num>
@@ -203,7 +223,7 @@ export function LeagueSummaryTable({ report }: { report: LeagueSummaryReport }) 
         <thead>
           <tr>
             <th className="sticky left-0 z-10 bg-slate-950" />
-            <th colSpan={11} className="px-2.5 pb-1 text-left">
+            <th colSpan={12} className="px-2.5 pb-1 text-left">
               <EraBadge coverage={report.allTime} />
             </th>
             <th colSpan={7} className="border-l-2 border-rule-strong px-2.5 pb-1 text-left">
@@ -222,6 +242,14 @@ export function LeagueSummaryTable({ report }: { report: LeagueSummaryReport }) 
               🏆
             </Head>
             <Head title="Prize money won, all placings" sortKey="money" sort={sort} onSort={onSort}>Won</Head>
+            <Head
+              title="Prize money minus entry fees, over only the seasons with a buy-in on record"
+              sortKey="net"
+              sort={sort}
+              onSort={onSort}
+            >
+              Net
+            </Head>
             <Head title="Cumulative regular-season record" sortKey="record" sort={sort} onSort={onSort}>Record</Head>
             <Head sortKey="winPct" sort={sort} onSort={onSort}>Win %</Head>
             <Head title="Average regular-season finish" sortKey="avgFinish" sort={sort} onSort={onSort}>Avg fin</Head>

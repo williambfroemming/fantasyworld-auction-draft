@@ -38,6 +38,7 @@ const season = (season: number, dataTier: HistorySeason['dataTier'], over: Parti
   championPrize: null,
   runnerUpPrize: null,
   thirdPrize: null,
+  buyIn: null,
   draftCity: null,
   draftState: null,
   ...over,
@@ -619,5 +620,75 @@ describe('a season in progress does not become a record', () => {
   it('does not stretch the coverage span into it', () => {
     expect(records(input).seasonCoverage.to).toBe(2021)
     expect(leagueSummary(input).allTime.to).toBe(2021)
+  })
+})
+
+describe('net winnings', () => {
+  const base = (over: Partial<HistorySeason>) => season(2021, 'weekly', { buyIn: 100, ...over })
+
+  it('subtracts the entry fee from the prize', () => {
+    const input: HistoryInput = {
+      members,
+      seasons: [base({ championManagerId: 1, championPrize: 700 })],
+      standings: members.map((m) => standing(2021, m.managerId)),
+      matchups: [],
+      lineups: [],
+    }
+    const rows = leagueSummary(input).rows
+    expect(rows.find((r) => r.member.managerId === 1)!.allTime.netWinnings).toBe(600)
+    // Nine people paid in and won nothing. Gross winnings hide that entirely.
+    expect(rows.find((r) => r.member.managerId === 2)!.allTime.netWinnings).toBe(-100)
+  })
+
+  it('charges the fee once per season played', () => {
+    const input: HistoryInput = {
+      members,
+      seasons: [base({}), season(2022, 'weekly', { buyIn: 100 })],
+      standings: [
+        ...members.map((m) => standing(2021, m.managerId)),
+        ...members.map((m) => standing(2022, m.managerId)),
+      ],
+      matchups: [],
+      lineups: [],
+    }
+    const row = leagueSummary(input).rows.find((r) => r.member.managerId === 3)!
+    expect(row.allTime.buyInsPaid).toBe(200)
+    expect(row.allTime.netWinnings).toBe(-200)
+  })
+
+  it('never mixes eras: prizes and fees come from the same seasons', () => {
+    // The bug this replaces: subtracting the one season whose fee is recorded
+    // from every prize ever won produced fifteen years of winnings minus one
+    // year's entry fee, which is not a number about anything.
+    const input: HistoryInput = {
+      members,
+      seasons: [
+        season(2015, 'standings', { championManagerId: 1, championPrize: 900 }),
+        season(2021, 'weekly', { buyIn: 100 }),
+      ],
+      standings: [
+        ...members.map((m) => standing(2015, m.managerId)),
+        ...members.map((m) => standing(2021, m.managerId)),
+      ],
+      matchups: [],
+      lineups: [],
+    }
+    const row = leagueSummary(input).rows.find((r) => r.member.managerId === 1)!
+    expect(row.allTime.moneyWon).toBe(900)
+    // 2015 has no buy-in, so it is outside the net figure entirely.
+    expect(row.allTime.netSeasons).toEqual([2021])
+    expect(row.allTime.netWinnings).toBe(-100)
+  })
+
+  it('treats an unrecorded buy-in as unknown, not free', () => {
+    const input: HistoryInput = {
+      members,
+      seasons: [season(2021, 'weekly', { buyIn: null })],
+      standings: members.map((m) => standing(2021, m.managerId)),
+      matchups: [],
+      lineups: [],
+    }
+    // Nothing is charged, and the total is honest about covering no seasons.
+    expect(leagueSummary(input).rows[0].allTime.buyInsPaid).toBe(0)
   })
 })

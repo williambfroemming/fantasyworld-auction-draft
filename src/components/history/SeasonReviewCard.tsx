@@ -119,13 +119,7 @@ export function SeasonReviewCard({
             )}
           </Line>
         </div>
-      ) : (
-        <p className="mt-2 border-t border-rule pt-2 text-[0.7rem] leading-relaxed text-slate-500">
-          {r.dataTier === 'legacy'
-            ? 'The champion is the whole record for this season.'
-            : 'Week-by-week results were not recorded this season, so there are no game records for it.'}
-        </p>
-      )}
+      ) : null}
 
       {/*
         The waiver wire's greatest hits. "Not on a week-1 roster" means NOBODY

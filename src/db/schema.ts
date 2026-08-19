@@ -507,6 +507,18 @@ export const seasons = pgTable('seasons', {
   championPrize: integer('champion_prize'),
   runnerUpPrize: integer('runner_up_prize'),
   thirdPrize: integer('third_prize'),
+  /**
+   * What each manager paid to enter, in whole dollars.
+   *
+   * Prize money alone answers "how much have you won", which flatters everybody:
+   * a league where ten people each put in $200 and one takes $1,400 has one
+   * winner and nine losers, and the archive should be able to say so. With this,
+   * net winnings are `prizes - (buy-in x seasons played)`.
+   *
+   * ⚠️ Null is unknown, like the prizes. A season with no buy-in recorded
+   * contributes nothing to a net total rather than being treated as free.
+   */
+  buyIn: integer('buy_in'),
   /** Anything a reader of this season needs told. Rendered in the archive. */
   notes: text('notes').array().notNull().default([]),
 })

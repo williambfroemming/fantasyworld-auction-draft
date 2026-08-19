@@ -60,6 +60,7 @@ const TABLES: Array<[string, string]> = [
        champion_prize       integer,
        runner_up_prize      integer,
        third_prize          integer,
+       buy_in               integer,
        notes                text[]  NOT NULL DEFAULT '{}',
        CONSTRAINT seasons_data_tier_check
          CHECK (data_tier IN ('legacy', 'standings', 'weekly'))
@@ -202,6 +203,12 @@ async function main() {
     'drop the side-bet payout columns',
     `ALTER TABLE seasons DROP COLUMN IF EXISTS high_score_payout,
                          DROP COLUMN IF EXISTS low_score_penalty`,
+  )
+
+  // What each manager paid to enter. Additive; null means unknown, never free.
+  await step(
+    'add seasons.buy_in',
+    'ALTER TABLE seasons ADD COLUMN IF NOT EXISTS buy_in integer',
   )
 
   console.log('')

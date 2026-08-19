@@ -51,6 +51,8 @@ export interface HistorySeason {
   championPrize: number | null
   runnerUpPrize: number | null
   thirdPrize: number | null
+  /** What each manager paid to enter. Null is unknown, never free. */
+  buyIn: number | null
   draftCity: string | null
   draftState: string | null
 }
@@ -315,10 +317,28 @@ export interface AllTimeStats {
   titles: number
   runnerUps: number
   thirds: number
-  /** Null when no season on record has a prize recorded for this manager. */
+  /** Prize money, gross. Null when nothing is on record for this manager. */
   moneyWon: number | null
   /** Seasons whose payout is unknown, so a null total can explain itself. */
   moneyUnknownSeasons: number[]
+  /** Total paid in, across the seasons they played with a buy-in recorded. */
+  buyInsPaid: number
+  /**
+   * Prizes minus entry fees, over **only the seasons with a buy-in on record**.
+   *
+   * The number most people mean by "how are you doing". Gross winnings flatter
+   * everybody: ten managers paying into a pot one of them takes home leaves one
+   * winner and nine losers, and the archive should be able to say so.
+   *
+   * ⚠️ Restricted to seasons that have both figures, and that restriction is
+   * load-bearing. Subtracting the seasons whose fee happens to be recorded from
+   * *all* the prize money ever won mixes eras and produces a number that is not
+   * about anything — fifteen years of winnings minus one year's entry fee. Null
+   * when no season qualifies.
+   */
+  netWinnings: number | null
+  /** The seasons `netWinnings` actually covers, so the UI can say so. */
+  netSeasons: number[]
   seasons: number
   wins: number
   losses: number
@@ -377,6 +397,7 @@ const round = (n: number, dp = 2) => Number(n.toFixed(dp))
 
 export function leagueSummary(input: HistoryInput): LeagueSummaryReport {
   const { members, seasons, standings, matchups, lineups } = input
+  const bySeasonMeta = new Map(seasons.map((s) => [s.season, s]))
 
   const allPlayReport = allPlay(matchups, seasons)
   const allPlayBy = new Map(allPlayReport.rows.map((r) => [r.managerId, r]))
@@ -419,6 +440,26 @@ export function leagueSummary(input: HistoryInput): LeagueSummaryReport {
     const pa = sum(mine.map((s) => s.pointsAgainst ?? 0))
     const withPoints = mine.filter((s) => s.pointsFor !== null)
 
+    // Seasons they played that also have a buy-in recorded. Both halves of the
+    // net figure come from exactly this set — see the note on `netWinnings`.
+    const priced = mine
+      .map((s) => ({ season: s.season, buyIn: bySeasonMeta.get(s.season)?.buyIn ?? null }))
+      .filter((s): s is { season: number; buyIn: number } => s.buyIn !== null)
+    const pricedSeasons = new Set(priced.map((s) => s.season))
+    const buyInsPaid = sum(priced.map((s) => s.buyIn))
+
+    const prizeIn = (season: number) => {
+      const meta = bySeasonMeta.get(season)
+      if (!meta) return 0
+      if (meta.championManagerId === member.managerId) return meta.championPrize ?? 0
+      if (meta.runnerUpManagerId === member.managerId) return meta.runnerUpPrize ?? 0
+      if (meta.thirdManagerId === member.managerId) return meta.thirdPrize ?? 0
+      return 0
+    }
+    const netWinnings = pricedSeasons.size
+      ? sum([...pricedSeasons].map(prizeIn)) - buyInsPaid
+      : null
+
     const allTime: AllTimeStats = {
       titles: titles.length,
       runnerUps: runnerUps.length,
@@ -427,6 +468,9 @@ export function leagueSummary(input: HistoryInput): LeagueSummaryReport {
       // authoritative about seasons it cannot see.
       moneyWon: prizes.length === 0 ? 0 : known.length === 0 ? null : sum(known),
       moneyUnknownSeasons: unknownSeasons,
+      buyInsPaid,
+      netWinnings,
+      netSeasons: [...pricedSeasons].sort((a, b) => a - b),
       seasons: mine.length,
       wins,
       losses,

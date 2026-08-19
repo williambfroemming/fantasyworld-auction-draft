@@ -50,7 +50,7 @@ export async function getHistoryInput(): Promise<HistoryInput> {
     sql`SELECT id, name, display_name, color FROM managers ORDER BY id`,
     sql`SELECT season, data_tier, regular_season_weeks,
                champion_manager_id, runner_up_manager_id, third_manager_id,
-               champion_prize, runner_up_prize, third_prize,
+               champion_prize, runner_up_prize, third_prize, buy_in,
                draft_city, draft_state
           FROM seasons ORDER BY season`,
     sql`SELECT season, manager_id, place, wins, losses, ties,
@@ -88,6 +88,7 @@ export async function getHistoryInput(): Promise<HistoryInput> {
         championPrize: numOrNull(r.champion_prize),
         runnerUpPrize: numOrNull(r.runner_up_prize),
         thirdPrize: numOrNull(r.third_prize),
+        buyIn: numOrNull(r.buy_in),
         draftCity: r.draft_city === null ? null : String(r.draft_city),
         draftState: r.draft_state === null ? null : String(r.draft_state),
       }),
