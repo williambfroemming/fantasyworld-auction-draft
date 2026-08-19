@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   UNRANKED_SENTINEL,
@@ -394,5 +396,35 @@ describe('injurySeverity', () => {
   it('still ranks the explicitly-clear values at zero', () => {
     expect(injurySeverity('NA')).toBe(0)
     expect(injurySeverity('Active')).toBe(0)
+  })
+})
+
+/**
+ * The polling path stays free of outbound calls.
+ *
+ * This survives the removal of the news feed rather than going with it. The
+ * rule it protects is older and broader than that feature: `/api/state` is
+ * polled by every client several times a second, and putting *anyone's* uptime
+ * in front of it would mean a third party could stall an award. A comment
+ * saying so is not enforcement; reading the file is.
+ */
+describe('structural: draft-service makes no outbound calls', () => {
+  const draftService = readFileSync(
+    resolve(import.meta.dirname, '../server/draft-service.ts'),
+    'utf8',
+  )
+
+  it('performs no fetch', () => {
+    expect(draftService).not.toMatch(/\bfetch\(/)
+  })
+
+  /**
+   * Availability reaches the open lot as a stored column on a join that already
+   * existed — never by calling Sleeper. `sleeper.ts` is import-time only
+   * (scripts and seeds), and importing it here would drag `fetchPool` onto the
+   * request path.
+   */
+  it('does not import the Sleeper client', () => {
+    expect(draftService).not.toMatch(/from ['"].*lib\/sleeper['"]/)
   })
 })

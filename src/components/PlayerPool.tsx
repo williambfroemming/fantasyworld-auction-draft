@@ -5,7 +5,6 @@ import type { BoardPlayer } from '@/hooks/useDraft'
 import type { QueuedPlayer } from '@/server/queue-service'
 import { PositionBadge } from './LotPanel'
 import { InjuryBadge } from './InjuryBadge'
-import { PlayerDrawer } from './PlayerDrawer'
 
 const FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'DEF', 'K'] as const
 type Filter = (typeof FILTERS)[number] | 'QUEUE'
@@ -53,10 +52,6 @@ export function PlayerPool({
   const [pending, setPending] = useState(false)
   const [dragFrom, setDragFrom] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
-  // §1's click collision, solved the same way §4 solved it: a sibling button,
-  // live even when the row is disabled — which is exactly when you want to read
-  // about somebody.
-  const [detail, setDetail] = useState<BoardPlayer | null>(null)
 
   const queuedIds = useMemo(() => new Set(queue.map((q) => q.playerId)), [queue])
   const takenTargets = useMemo(() => queue.filter((q) => q.drafted), [queue])
@@ -298,18 +293,6 @@ export function PlayerPool({
                 </button>
               )}
 
-              {/* Same reasoning as the star below: its own control, live while
-                  the row is disabled, because "is this guy hurt" is asked most
-                  when it is NOT your turn. */}
-              <button
-                onClick={() => setDetail(p)}
-                title={`News and injury for ${p.name}`}
-                aria-label={`Details for ${p.name}`}
-                className="shrink-0 px-1.5 py-2 text-xs text-slate-700 transition hover:text-sky-300"
-              >
-                ⓘ
-              </button>
-
               {/* Its own control, always live — the value of a queue is highest
                   exactly when it is not your turn and the row is disabled. */}
               <button
@@ -327,8 +310,6 @@ export function PlayerPool({
           )
         })}
       </div>
-
-      <PlayerDrawer player={detail} onClose={() => setDetail(null)} />
 
       {/* Nomination tray */}
       {selected && canNominate && (
