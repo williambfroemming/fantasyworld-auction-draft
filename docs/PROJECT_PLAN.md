@@ -287,6 +287,8 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 
 - [x] **27.** **Phase 2 H1 — the sources** (§12) — `data/history/*.csv` from the league's workbook and `data/sleeper/2020..2025/*.json` from the API, both committed with sha256 manifests so every importer is reproducible and offline. `src/lib/history-identity.ts` reconciles the three namespaces that have never agreed on a name (app / workbook / Sleeper), every lookup throwing rather than guessing. The Sleeper roster cross-check found a duplicated 2022 pick and recovered a missing one.
 
+- [x] **28.** **Phase 2 H2 — the history schema** (§12) — seven tables (`seasons`, `season_standings`, `season_matchups`, `season_lineups`, `player_weeks`, `player_seasons`, `legacy_champions`) via a hand-written idempotent migration. `seasons.data_tier` makes the two-era rule structural rather than a UI convention. The migration snapshots `manager_totals` before and after and refuses to finish if a single number moved, because history must never reach a live budget.
+
 ### Timeline
 
 | When | Steps | State at end |

@@ -1490,3 +1490,77 @@ comes back as the string `"124.20"`.
   and `src/components/ThemeToggle.tsx`. They predate this work and are untouched.
 
 **Next:** H2 is unblocked and the history schema is in place locally. H3 imports the Sleeper era.
+
+---
+
+## Step 31 — Phase 2 H2: the history schema
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** seven tables in `src/db/schema.ts` — `seasons`, `season_standings`, `season_matchups`,
+`season_lineups`, `player_weeks`, `player_seasons`, `legacy_champions` — plus
+`scripts/migrate-history.ts` (`npm run db:migrate-history`), appended to the `db:test-migrate` chain.
+
+**Run twice against local Postgres; idempotent both times. `npm run db:verify` green, 184 unit and
+78 integration tests passing.** Not yet run against Neon — that waits on the quota.
+
+### The tables do not mirror the sheets
+
+Excel forced shapes Postgres does not. Six principles, each answering something the workbook does
+differently, are written up in `PROJECT_PLAN.md` §12; the two that shaped the most:
+
+**One fact, one table.** The workbook has three sheets saying "a game happened" — `matchup_data`,
+`playoff_matchup_data`, `playoffs_legacy`. `season_matchups` is one table with `is_playoff`, because
+every record question spans both ("the all-time high score" is not a regular-season question) and
+splitting them puts a `UNION` in every query.
+
+**One row per game *side*, not per game.** Two rows per game looks redundant until you notice every
+consumer wants "for each manager, for each week": all-play, streaks, high/low scorer weeks,
+per-manager points, consistency, the head-to-head grid. One row per game would put a `UNION ALL` in
+all of them. The cost is ~700 rows.
+
+### `season_lineups` stays separate from `season_matchups` despite an identical grain
+
+In the workbook those two numbers were on **different scales** and disagreed by an average of 6.4
+points. Sourcing both from Sleeper fixes the scale, but the separation is still right: putting
+`actual_points` on the same row as `points` creates two columns that both look like "what they
+scored", and a join is a cheap price for never letting them touch by accident.
+
+### `data_tier` makes the era rule structural
+
+`'legacy' | 'standings' | 'weekly'` on `seasons` is what stops the two eras being mixed by
+convention. The workbook mixes them silently and contradicts itself as a result: its hidden records
+sheet claims an all-time high of 203.9 (Nate, 2014) while its dashboard says 234.96 (Daniel, 2023),
+and both are "right" for the era each was computed over.
+
+**Learned:**
+
+- **`numeric` is worth the string it returns.** Neon hands back `"124.20"`, and `'124.20' + '110.00'`
+  is `'124.20110.00'` — a sum that renders, sorts, and is wrong. It is still the right type: Postgres
+  sums points-for exactly, where 140 doubles land on 1497.9999999999998, and this data exists to be
+  quoted back at people who know the real number. Every points column goes through `Number()` at the
+  service boundary.
+- **The assertion worth more than the rest is the one about what did *not* change.** The migration
+  snapshots all ten rows of `manager_totals` before any DDL and refuses to finish if a single number
+  moved. History can never reach a live budget — the view is `CROSS JOIN draft` filtered to
+  `d.season` — and this proves it rather than asserting it in a comment.
+- **DDL and data belong in different scripts.** This has to run against `neondb_test`, which has none
+  of the committed source files, so it creates seven tables and seeds exactly one row: the `seasons`
+  entry for the current draft, which is described by `draft` and nothing else.
+
+**Watch out for:**
+
+- **Null prize money means unknown, not zero.** It is a real $0 for 2011–2013 and genuinely unknown
+  for 2006–2010, where the source records a literal `-`. Collapsing them makes a "Bag Secured" total
+  quietly authoritative about five years it knows nothing about.
+- **Third place is recorded, never derived.** The bracket is six teams over three rounds, so there is
+  no third-place game — deriving it from the matchups produces a confident, wrong name.
+- **`legacy_champions` is deliberately not linked to `managers`.** Those five years predate the
+  membership record; the names are recognisable but asserting the 2006 "Daniel" is today's Daniel is
+  a guess dressed as a fact.
+- The migration must never re-emit `manager_totals`. A migration that hardcodes a view definition
+  becomes a loaded gun the moment the view changes — `migrate-called-auction.ts` is the cautionary
+  tale, and it now refuses to run at all.
+
+**Next:** H3 — import the Sleeper era (2020–2025), ending with the reconciliation table against the
+workbook's own standings.

@@ -2,7 +2,9 @@ import {
   boolean,
   index,
   integer,
+  numeric,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -51,8 +53,8 @@ export const players = pgTable(
      * imported from a CSV, and the pool is re-imported every year — so `id`
      * does not survive a season boundary and cannot answer "what did this
      * player cost last year". This is resolved at import time by
-     * `resolveSleeperIds` and is the key for any cross-year question, and for
-     * whatever news provider §1 eventually picks.
+     * `resolveSleeperIds` and is the key for any cross-year question, and what
+     * `npm run news:refresh` joins on to attach injury status.
      *
      * ⚠️ **Nullable, and it will stay nullable.** Name matching between two
      * sources does not reach 100%, and a deliberately unresolved player is the
@@ -84,6 +86,11 @@ export const players = pgTable(
      * is the whole reason it lives in a column rather than behind a fetch: on
      * draft night this is already in the database, and no provider being down
      * can take it away.
+     *
+     * A live headline feed was built alongside this and then **deliberately
+     * removed** — see docs/BACKLOG.md §1. These columns are the part that
+     * earned its place, because they are small, factual, and attached to a
+     * price you are about to pay.
      *
      * ⚠️ A **snapshot**, not a feed. It is as fresh as the last import or
      * `npm run news:refresh`, and `injuryUpdatedAt` is what lets the UI say "as
@@ -408,6 +415,288 @@ export const playerQueue = pgTable(
   ],
 )
 
+// ---------------------------------------------------------------------------
+// League history (Phase 2) — see docs/PROJECT_PLAN.md §12
+//
+// Everything below is READ-ONLY after import and is not reachable from any
+// draft path. Nothing here is polled, nothing enters `/api/state`, and no
+// budget is derived from it. `manager_totals` is `CROSS JOIN draft` filtered to
+// the current season, so none of these rows can reach a live budget.
+//
+// ⚠️ **Neon returns `numeric` as a string.** `'124.20' + '110.00'` is
+// `'124.20110.00'` — a sum that renders, sorts, and is wrong. Every points
+// column below must go through `Number()` at the service boundary, the way the
+// existing code does with `Number(r.price)`. `numeric` is used rather than a
+// float because Postgres then sums points-for exactly: a season total built
+// from 140 doubles lands on 1497.9999999999998, and this data's whole job is to
+// be quoted back at people who know the real number.
+// ---------------------------------------------------------------------------
+
+/**
+ * One row per league year, from the first record (2006) to the current season.
+ *
+ * Three facts that previously had no home share this grain exactly: where the
+ * draft was held, who finished on the podium and what they won, and the settings
+ * a finished season was played under. That last one is a live bug fix —
+ * `getArchivedSeason()` reads roster size and starting budget from
+ * `draft WHERE id = 1`, so every archived year currently renders with *today's*
+ * settings.
+ *
+ * `dataTier` is the column that makes the two-era rule **structural** rather
+ * than a UI convention. Metrics needing week-level data (all-play, lineup
+ * efficiency, high/low scorer weeks, every score record) exist only from 2020;
+ * standings-level metrics reach back to 2011; 2006–2010 is a champion's name
+ * and nothing else. The workbook mixes these silently and contradicts itself as
+ * a result — its hidden records sheet claims an all-time high of 203.9 while its
+ * dashboard says 234.96, and both are "right" for the era each was computed over.
+ */
+export const seasons = pgTable('seasons', {
+  season: integer('season').primaryKey(),
+  /** 'legacy' (2006–2010) · 'standings' (2011–2019) · 'weekly' (2020+). */
+  dataTier: text('data_tier', { enum: ['legacy', 'standings', 'weekly'] }).notNull(),
+  /**
+   * ⚠️ Pinned, never resolved by name. The account holds an unrelated 18-team
+   * Guillotine League in 2024/2025 and the real 2025 league is misnamed with
+   * 2024's name, so a name match imports a different league entirely and every
+   * downstream number looks plausible. See `SLEEPER_LEAGUE_IDS`.
+   */
+  sleeperLeagueId: text('sleeper_league_id'),
+  /** Null where unknown — pre-Sleeper years have no settings on record. */
+  rosterSize: integer('roster_size'),
+  startingBudget: integer('starting_budget'),
+  /** 13 through 2020, 14 from 2021. Never assume it is constant. */
+  regularSeasonWeeks: integer('regular_season_weeks'),
+  playoffWeekStart: integer('playoff_week_start'),
+  playoffTeams: integer('playoff_teams'),
+  /**
+   * The season is over and its record is complete. Read instead of inferring
+   * completeness from roster counts: `draftComplete()` tests that every manager
+   * is full, which calls 2022 unfinished forever because one pick is missing
+   * from the record and cannot be recovered.
+   */
+  isFinal: boolean('is_final').notNull().default(false),
+  draftCity: text('draft_city'),
+  draftState: text('draft_state'),
+  draftCountry: text('draft_country'),
+  /**
+   * The podium, **recorded and never derived**. The playoff bracket is six
+   * teams over three rounds, so there is no third-place game — deriving third
+   * from the matchups would produce a confident, wrong name.
+   */
+  championManagerId: integer('champion_manager_id').references(() => managers.id),
+  runnerUpManagerId: integer('runner_up_manager_id').references(() => managers.id),
+  thirdManagerId: integer('third_manager_id').references(() => managers.id),
+  /**
+   * ⚠️ Null is *unknown*, not zero. Prize money is a real $0 for 2011–2013 and
+   * genuinely unknown for 2006–2010, where the source records a literal "-".
+   * Collapsing those makes a "Bag Secured" total quietly authoritative about
+   * five years it knows nothing about.
+   */
+  championPrize: integer('champion_prize'),
+  runnerUpPrize: integer('runner_up_prize'),
+  thirdPrize: integer('third_prize'),
+  /** The weekly high/low side bet. $10 today; it is not in any base sheet. */
+  highScorePayout: integer('high_score_payout'),
+  lowScorePenalty: integer('low_score_penalty'),
+  /** Anything a reader of this season needs told. Rendered in the archive. */
+  notes: text('notes').array().notNull().default([]),
+})
+
+/**
+ * One row per manager per season — the only grain that exists for 2011–2019,
+ * and therefore the entire factual base of the "All-Time" era.
+ *
+ * `playoffs_legacy` in the workbook is this same grain, so it folds in here
+ * rather than becoming a second table that every query would have to LEFT JOIN.
+ */
+export const seasonStandings = pgTable(
+  'season_standings',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    place: integer('place'),
+    wins: integer('wins').notNull(),
+    losses: integer('losses').notNull(),
+    ties: integer('ties').notNull().default(0),
+    pointsFor: numeric('points_for', { precision: 8, scale: 2 }),
+    pointsAgainst: numeric('points_against', { precision: 8, scale: 2 }),
+    madePlayoffs: boolean('made_playoffs').notNull().default(false),
+    playoffWins: integer('playoff_wins'),
+    playoffLosses: integer('playoff_losses'),
+  },
+  (t) => [
+    primaryKey({ columns: [t.season, t.managerId] }),
+    index('season_standings_manager_idx').on(t.managerId),
+  ],
+)
+
+/**
+ * One row per **game side** — two rows per game, one from each manager's view.
+ *
+ * The redundancy is deliberate and cheap (~1,700 rows). Every consumer wants
+ * "for each manager, for each week": all-play, streaks, high/low scorer weeks,
+ * per-manager points, consistency, and the head-to-head grid. Storing one row
+ * per game would put a `UNION ALL` in every one of them.
+ *
+ * Regular season and playoffs share the table because records span both — "the
+ * all-time high score" is not a regular-season question — and splitting them
+ * would mean a UNION in every record query instead.
+ *
+ * `marginOfVictory` is NOT stored: it is `points - opponentPoints`, and this
+ * codebase does not store what it can derive.
+ */
+export const seasonMatchups = pgTable(
+  'season_matchups',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    /** Sleeper's per-week pairing key. Two rows sharing one are one game. */
+    matchupId: integer('matchup_id'),
+    points: numeric('points', { precision: 8, scale: 2 }).notNull(),
+    opponentManagerId: integer('opponent_manager_id')
+      .notNull()
+      .references(() => managers.id),
+    opponentPoints: numeric('opponent_points', { precision: 8, scale: 2 }).notNull(),
+    isPlayoff: boolean('is_playoff').notNull().default(false),
+    playoffRound: integer('playoff_round'),
+    /** Stored, not derived: a scoring rule, in a league that could tie. */
+    result: text('result', { enum: ['W', 'L', 'T'] }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.season, t.week, t.managerId] }),
+    index('season_matchups_manager_idx').on(t.managerId),
+    index('season_matchups_season_idx').on(t.season),
+  ],
+)
+
+/**
+ * What a manager scored against the best they could have scored, per week.
+ *
+ * **Kept separate from `season_matchups` despite the identical grain.** In the
+ * workbook these two numbers lived on different scales and disagreed by an
+ * average of 6.4 points, and putting `actualPoints` on the same row as `points`
+ * would create two columns that both look like "what they scored". Sourcing both
+ * from Sleeper fixes the scale, but the separation is still right: a join is a
+ * cheap price for never letting those two numbers touch by accident.
+ *
+ * `pointsLeftOnBench` and the efficiency percentage are arithmetic, so neither
+ * is stored.
+ */
+export const seasonLineups = pgTable(
+  'season_lineups',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    actualPoints: numeric('actual_points', { precision: 8, scale: 2 }).notNull(),
+    /**
+     * The best legal lineup available from that week's roster, computed against
+     * **that season's** `roster_positions`. 2020–2021 start 9 with one FLEX;
+     * 2022+ start 10 and add SUPER_FLEX, which makes a QB flex-eligible. A
+     * calculation that assumes one shape is wrong for the other era.
+     */
+    optimalPoints: numeric('optimal_points', { precision: 8, scale: 2 }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.week, t.managerId] })],
+)
+
+/**
+ * Every rostered player's points, per week, per manager.
+ *
+ * Sourced from Sleeper's `players_points`, so unlike the workbook's version this
+ * **is** summable to a team score. It is also a prerequisite rather than a
+ * nice-to-have: computing an optimal lineup needs every rostered player's points
+ * for that week, not just the ones who started.
+ *
+ * `playerId` is a Sleeper id — the one player key that survives a season.
+ */
+export const playerWeeks = pgTable(
+  'player_weeks',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    playerId: text('player_id').notNull(),
+    playerName: text('player_name'),
+    position: text('position'),
+    nflTeam: text('nfl_team'),
+    isStarter: boolean('is_starter').notNull().default(false),
+    /** The lineup slot they filled, when they started. Null on the bench. */
+    slot: text('slot'),
+    points: numeric('points', { precision: 8, scale: 2 }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.season, t.week, t.managerId, t.playerId] }),
+    index('player_weeks_player_idx').on(t.playerId),
+    index('player_weeks_season_idx').on(t.season),
+  ],
+)
+
+/**
+ * A player's season line, league-wide — not per manager.
+ *
+ * Two jobs: scoring the draft-steal metric (points per dollar), and joining a
+ * 2021–2024 auction pick to a Sleeper id. That second job is why the workbook's
+ * copy of this sheet is still imported at all; the join hits 640/640.
+ *
+ * `position` is unconstrained text on purpose. This legitimately contains CB, LB
+ * and P — pre-filtering to fantasy positions would hide the two same-named
+ * players (a QB and a CB both called Lamar Jackson) that the matcher needs to
+ * see in order to refuse to guess.
+ */
+export const playerSeasons = pgTable(
+  'player_seasons',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    /** Sleeper player id, or a team code for a defense. */
+    playerId: text('player_id').notNull(),
+    playerName: text('player_name').notNull(),
+    position: text('position'),
+    nflTeam: text('nfl_team'),
+    weeksPlayed: integer('weeks_played'),
+    totalPoints: numeric('total_points', { precision: 8, scale: 2 }),
+    avgPoints: numeric('avg_points', { precision: 6, scale: 2 }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.season, t.playerId] }),
+    index('player_seasons_name_idx').on(t.playerName),
+  ],
+)
+
+/**
+ * Champions from 2006–2010: a name, and nothing else.
+ *
+ * Deliberately NOT linked to `managers`. These five years predate the league's
+ * membership record, and while the names are all recognisable today, asserting
+ * that the 2006 "Daniel" is the same person as today's Daniel is a guess dressed
+ * as a fact. The money is likewise unknown rather than zero — the source records
+ * a literal "-", which is not the real $0 recorded for 2011–2013.
+ */
+export const legacyChampions = pgTable('legacy_champions', {
+  season: integer('season').primaryKey(),
+  championName: text('champion_name').notNull(),
+  moneyWon: integer('money_won'),
+})
+
 export type Manager = typeof managers.$inferSelect
 export type Player = typeof players.$inferSelect
 export type Draft = typeof draft.$inferSelect
@@ -417,3 +706,11 @@ export type Trade = typeof trades.$inferSelect
 export type BudgetAdjustment = typeof budgetAdjustments.$inferSelect
 export type SeasonOrder = typeof seasonOrders.$inferSelect
 export type QueueEntry = typeof playerQueue.$inferSelect
+
+export type Season = typeof seasons.$inferSelect
+export type SeasonStanding = typeof seasonStandings.$inferSelect
+export type SeasonMatchup = typeof seasonMatchups.$inferSelect
+export type SeasonLineup = typeof seasonLineups.$inferSelect
+export type PlayerWeek = typeof playerWeeks.$inferSelect
+export type PlayerSeason = typeof playerSeasons.$inferSelect
+export type LegacyChampion = typeof legacyChampions.$inferSelect
