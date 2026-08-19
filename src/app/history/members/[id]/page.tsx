@@ -281,10 +281,10 @@ function PlayerTable({
               [
                 ['Player', 'left', undefined],
                 ['Spent', 'right', 'Total paid at auction, across every season'],
-                ['×', 'right', 'How many separate auctions they bought him in'],
-                ['Wks', 'right', 'Weeks on the roster'],
-                ['Started', 'right', 'Weeks in the starting lineup'],
-                ['Points', 'right', 'Points scored while started'],
+                ['Times drafted', 'right', 'How many separate auctions they bought him in'],
+                ['Wks rostered', 'right', 'Weeks on the roster, started or benched'],
+                ['Wks started', 'right', 'Weeks in the starting lineup — what this table is ranked by'],
+                ['Points', 'right', 'Points scored while in the starting lineup'],
               ] as const
             ).map(([h, align, title]) => (
               <th
@@ -315,13 +315,13 @@ function PlayerTable({
               <td className="px-2 py-1.5 text-right font-mono tabular-nums text-slate-400">
                 {p.totalSpent > 0 ? `$${p.totalSpent}` : '—'}
               </td>
-              <td className="px-2 py-1.5 text-right font-mono text-xs tabular-nums text-slate-400">
+              <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono text-xs tabular-nums text-slate-400">
                 {p.timesDrafted || '—'}
               </td>
-              <td className="px-2 py-1.5 text-right font-mono tabular-nums text-slate-400">
+              <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono tabular-nums text-slate-400">
                 {p.weeksRostered || '—'}
               </td>
-              <td className="px-2 py-1.5 text-right font-mono font-semibold tabular-nums text-slate-100">
+              <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono font-semibold tabular-nums text-slate-100">
                 {p.weeksStarted || '—'}
               </td>
               <td className="px-2 py-1.5 text-right font-mono tabular-nums text-slate-400">
