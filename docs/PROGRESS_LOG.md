@@ -1708,3 +1708,55 @@ season Sleeper already described.
 
 **Next:** H5 — `src/lib/history.ts` and the League Summary. Everything it needs is now in the
 database.
+
+---
+
+## Step 35 — Phase 2 H5: the League Summary
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `src/lib/history.ts` + 25 unit tests, `src/server/history-service.ts`,
+`src/components/history/{EraBadge,LeagueSummaryTable}.tsx`, and `/history`.
+
+**254 unit tests passing.** Verified in a browser against the real imported data.
+
+### The two-era rule is enforced by the types
+
+Every summary row splits into `allTime` and `weekly`, and `weekly` is **nullable**. An all-play
+record cannot be added into a career win total by accident because they are not in the same object,
+and every report carries the `Coverage` it was computed over. `EraBadge` takes a `Coverage` rather
+than a string, so a column of six-season figures physically cannot be rendered under a
+fifteen-season heading.
+
+This is guarding against a real failure, not a hypothetical one: the league's own dashboard puts
+those columns side by side unlabelled, and its hidden records sheet disagrees with its front page
+about the all-time high score because the two were computed over different eras.
+
+### A Server Component, deliberately
+
+History does not change, so `/history` renders on the server with `revalidate = 3600`. No route, no
+poll, no client fetch, and nothing reachable from the 400ms path that drives draft night. The table
+ships no JavaScript at all.
+
+**Learned:**
+
+- **A season row exists before the season does.** 2026 has a `seasons` row, a tier and a draft
+  location the moment the draft happens — so a coverage span built from rows alone read
+  "2011–2026" for a table whose last result is 2025. `coverageFor` now takes the seasons that
+  actually contributed rows to the metric being labelled. Caught by looking at the rendered page,
+  not by a test; the test came after.
+- **Null propagates all the way to the screen or it is not worth having.** The Net column reads `—`
+  for every manager right now, because no season has a high/low rate recorded. That is the correct
+  answer and it is visibly different from `$0` — which is exactly the bug the workbook has, where a
+  failed lookup renders as a manager who broke even.
+
+**Watch out for:**
+
+- **`numeric` arrives as a string.** `history-service.ts` is the one place that converts, and
+  nothing downstream should ever see a stringified number. `'124.20' + '110.00'` is `'124.20110.00'`.
+- **The era divider is load-bearing layout**, not decoration. It is the only thing separating a
+  fifteen-season career record from a six-season all-play record.
+- The high/low payout is unset for every season, so the side-bet column is all `—`. Set it with
+  `npm run season:prizes -- <year> --high 10 --low 10` once the league confirms the rate per era.
+
+**Next:** H6 — the record book and the Season in Review card.
