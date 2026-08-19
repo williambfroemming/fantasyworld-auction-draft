@@ -163,6 +163,21 @@ function playedSeasons(rows: Array<{ season: number }>): Set<number> {
   return new Set(rows.map((r) => r.season))
 }
 
+/**
+ * Standings rows for seasons that have actually been played.
+ *
+ * ⚠️ A standings row exists for the season in progress from its first refresh,
+ * with a 0-0 record and zero points — which then wins "fewest points in a
+ * season" outright and stretches every era badge a year into the future. A
+ * season counts once somebody has played a game.
+ */
+function playedStandings(standings: HistoryStanding[]): HistoryStanding[] {
+  const played = new Set(
+    standings.filter((s) => s.wins + s.losses + s.ties > 0).map((s) => s.season),
+  )
+  return standings.filter((s) => played.has(s.season))
+}
+
 // ---------------------------------------------------------------------------
 // All-play — how you would have done against the whole field, every week
 // ---------------------------------------------------------------------------
@@ -451,7 +466,7 @@ export function leagueSummary(input: HistoryInput): LeagueSummaryReport {
 
   // A season that has been drafted but not played has a row, a tier and a draft
   // location and no games. It must not widen either span.
-  const played = playedSeasons(standings)
+  const played = playedSeasons(playedStandings(standings))
   const weekly = playedSeasons(matchups)
 
   return {
@@ -599,7 +614,8 @@ export function longestStreaks(matchups: HistoryMatchup[]): {
  * arrives with the auction import.
  */
 export function records(input: HistoryInput): RecordBook {
-  const { seasons, standings, matchups } = input
+  const { seasons, matchups } = input
+  const standings = playedStandings(input.standings)
 
   const gameCoverage = coverageFor(seasons, ['weekly'], 'since Sleeper', playedSeasons(matchups))
   const seasonCoverage = coverageFor(

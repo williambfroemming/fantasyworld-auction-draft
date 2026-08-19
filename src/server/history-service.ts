@@ -397,3 +397,116 @@ export async function getMostStarted(managerId: number, limit = 10) {
     .sort((a, b) => b.weeksStarted - a.weeksStarted || b.weeksRostered - a.weeksRostered)
     .slice(0, limit)
 }
+
+export interface PickupOwner {
+  managerId: number
+  displayName: string
+  pointsStarted: number
+  weeksStarted: number
+  weeksRostered: number
+}
+
+export interface BestPickup {
+  season: number
+  playerId: string
+  playerName: string
+  position: string | null
+  /** Totals across everyone who held them that season. */
+  pointsStarted: number
+  weeksStarted: number
+  weeksRostered: number
+  /**
+   * Split by manager, most productive first.
+   *
+   * More than one entry is common and interesting: in 2023 Eric/Blakey picked
+   * C.J. Stroud up and Bill finished the season with him, and Bill found Kyren
+   * Williams before trading him to Daniel. Crediting one manager would erase
+   * either the find or the payoff, and they are rarely the same person.
+   */
+  owners: PickupOwner[]
+}
+
+export async function getBestPickups(perSeason = 3): Promise<Map<number, BestPickup[]>> {
+  const sql = getSql()
+  const rows = await sql`
+    WITH week_one AS (
+      -- Everybody who was on any roster in week 1, league-wide.
+      SELECT DISTINCT season, player_id FROM player_weeks WHERE week = 1
+    ),
+    by_owner AS (
+      SELECT pw.season,
+             pw.player_id,
+             pw.manager_id,
+             COALESCE(sum(pw.points) FILTER (WHERE pw.is_starter), 0) AS points_started,
+             count(*) FILTER (WHERE pw.is_starter)::int               AS weeks_started,
+             count(*)::int                                            AS weeks_rostered,
+             (array_agg(pw.player_name ORDER BY pw.week DESC))[1]     AS player_name,
+             (array_agg(pw.position    ORDER BY pw.week DESC))[1]     AS position
+        FROM player_weeks pw
+       WHERE pw.position <> 'DEF'
+         AND NOT EXISTS (
+               SELECT 1 FROM week_one w
+                WHERE w.season = pw.season AND w.player_id = pw.player_id)
+       GROUP BY pw.season, pw.player_id, pw.manager_id
+    ),
+    -- Rank on the player's whole season, not one owner's share of it: a pickup
+    -- who was traded mid-season is one story, and splitting it across two rows
+    -- would rank both halves below a lesser player nobody moved.
+    totals AS (
+      SELECT season, player_id,
+             sum(points_started) AS total_points,
+             sum(weeks_started)::int AS total_starts
+        FROM by_owner GROUP BY season, player_id
+    ),
+    ranked AS (
+      SELECT t.*, row_number() OVER (
+               PARTITION BY t.season ORDER BY t.total_points DESC, t.total_starts DESC
+             ) AS rn
+        FROM totals t
+       WHERE t.total_starts > 0
+    )
+    SELECT o.*, r.total_points, r.total_starts, r.rn, m.display_name
+      FROM ranked r
+      JOIN by_owner o ON o.season = r.season AND o.player_id = r.player_id
+      JOIN managers m ON m.id = o.manager_id
+     WHERE r.rn <= ${perSeason}
+     ORDER BY r.season DESC, r.rn, o.points_started DESC`
+
+  const out = new Map<number, BestPickup[]>()
+  for (const r of rows) {
+    const season = Number(r.season)
+    const playerId = String(r.player_id)
+    const list = out.get(season) ?? []
+    let entry = list.find((p) => p.playerId === playerId)
+    if (!entry) {
+      entry = {
+        season,
+        playerId,
+        playerName: String(r.player_name ?? playerId),
+        position: r.position === null ? null : String(r.position),
+        pointsStarted: num(r.total_points),
+        weeksStarted: num(r.total_starts),
+        weeksRostered: 0,
+        owners: [],
+      }
+      list.push(entry)
+    }
+    // A manager who rostered them and never started them realised nothing, and
+    // the metric is points realised. Their row would be a line of zeroes.
+    if (num(r.weeks_started) === 0) {
+      entry.weeksRostered += num(r.weeks_rostered)
+      out.set(season, list)
+      continue
+    }
+    entry.owners.push({
+      managerId: Number(r.manager_id),
+      displayName: String(r.display_name),
+      pointsStarted: num(r.points_started),
+      weeksStarted: num(r.weeks_started),
+      weeksRostered: num(r.weeks_rostered),
+    })
+    entry.weeksRostered += num(r.weeks_rostered)
+    out.set(season, list)
+  }
+  return out
+}

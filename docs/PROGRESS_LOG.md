@@ -2170,3 +2170,62 @@ one client component in `/history`; everything else stays a Server Component shi
 
 **Next:** Phase 2's build steps are done. Remaining: run the migrations and imports against Neon
 once the quota clears, and a UAT pass over the new pages.
+
+---
+
+## Step 44 — A weekly refresh, and the waiver wire's greatest hits
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/history/refresh-season.ts` (`npm run history:refresh`),
+`.github/workflows/weekly-history.yml`, `getBestPickups()`, and best-pickup lines on every season
+card. Plus two bugs the live season exposed.
+
+**291 unit tests passing.**
+
+### The season in progress is a different kind of data
+
+Everything before this assumed a finished season. Pointing the importer at a live one surfaced two
+faults within minutes, both of the same shape — **a row existing is not the same as something having
+happened**:
+
+- **Sleeper returns the whole schedule from day one.** A league in week 1 answers with fourteen
+  weeks of matchups, every one 0–0 with lineups already set. Imported, they became the lowest score
+  on record, the narrowest win, and a ten-way tie in every all-play week. `hasBeenPlayed()` now
+  skips a week until somebody has scored.
+- **A standings row appears on the first refresh** with an 0-0 record and zero points, which won
+  "fewest points in a season" outright and stretched every era badge to 2026. `playedStandings()`
+  drops seasons nobody has played from the season-level records and from coverage.
+
+`is_final` also follows Sleeper's own `status` now rather than being asserted true, so a live season
+reads as live.
+
+### Best pickups, split by owner
+
+Most points started by a player **nobody in the league rostered in week 1** — a player dropped by one
+team and claimed by another is a trade of sorts; a player nobody owned is a find.
+
+Ranked on the player's whole season and then **split across everyone who held them**, because whoever
+found somebody and whoever cashed in are rarely the same person: 2023's best pickup is C.J. Stroud at
+228, of which Eric/Blakey realised 75 over four starts before Bill took 153 over seven. Crediting one
+manager erased half the story, and ranking each share separately buried the player entirely — Stroud
+placed behind Jerome Ford until the halves were added together.
+
+**Learned:**
+
+- **Live data is its own test case.** Six settled seasons imported cleanly and told us nothing about
+  what a season in progress looks like. Two bugs, both found by running the thing once against a
+  league that had not kicked off.
+- **Rank on the whole, display the parts.** Ranking on an owner's share hides traded players; showing
+  only the total hides who actually found them.
+
+**Watch out for:**
+
+- **Wednesday, not Tuesday.** The NFL week ends Monday night and stat corrections settle through
+  Tuesday; pulling earlier imports scores that are still moving.
+- **The workflow needs a `DATABASE_URL` repository secret** and fails loudly on step one without it,
+  rather than importing nothing and reporting success.
+- **It refreshes one season, not all of them.** Re-pulling six settled seasons weekly would churn six
+  seasons of committed files and would let a Sleeper revision quietly rewrite settled history.
+- `CURRENT_SLEEPER_SEASON` is the one place a literal current year lives, and it moves every August
+  alongside `npm run season:new`.

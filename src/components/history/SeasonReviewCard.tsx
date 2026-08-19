@@ -1,5 +1,6 @@
 import { managerColor } from '@/lib/colors'
 import type { HistoryMember, SeasonReview } from '@/lib/history'
+import type { BestPickup } from '@/server/history-service'
 
 /**
  * One season at a glance.
@@ -13,9 +14,13 @@ function Who({ id, members }: { id: number | null; members: HistoryMember[] }) {
   const m = members.find((x) => x.managerId === id)
   if (!m) return <span className="text-slate-500">—</span>
   return (
-    <span className="flex items-baseline gap-1.5">
-      <span aria-hidden className="h-2.5 w-1 shrink-0" style={{ backgroundColor: managerColor(m.color) }} />
-      <span className="font-semibold">{m.displayName}</span>
+    <span className="flex shrink-0 items-baseline gap-1.5">
+      <span
+        aria-hidden
+        className="h-2.5 w-1 shrink-0 self-center"
+        style={{ backgroundColor: managerColor(m.color) }}
+      />
+      <span className="font-semibold text-slate-300">{m.displayName}</span>
     </span>
   )
 }
@@ -32,9 +37,12 @@ function Line({ label, children }: { label: string; children: React.ReactNode })
 export function SeasonReviewCard({
   review,
   members,
+  pickups = [],
 }: {
   review: SeasonReview
   members: HistoryMember[]
+  /** Best players nobody rostered in week 1. Empty before the weekly era. */
+  pickups?: BestPickup[]
 }) {
   const r = review
   const place = (v: number | null) => <Who id={v} members={members} />
@@ -108,6 +116,56 @@ export function SeasonReviewCard({
             ? 'Only the champion survives from this season.'
             : 'Week-by-week results were not recorded this season, so there are no game records for it.'}
         </p>
+      )}
+
+      {/*
+        The waiver wire's greatest hits. "Not on a week-1 roster" means NOBODY
+        in the league had them at kickoff — a player dropped by one team and
+        claimed by another is a trade of sorts; a player nobody owned is a find.
+        Ranked by points STARTED, because points on your bench won nothing.
+      */}
+      {pickups.length > 0 && (
+        <div className="mt-2 border-t border-rule pt-2">
+          <h4 className="mb-1 font-display text-[0.6rem] uppercase tracking-[0.12em] text-slate-500">
+            Best pickups
+          </h4>
+          <ul className="space-y-1">
+            {pickups.map((p) => (
+              <li key={p.playerId}>
+                <div className="leaders text-[0.8rem]">
+                  <span className="text-slate-300">
+                    {p.playerName}
+                    {p.position && (
+                      <span className="ml-1 font-mono text-[0.62rem] text-slate-600">
+                        {p.position}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 font-mono font-semibold tabular-nums">
+                    {p.pointsStarted.toFixed(0)}
+                  </span>
+                </div>
+                {/*
+                  One owner is the common case and reads as a single line. Two or
+                  more is the interesting one — whoever found them and whoever
+                  cashed in are rarely the same person — so each share is shown
+                  rather than the player being credited to one manager.
+                */}
+                <ul className="pl-2 text-[0.68rem] text-slate-500">
+                  {p.owners.map((o) => (
+                    <li key={o.managerId} className="flex items-baseline gap-1.5">
+                      <Who id={o.managerId} members={members} />
+                      <span className="font-mono tabular-nums">
+                        {o.pointsStarted.toFixed(0)} pts · {o.weeksStarted} start
+                        {o.weeksStarted === 1 ? '' : 's'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   )

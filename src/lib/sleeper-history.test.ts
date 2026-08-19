@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   combinePoints,
+  hasBeenPlayed,
   optimalLineup,
   pairWeek,
   playerWeeks,
@@ -356,5 +357,30 @@ describe.runIf(hasData)('against the real committed seasons', () => {
     expect(exact, `${exact}/${total} exact`).toBeGreaterThanOrEqual(40)
     // The largest residual seen is ~1.9% of a season total.
     expect(worst).toBeLessThan(0.03)
+  })
+})
+
+describe('hasBeenPlayed', () => {
+  const entry = (points: number): RawMatchup => ({
+    roster_id: 1,
+    matchup_id: 1,
+    points,
+    starters: ['a'],
+    players: ['a'],
+    players_points: { a: points },
+  })
+
+  it('is false for a scheduled week nobody has played', () => {
+    // Sleeper returns the whole schedule from day one: a league in week 1 still
+    // answers with fourteen weeks of 0-0 matchups, lineups already set.
+    expect(hasBeenPlayed([entry(0), entry(0), entry(0)])).toBe(false)
+  })
+
+  it('is true once anybody has scored', () => {
+    expect(hasBeenPlayed([entry(0), entry(84.2)])).toBe(true)
+  })
+
+  it('is false for an empty week', () => {
+    expect(hasBeenPlayed([])).toBe(false)
   })
 })

@@ -4,7 +4,7 @@ import { SeasonReviewCard } from '@/components/history/SeasonReviewCard'
 import { SiteNav } from '@/components/SiteNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { managerColor } from '@/lib/colors'
-import { getRecordBook, getSeasonReviews } from '@/server/history-service'
+import { getBestPickups, getRecordBook, getSeasonReviews } from '@/server/history-service'
 
 /**
  * The record book, and a card for every season.
@@ -38,7 +38,11 @@ const FORMAT: Record<string, (n: number) => string> = {
 }
 
 export default async function RecordsPage() {
-  const [{ book, members }, { reviews }] = await Promise.all([getRecordBook(), getSeasonReviews()])
+  const [{ book, members }, { reviews }, pickups] = await Promise.all([
+    getRecordBook(),
+    getSeasonReviews(),
+    getBestPickups(3),
+  ])
 
   return (
     <main className="min-h-dvh bg-slate-950 text-slate-100">
@@ -145,7 +149,12 @@ export default async function RecordsPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {reviews.map((r) => (
-              <SeasonReviewCard key={r.season} review={r} members={members} />
+              <SeasonReviewCard
+                key={r.season}
+                review={r}
+                members={members}
+                pickups={pickups.get(r.season) ?? []}
+              />
             ))}
           </div>
         </section>

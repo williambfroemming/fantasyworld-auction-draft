@@ -1,0 +1,92 @@
+name: Weekly history refresh
+
+# Pulls the season in progress from Sleeper and imports it, every Wednesday.
+#
+# ## Why Wednesday
+#
+# The NFL week finishes Monday night and stat corrections settle through
+# Tuesday. Pulling earlier means importing scores that are still moving, and
+# every number on /history is derived from those scores.
+#
+# ## Why a GitHub Action rather than a Vercel cron
+#
+# The import reads *committed* files: `history:pull` writes Sleeper's raw
+# responses to `data/sleeper/<season>/` with a sha256 manifest, and the importer
+# verifies that manifest before it opens a database connection. That model is
+# what makes every import reproducible and reviewable — you can see in a diff
+# exactly what the API said that week.
+#
+# A Vercel cron cannot commit to the repo, so it would have to fetch and write
+# straight to Postgres, skipping the artifact. This runner can do both, and it
+# runs the same two scripts that were tested locally rather than a third code
+# path that only exists in production.
+#
+# It also keeps the scheduler out of the app entirely: nothing here touches the
+# 400ms polling path that runs the draft.
+#
+# ## Setup
+#
+#   Settings → Secrets and variables → Actions → New repository secret
+#     DATABASE_URL = the Neon connection string
+#
+# Without it the job fails loudly on the first step rather than silently
+# importing nothing.
+
+on:
+  schedule:
+    # 13:00 UTC Wednesday — 8am Eastern in winter, 9am in summer.
+    - cron: '0 13 * * 3'
+  # So it can be run by hand mid-week, and to test it without waiting.
+  workflow_dispatch:
+    inputs:
+      season:
+        description: 'Season to refresh (defaults to the current one)'
+        required: false
+        type: string
+
+concurrency:
+  # Two refreshes writing the same season would race on the data files.
+  group: history-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: pull and import
+    runs-on: ubuntu-latest
+    permissions:
+      # To commit the refreshed snapshot back.
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Refresh the season
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set — nothing would be imported."
+            exit 1
+          fi
+          npx tsx scripts/history/refresh-season.ts \
+            ${{ inputs.season && format('--season {0}', inputs.season) || '' }}
+
+      - name: Commit the snapshot
+        run: |
+          if git diff --quiet -- data/; then
+            echo "No change in the pulled data — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git commit -m "Weekly history refresh
+
+          Sleeper snapshot for the season in progress, pulled and imported by
+          .github/workflows/weekly-history.yml. Data only — no code changes."
+          git push

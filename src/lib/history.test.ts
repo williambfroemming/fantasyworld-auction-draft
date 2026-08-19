@@ -592,3 +592,32 @@ describe('memberProfile', () => {
     expect(memberProfile(input, 999)).toBeNull()
   })
 })
+
+describe('a season in progress does not become a record', () => {
+  // A standings row exists for the live season from its first weekly refresh,
+  // with an 0-0 record and zero points. Left in, it wins "fewest points in a
+  // season" outright and stretches every era badge a year into the future.
+  const input: HistoryInput = {
+    members,
+    seasons: [season(2021, 'weekly'), season(2026, 'weekly')],
+    standings: [
+      ...members.map((m) => standing(2021, m.managerId, { pointsFor: 1500 })),
+      ...members.map((m) =>
+        standing(2026, m.managerId, { wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 }),
+      ),
+    ],
+    matchups: week(2021, 1, [40, 30, 20, 10]),
+    lineups: [],
+  }
+
+  it('keeps an unplayed season out of the season records', () => {
+    const fewest = records(input).seasons.find((r) => r.key === 'fewestPointsSeason')!
+    expect(fewest.season).toBe(2021)
+    expect(fewest.value).toBe(1500)
+  })
+
+  it('does not stretch the coverage span into it', () => {
+    expect(records(input).seasonCoverage.to).toBe(2021)
+    expect(leagueSummary(input).allTime.to).toBe(2021)
+  })
+})

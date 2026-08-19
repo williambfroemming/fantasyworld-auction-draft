@@ -189,8 +189,24 @@ export const SLEEPER_LEAGUE_IDS: Readonly<Record<number, string>> = {
   2026: '1389719640493551616',
 }
 
-/** The seasons Phase 2 imports from Sleeper. 2026 is still being played. */
+/**
+ * The seasons imported from Sleeper as a finished historical backfill.
+ *
+ * The current season is deliberately NOT in this list — it is refreshed on its
+ * own cadence by `npm run history:refresh`, because re-pulling six settled
+ * seasons every week to learn one new week of results is waste and churns six
+ * seasons of committed files for no reason.
+ */
 export const SLEEPER_IMPORT_SEASONS = [2020, 2021, 2022, 2023, 2024, 2025] as const
+
+/**
+ * The season currently being played.
+ *
+ * ⚠️ The one place a literal current year is allowed, and it has to move every
+ * August alongside `npm run season:new`. Everything else derives its seasons
+ * from the data. `history:refresh` reads this to know what to pull.
+ */
+export const CURRENT_SLEEPER_SEASON = 2026
 
 // ---------------------------------------------------------------------------
 // Lookups. All of them throw; see the header.

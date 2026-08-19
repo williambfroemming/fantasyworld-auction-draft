@@ -181,6 +181,22 @@ export interface MatchupSide {
 }
 
 /**
+ * Has this week actually been played?
+ *
+ * ⚠️ Sleeper returns the **whole schedule** from the start of a season, so a
+ * league in week 1 still answers with fourteen weeks of matchups — every one of
+ * them 0–0 with lineups already set. Importing those writes a season of ties at
+ * zero, which then becomes the lowest score on record, the narrowest win, and a
+ * ten-way tie in every all-play week.
+ *
+ * A week counts as played once anybody has scored. Ten teams all finishing on
+ * exactly zero does not happen in a real week.
+ */
+export function hasBeenPlayed(entries: RawMatchup[]): boolean {
+  return entries.some((e) => e.points > 0)
+}
+
+/**
  * Pair a week's entries into two-sided rows.
  *
  * Entries sharing a `matchup_id` are one game. An entry with a null `matchup_id`

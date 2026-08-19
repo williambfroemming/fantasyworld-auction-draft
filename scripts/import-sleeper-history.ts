@@ -30,6 +30,7 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
 import '../src/db/neon-local'
 import {
   combinePoints,
+  hasBeenPlayed,
   pairWeek,
   playerWeeks,
   playoffRound,
@@ -150,7 +151,10 @@ function load(season: number): Loaded {
     const file = join(dir, `matchups-${String(w).padStart(2, '0')}.json`)
     if (!existsSync(file)) continue
     const entries = read<RawMatchup[]>(file)
-    if (entries.length) weeks.set(w, entries)
+    // Skip weeks Sleeper has scheduled but nobody has played yet. See
+    // `hasBeenPlayed` — importing them writes a season of 0-0 ties that become
+    // the lowest score on record.
+    if (entries.length && hasBeenPlayed(entries)) weeks.set(w, entries)
   }
 
   return { season, league, rosters, bracket, weeks, slots, playoffStart, owner }
@@ -205,7 +209,11 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
     ],
     [[
       season, 'weekly', league.league_id, league.roster_positions.length, regularWeeks,
-      playoffStart, league.settings.playoff_teams ?? null, true,
+      playoffStart, league.settings.playoff_teams ?? null,
+      // A season is final when Sleeper says it is complete — never asserted.
+      // Mid-season this is false, which keeps `draftComplete` and the archive
+      // honest about a year still being played.
+      league.status === 'complete',
       podium.championRosterId ? mgr(podium.championRosterId) : null,
       podium.runnerUpRosterId ? mgr(podium.runnerUpRosterId) : null,
       podium.thirdRosterId ? mgr(podium.thirdRosterId) : null,
