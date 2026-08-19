@@ -49,6 +49,7 @@ export default function StatsPage() {
             season: archive.season,
             rosterSize: archive.rosterSize,
             startingBudget: archive.startingBudget,
+            isFinal: archive.isFinal,
             managers: archive.managers,
             picks: archive.rosters,
             trades: archive.trades,

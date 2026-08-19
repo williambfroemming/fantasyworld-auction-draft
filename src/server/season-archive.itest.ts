@@ -239,6 +239,42 @@ d('seasons + archive (real Postgres)', () => {
     expect(live.managers.find((m) => m.id === managers[0].id)!.budget).toBe(200)
   })
 
+  it('renders a past season with ITS settings, not the current draft\'s', async () => {
+    // The bug this replaces: getArchivedSeason read roster_size and
+    // starting_budget straight from `draft`, so changing a rule today silently
+    // rewrote every board the league had ever played.
+    await buy(0, managers[0].id, 60)
+    await startNewSeason(NOW)
+
+    await sql`INSERT INTO seasons (season, data_tier, roster_size, starting_budget, is_final)
+              VALUES (${PAST}, 'weekly', 16, 200, true)
+              ON CONFLICT (season) DO UPDATE
+                SET roster_size = 16, starting_budget = 200, is_final = true`
+    // A rule change for the CURRENT season only.
+    await sql`UPDATE draft SET roster_size = 20, starting_budget = 500 WHERE id = 1`
+
+    const archived = await getArchivedSeason(PAST)
+    expect(archived!.rosterSize).toBe(16)
+    expect(archived!.startingBudget).toBe(200)
+    // And the budget derived from it is the one that season was played under.
+    expect(archived!.managers.find((m) => m.id === managers[0].id)!.budget).toBe(140)
+
+    await sql`UPDATE draft SET roster_size = 16, starting_budget = 200 WHERE id = 1`
+  })
+
+  it('falls back to the current settings for a season with none recorded', async () => {
+    await buy(0, managers[0].id, 10)
+    await startNewSeason(NOW)
+    await sql`DELETE FROM seasons WHERE season = ${PAST}`
+
+    const archived = await getArchivedSeason(PAST)
+    // No row for that year, so today's settings are the best answer available —
+    // strictly better than refusing to render a season that was really played.
+    expect(archived!.rosterSize).toBe(16)
+    expect(archived!.startingBudget).toBe(200)
+    expect(archived!.isFinal).toBe(false)
+  })
+
   it('preserves the draft order of a past season after the seating is re-drawn', async () => {
     await buy(0, managers[0].id, 5)
     const seatOfFirst = managers[0].draft_slot

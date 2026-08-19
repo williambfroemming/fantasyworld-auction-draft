@@ -1906,3 +1906,48 @@ third-place game — which the league says counts, and the workbook excluded.
 - The "draft steal" is deliberately absent until the auction import lands.
 
 **Next:** H7 — `getArchivedSeason` reads `seasons`, which fixes a live bug.
+
+---
+
+## Step 39 — Phase 2 H7: an archived season renders with its own settings
+
+**Date:** 2026-08-18  **Status:** done
+
+**Fixed:** `getArchivedSeason` read `roster_size` and `starting_budget` straight from `draft`, so
+every archived year rendered with **today's** settings. `ArchiveSeason` gains `isFinal` and `notes`;
+`draftComplete` honours `isFinal`.
+
+**274 unit and 80 integration tests passing**, `db:verify` green.
+
+This was invisible while the app knew one season and became wrong the moment it knew several. A rule
+change today — a bigger roster, a different budget — silently rewrote every board the league had
+ever played, and every budget derived from it. It now reads the season's own row and falls back to
+the current draft only when that season has none, which keeps a pre-`seasons` year readable rather
+than refusing to render a season that was really played.
+
+### `draftComplete` needed the same treatment
+
+It asks "is every roster full?", which is the right question about a draft in progress and the wrong
+one about a season that ended years ago. 2022's record is one pick short and always will be — the
+pick is missing from the source and cannot be recovered — so that season was reported as still
+drafting, forever. A finished season now says so directly and that wins; the live draft, which has
+no such flag, still uses roster counts.
+
+**Learned:**
+
+- **"Derived, never stored" has a boundary, and it is the season.** Budgets are still derived from
+  picks and adjustments — but the *rules* they are derived under belong to the season that was
+  played, not to the row describing what the league is doing now.
+- **A fallback is a feature when the alternative is a blank page.** No `seasons` row means today's
+  settings are the best answer available, which beats refusing to render a season that happened.
+
+**Watch out for:**
+
+- **Do not clamp a negative archived budget to zero.** Some manager-seasons genuinely do not
+  balance (2023 has managers at $205 and $194 against a $200 budget, from auction-dollar trades),
+  and tidying that away is the stored-budget lie this app exists to remove. `notes` is where the
+  explanation goes.
+- Two integration tests now pin this: changing `draft.roster_size` must not move an archived
+  season's numbers, and a season with no row must still render.
+
+**Next:** H8 — the 2021–2024 auction drafts into `picks`.

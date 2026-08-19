@@ -77,6 +77,20 @@ export interface ArchiveSeason {
   season: number
   rosterSize: number
   startingBudget: number
+  /**
+   * The season's record is complete.
+   *
+   * Read this rather than inferring completeness from roster counts. 2022 has a
+   * pick missing from the record that cannot be recovered, so "is every roster
+   * full?" says that season is still in progress, forever.
+   */
+  isFinal: boolean
+  /**
+   * Anything a reader of this season needs told — an unbalanced budget, a pick
+   * that is missing from the source. Rendered on the board rather than left for
+   * somebody to rediscover.
+   */
+  notes: string[]
   managers: ArchiveManager[]
   rosters: ArchivePick[]
   trades: TradeSummary[]
@@ -115,7 +129,22 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
   const sql = getSql()
   if (!Number.isInteger(season)) return null
 
-  const [settings] = await sql`SELECT roster_size, starting_budget FROM draft WHERE id = 1`
+  // ⚠️ The season's OWN settings, falling back to the current draft's only when
+  // that season has none on record.
+  //
+  // This used to read `draft` unconditionally, which rendered every archived
+  // year with today's roster size and budget. That was invisible while the app
+  // knew one season and became wrong the moment it knew several: 2022's rosters
+  // are not all 16 (one manager's sixteenth pick is missing from the record),
+  // and a future rule change would silently rewrite every past board.
+  const [settings] = await sql`
+    SELECT COALESCE(s.roster_size, d.roster_size)         AS roster_size,
+           COALESCE(s.starting_budget, d.starting_budget) AS starting_budget,
+           COALESCE(s.is_final, false)                    AS is_final,
+           COALESCE(s.notes, '{}')                        AS notes
+      FROM draft d
+      LEFT JOIN seasons s ON s.season = ${season}
+     WHERE d.id = 1`
 
   const [orderRows, pickRows, adjRows] = await Promise.all([
     sql`SELECT so.manager_id, so.draft_slot, so.display_name, so.color
@@ -166,6 +195,8 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
     season,
     rosterSize: Number(settings.roster_size),
     startingBudget,
+    isFinal: Boolean(settings.is_final),
+    notes: (settings.notes as string[] | null) ?? [],
     managers,
     rosters: pickRows.map((p) => ({
       id: Number(p.id),
