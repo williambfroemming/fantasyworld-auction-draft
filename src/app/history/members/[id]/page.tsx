@@ -4,7 +4,7 @@ import { EraBadge } from '@/components/history/EraBadge'
 import { SiteNav } from '@/components/SiteNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { managerColor } from '@/lib/colors'
-import { getMemberProfile, getMostCarried } from '@/server/history-service'
+import { getMemberProfile, getMostStarted } from '@/server/history-service'
 
 /**
  * One member's career.
@@ -44,7 +44,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
   const managerId = Number(id)
   const [{ profile, members }, favorites] = await Promise.all([
     getMemberProfile(managerId),
-    getMostCarried(managerId, 10),
+    getMostStarted(managerId, 10),
   ])
   if (!profile) notFound()
 
@@ -234,16 +234,17 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/*
-          Ranked by weeks carried rather than money spent. Time on the roster is
-          the better measure of who somebody actually likes: a $54 buy dropped by
-          week four says less than a waiver pickup kept for four seasons. The
-          money is still shown beside it, and the two often disagree.
+          Ranked by weeks STARTED, not weeks rostered and not money spent.
+          Starting somebody is a decision taken every single week; a roster spot
+          can be inertia. Both other columns stay visible because the gaps
+          between them are the interesting part — a player carried for 30 weeks
+          and started for 9 is a different story from one started every time.
         */}
         <section className="mt-10 min-w-0">
           <h2 className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5 font-display text-sm font-bold uppercase tracking-[0.1em]">
             Favourite players
             <span className="font-sans text-[0.68rem] font-normal normal-case tracking-normal text-slate-500">
-              Top 10 by weeks on the roster
+              Top 10 by weeks started
             </span>
           </h2>
           <PlayerTable rows={favorites} />
@@ -317,10 +318,10 @@ function PlayerTable({
               <td className="px-2 py-1.5 text-right font-mono text-xs tabular-nums text-slate-400">
                 {p.timesDrafted || '—'}
               </td>
-              <td className="px-2 py-1.5 text-right font-mono font-semibold tabular-nums text-slate-100">
+              <td className="px-2 py-1.5 text-right font-mono tabular-nums text-slate-400">
                 {p.weeksRostered || '—'}
               </td>
-              <td className="px-2 py-1.5 text-right font-mono tabular-nums text-slate-400">
+              <td className="px-2 py-1.5 text-right font-mono font-semibold tabular-nums text-slate-100">
                 {p.weeksStarted || '—'}
               </td>
               <td className="px-2 py-1.5 text-right font-mono tabular-nums text-slate-400">

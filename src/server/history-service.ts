@@ -369,11 +369,23 @@ export async function getFavoritePlayers(
   }))
 }
 
-/** The same, ranked by weeks carried rather than money — a different question. */
-export async function getMostCarried(managerId: number, limit = 10) {
+/**
+ * The same, ranked by weeks **started** — the best available answer to "who is
+ * this person's favourite player".
+ *
+ * Started beats rostered because starting somebody is a decision taken every
+ * week, while a roster spot can be inertia: the guy you never got round to
+ * dropping counts the same as the guy you built around. Weeks rostered stays in
+ * the table beside it, because the gap between the two is itself interesting.
+ *
+ * It is not a pure measure of affection — a great player gets started because he
+ * is great — but no available signal separates loyalty from good judgement, and
+ * this one at least reflects a repeated choice.
+ */
+export async function getMostStarted(managerId: number, limit = 10) {
   const all = await getFavoritePlayers(managerId, 200)
   return [...all]
-    .filter((p) => p.weeksRostered > 0)
-    .sort((a, b) => b.weeksRostered - a.weeksRostered || b.weeksStarted - a.weeksStarted)
+    .filter((p) => p.weeksStarted > 0)
+    .sort((a, b) => b.weeksStarted - a.weeksStarted || b.weeksRostered - a.weeksRostered)
     .slice(0, limit)
 }
