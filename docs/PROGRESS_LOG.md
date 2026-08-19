@@ -2279,3 +2279,54 @@ regress to light-on-light, because nothing overrides the foreground any more.
   than inventing an eleventh member.
 - The trophy column's span is wider than the table's. If a column is ever added that also reaches
   past 2011, it needs its own badge too.
+
+## Buy-in, and what it took to make "winnings" a real number
+
+The league's prize table records what the podium *won*. It says nothing about what anyone *paid*,
+so the Net column read −$350 for all ten managers: 2026's entry fee against fifteen years of prizes.
+
+Then the rule turned out to be recoverable. **Third gets their money back, second gets double, first
+takes the rest** — ten managers, a `10×` pot, payouts of `7× / 2× / 1×`. The third-place prize is
+the buy-in. It holds for all fourteen priced seasons with every pot balancing to the dollar, so
+`seasons.buy_in` is derived at import instead of being typed in by hand.
+
+Derived *and* asserted: the importer throws if a runner-up isn't `2×` third, or a champion isn't
+`7×`. A changed payout structure should stop an import and get recorded, not quietly become a wrong
+buy-in that skews every career figure downstream.
+
+Net winnings became a real spread as a result — Daniel +$1,550 and Bryan +$825 at one end, Jack
+−$1,425 at the other — and then validated itself: **every net figure sums to exactly −$3,500**,
+which is 2026's ten $350 buy-ins paid in and not yet awarded. That was not something I built a check
+for; it fell out of the data and is now the check.
+
+The same commit moves draft location and buy-in out of a script and into `/setup`, which is where
+they were asked for. They live on `seasons`, not `draft`, and unlike budget and roster size they
+stay editable after the first pick.
+
+**Learned:**
+
+- **A derived field with an assertion beats a typed one with a comment.** Fourteen hand-entered
+  buy-ins are fourteen chances to fat-finger a digit, and nothing would have caught it. One rule,
+  checked on every row, catches both a typo *and* the day the league changes the rule.
+- **A zero-sum domain gives you a free integration test.** Nothing in the code knows the league is
+  zero-sum, so "the nets sum to minus the undecided pot" exercises the prize import, the buy-in
+  derivation, the podium mapping and the profile aggregation in a single number. Look for the
+  conservation law before writing assertions by hand.
+- **"Unknown" has to survive the whole round trip.** `null` buy-in → empty box in the form → `null`
+  back to the database. A single `?? 0` anywhere in that chain would turn "we haven't agreed on it"
+  into "it was free", and the resulting net would look plausible enough that nobody would question
+  it.
+- **Not every setting deserves the mid-draft lock.** `setLeagueSettings` refuses to run once picks
+  exist, and copying that guard onto season info would have been the reflex. But the buy-in is
+  usually settled *after* the room has paid up, and nothing about it can move a max bid.
+
+**Watch out for:**
+
+- The rule is asserted only for seasons that *have* a third-place prize. A season priced from one
+  end (champion only) derives no buy-in at all and stays `null`, which is correct but easy to read
+  as a bug when the Net column skips it.
+- `/api/season-info` is a second read path for league facts. It must stay off the polling
+  fingerprint in `src/lib/version.ts` — its whole reason to exist is that it isn't on it.
+- 2025 has no prize data, so it has no buy-in. If it is priced later, the derivation picks it up on
+  the next `history:import-workbook` run — the importer's upsert `COALESCE`s so a re-run adds
+  without overwriting what the setup form may have set by hand.

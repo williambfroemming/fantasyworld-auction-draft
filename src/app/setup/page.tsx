@@ -342,6 +342,97 @@ function Settings({
 
       {/* There are no timer settings: the auction is called aloud in the room
           and the nominator records the result. See docs/PROJECT_PLAN.md §3. */}
+
+      <SeasonInfo act={act} busy={busy} />
+    </div>
+  )
+}
+
+/**
+ * Where the league is drafting this year, and what it cost to get in.
+ *
+ * Not locked when the draft starts, unlike the rules above it. Nothing here
+ * reaches the auction engine — no budget, no max bid, no pick — and both facts
+ * are routinely settled late: the buy-in once everyone has actually paid, the
+ * city whenever somebody remembers to write it down. The alternative to an
+ * editable field is a hand-written UPDATE months later.
+ *
+ * The buy-in is what turns prize money into career winnings on /history. It is
+ * read once on mount rather than off the polling state, because these change
+ * about once a season and /api/state is fetched every 400ms all night.
+ */
+function SeasonInfo({
+  act,
+  busy,
+}: {
+  act: (body: Record<string, unknown>, ok: string) => Promise<boolean>
+  busy: boolean
+}) {
+  const [season, setSeason] = useState<number | null>(null)
+  const [city, setCity] = useState('')
+  const [stateName, setStateName] = useState('')
+  const [buyIn, setBuyIn] = useState('')
+
+  useEffect(() => {
+    fetch('/api/season-info')
+      .then((r) => r.json())
+      .then((d) => {
+        setSeason(d.season)
+        setCity(d.city ?? '')
+        setStateName(d.state ?? '')
+        // An unpriced season is an empty box, never a 0 — "we haven't agreed
+        // the buy-in yet" and "it was free" are different claims, and /history
+        // draws a blank rather than a $0 for exactly this reason.
+        setBuyIn(d.buyIn === null ? '' : String(d.buyIn))
+      })
+      .catch(() => {})
+  }, [])
+
+  const buyInValue = buyIn.trim() === '' ? null : Number(buyIn)
+  const valid = buyInValue === null || (Number.isFinite(buyInValue) && buyInValue >= 0)
+
+  return (
+    <div className="space-y-3 border-t border-rule pt-4">
+      <h3 className="font-display text-xs uppercase tracking-[0.12em] text-slate-500">
+        {season ?? ''} season
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label="Draft city" value={city} onChange={setCity} />
+        <Field label="State" value={stateName} onChange={setStateName} />
+        <Field label="Buy-in ($)" value={buyIn} onChange={setBuyIn} />
+      </div>
+      <p className="text-xs text-slate-500">
+        {buyInValue !== null && valid ? (
+          <>
+            Pot is{' '}
+            <span className="font-semibold text-emerald-400">
+              ${(buyInValue * 10).toLocaleString()}
+            </span>{' '}
+            — third takes ${buyInValue.toLocaleString()} back, second $
+            {(buyInValue * 2).toLocaleString()}, and the champion the rest ($
+            {(buyInValue * 7).toLocaleString()}).
+          </>
+        ) : (
+          'Leave the buy-in blank if the league has not settled on one yet — blank means unknown, not free.'
+        )}
+      </p>
+      <button
+        onClick={() =>
+          act(
+            {
+              action: 'setSeasonInfo',
+              city: city.trim() || null,
+              state: stateName.trim() || null,
+              buyIn: buyInValue,
+            },
+            'Season details saved.',
+          )
+        }
+        disabled={busy || !valid}
+        className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-40"
+      >
+        Save season details
+      </button>
     </div>
   )
 }

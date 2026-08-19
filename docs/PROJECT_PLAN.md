@@ -395,3 +395,31 @@ the one table whose whole job is provenance. `getArchivedSeason` must not clamp 
 
 Departures from a source are never silent: they live in one reviewable `HISTORY_PICK_CORRECTIONS`
 list with a reason and a date.
+
+### Money in, money out — the buy-in is derived, not entered
+
+The league's payout rule: **third gets their money back, second gets double, and first takes the
+rest.** With ten managers that makes the pot `10 × buy-in` and the payouts `7× / 2× / 1×` — so the
+third-place prize *is* the buy-in, and `seasons.buy_in` is derived from it at import rather than
+typed in fourteen times.
+
+Derived, but **asserted**: `import-workbook-history.ts` throws if a season's runner-up isn't `2×`
+its third-place prize, or its champion isn't `7×`. The rule currently holds for all fourteen
+seasons on record with every pot balancing to the dollar. If the league changes its structure, that
+should stop the import and be recorded — not be silently absorbed into a wrong buy-in that then
+quietly skews every career figure.
+
+The check that this is right: **career net winnings sum to exactly −$3,500 across all ten
+managers**, which is 2026's ten $350 buy-ins paid in and not yet awarded. A zero-sum league nets to
+zero, and the only gap is the season still being played.
+
+`null` is unknown, never free. A season nobody has priced contributes to neither side of anyone's
+net, rather than reading as a $0 entry fee — `memberProfile` restricts net winnings to seasons that
+have *both* a buy-in and a podium, so fifteen years of prizes are never netted against one year's
+entry fee.
+
+Location and buy-in are set from `/setup` (`setSeasonInfo`), and unlike budget and roster size they
+**stay editable after the first pick**. Nothing about them reaches the auction engine, and both are
+routinely settled late — the buy-in once everyone has actually paid, the city whenever somebody
+remembers. They are read by `/api/season-info`, deliberately not by `/api/state`: they change once a
+year, and that payload is fetched every 400ms by ten clients all night.
