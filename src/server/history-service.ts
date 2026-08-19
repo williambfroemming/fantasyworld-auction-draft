@@ -311,6 +311,12 @@ export interface FavoritePlayer {
  *
  * Aggregated in SQL rather than in `history.ts` because this is the one report
  * that needs `player_weeks` — 17,000 rows that no other page loads.
+ *
+ * ⚠️ **Team defenses are excluded.** There is exactly one DEF slot, so whoever
+ * holds a defense starts it essentially every week — Daniel's 49ers would sit
+ * near the top of his list on 25 starts. That is a fact about the roster shape,
+ * not about who he likes, and it crowds out the players the table exists to
+ * surface. This league rosters no kickers, so DEF is the only exclusion needed.
  */
 export async function getFavoritePlayers(
   managerId: number,
@@ -328,6 +334,7 @@ export async function getFavoritePlayers(
         FROM picks pk
        WHERE pk.manager_id = ${managerId}
          AND pk.player_sleeper_id IS NOT NULL
+         AND pk.player_position <> 'DEF'
        GROUP BY pk.player_sleeper_id
     ),
     carried AS (
@@ -339,6 +346,7 @@ export async function getFavoritePlayers(
              (array_agg(pw.position    ORDER BY pw.season DESC))[1] AS position
         FROM player_weeks pw
        WHERE pw.manager_id = ${managerId}
+         AND pw.position <> 'DEF'
        GROUP BY pw.player_id
     )
     SELECT COALESCE(d.player_id, c.player_id)          AS player_id,
