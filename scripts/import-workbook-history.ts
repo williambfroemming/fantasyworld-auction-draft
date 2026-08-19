@@ -100,6 +100,38 @@ async function main() {
 
   const place = (year: number, p: number) => podium.get(year)?.find((x) => x.place === p)
 
+  /**
+   * What each manager paid to enter, derived from the payouts.
+   *
+   * The league's rule: **third gets their money back, second gets double, and
+   * first takes the rest.** With ten managers that makes the pot `10 x buy-in`
+   * and the payouts `7x / 2x / 1x` — so the third-place prize *is* the buy-in.
+   *
+   * Asserted rather than assumed. The rule holds for all fourteen seasons on
+   * record, every pot balancing to the dollar, and a season that stops fitting
+   * means the league changed its structure — which should stop the import and
+   * be recorded, not be silently absorbed into a wrong buy-in.
+   */
+  function buyInFor(year: number): number | null {
+    const first = place(year, 1)?.money
+    const second = place(year, 2)?.money
+    const third = place(year, 3)?.money
+    if (third === null || third === undefined) return null
+    if (second !== null && second !== undefined && second !== 2 * third) {
+      throw new Error(
+        `${year}: runner-up is $${second}, but third place ($${third}) implies $${2 * third}. ` +
+          'The payout structure changed — record it rather than deriving a buy-in from it.',
+      )
+    }
+    if (first !== null && first !== undefined && first !== 7 * third) {
+      throw new Error(
+        `${year}: champion is $${first}, but third place ($${third}) implies $${7 * third}. ` +
+          'The payout structure changed — record it rather than deriving a buy-in from it.',
+      )
+    }
+    return third
+  }
+
   const loc = new Map<number, { city: string; state: string; country: string }>()
   for (const r of locations) {
     if (!r.city) continue
@@ -141,8 +173,18 @@ async function main() {
       champion: place(year, 1),
       runnerUp: place(year, 2),
       third: place(year, 3),
+      buyIn: buyInFor(year),
     }
   })
+
+  const priced = seasonRows.filter((s) => s.buyIn !== null)
+  if (priced.length) {
+    console.log(
+      `  buy-in derived for ${priced.length} seasons ` +
+        `($${Math.min(...priced.map((s) => s.buyIn!))}–$${Math.max(...priced.map((s) => s.buyIn!))}), ` +
+        'from the third-place prize',
+    )
+  }
 
   console.log(`  ${allYears.length} seasons on record: ${allYears[0]}–${allYears[allYears.length - 1]}`)
   console.log(`    legacy    ${seasonRows.filter((s) => s.tier === 'legacy').length}  (champion's name only)`)
@@ -204,8 +246,8 @@ async function main() {
     await sql.query(
       `INSERT INTO seasons (season, data_tier, regular_season_weeks, draft_city, draft_state,
                             draft_country, champion_manager_id, runner_up_manager_id, third_manager_id,
-                            champion_prize, runner_up_prize, third_prize, is_final)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,true)
+                            champion_prize, runner_up_prize, third_prize, buy_in, is_final)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true)
        ON CONFLICT (season) DO UPDATE SET
          -- data_tier and week count are the workbook's to state for its own
          -- years; never downgrade a season Sleeper already described.
@@ -222,11 +264,14 @@ async function main() {
          -- Money exists nowhere else, so the workbook always wins.
          champion_prize       = COALESCE(excluded.champion_prize, seasons.champion_prize),
          runner_up_prize      = COALESCE(excluded.runner_up_prize, seasons.runner_up_prize),
-         third_prize          = COALESCE(excluded.third_prize, seasons.third_prize)`,
+         third_prize          = COALESCE(excluded.third_prize, seasons.third_prize),
+         -- Derived from the payouts, so the workbook wins wherever it has them.
+         buy_in               = COALESCE(excluded.buy_in, seasons.buy_in)`,
       [
         s.year, s.tier, s.weeks, s.city, s.state, s.country,
         s.champion?.managerId ?? null, s.runnerUp?.managerId ?? null, s.third?.managerId ?? null,
         s.champion?.money ?? null, s.runnerUp?.money ?? null, s.third?.money ?? null,
+        s.buyIn,
       ],
     )
   }
