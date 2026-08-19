@@ -1564,3 +1564,59 @@ and both are "right" for the era each was computed over.
 
 **Next:** H3 — import the Sleeper era (2020–2025), ending with the reconciliation table against the
 workbook's own standings.
+
+---
+
+## Step 32 — Phase 2 H3: the Sleeper era lands
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/import-sleeper-history.ts` (`npm run history:import-sleeper`), on top of the
+pure transform layer from step 31.
+
+**Imported 2020–2025:** 60 standings rows, 914 matchups, 1,010 lineups, 16,888 player-weeks,
+1,693 player-seasons. `manager_totals` unchanged. 229 unit tests passing.
+
+### Three independent checks, all green
+
+1. **Reconciliation against the workbook, 2020–2024.** Every win-loss record, every
+   regular-season place and every points-for total agrees across all fifty member-seasons. The
+   place check is the interesting one: Sleeper stores a record but not a rank, so `place` is
+   computed (wins, then points for) — and matching the workbook's recorded `reg_season_place`
+   fifty times over turns "the usual tiebreak" into a verified one.
+2. **Starter points reproduce Sleeper's weekly team totals to the cent**, 60/60 manager-seasons.
+3. **All-play recomputed from the database reproduces the workbook's dashboard exactly** — Bolek
+   368-252-1, Bryan 235-386, and the eight in between. That is the whole chain validated end to
+   end: API → committed JSON → transform → Postgres → SQL aggregate.
+
+### Points come from the games, not from Sleeper's season total
+
+A roster's stored `fpts` is not always the sum of that roster's weekly results — five rosters in
+2020 and three in 2021 drift by 0.5 to 3.0 points. `season_standings.points_for` is therefore the
+sum of the weekly rows. A season total that does not equal the games it is made of cannot be
+reconciled on a page that shows both, and every derived metric reads from those same rows.
+
+**Learned:**
+
+- **The reconciliation is the deliverable, not the import.** Loading 16,888 rows is easy; knowing
+  they are right is the work. Three checks against two independent sources is what makes it
+  possible to say the numbers are correct rather than merely present.
+- **Batch, or the HTTP driver will punish you.** One statement per call means 16,888 player-weeks
+  is 16,888 round trips. Multi-row `INSERT` in chunks of 400 turns the whole import into ~60.
+- **A computed rank needs a witness.** `place` looked like a detail until it turned out the
+  workbook had recorded it independently for fifty member-seasons, which is the only reason the
+  tiebreak rule can be stated as fact.
+
+**Watch out for:**
+
+- **The playoff weeks contain consolation games.** Only the winners bracket is imported; weeks 15–17
+  also hold games between eliminated teams, which the league has never counted. The bracket's seven
+  games are all kept, including the fifth-place game — the workbook recorded only five, dropping the
+  fifth- and third-place games while still naming a third-place finisher.
+- **2020 is shaped differently.** Thirteen regular-season weeks with playoffs in 14–16, against
+  fourteen and 15–17 for every later season. Nothing may assume a fixed week count.
+- **Per-season deletes, never a bare `DELETE FROM`.** A re-run clears only the seasons it is
+  importing, so a partial re-import cannot silently drop the rest of the league's history.
+
+**Next:** H4 — the pre-Sleeper era (2006–2019) from the workbook: standings, podium, prize money
+and draft locations.
