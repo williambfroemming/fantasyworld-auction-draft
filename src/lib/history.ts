@@ -97,6 +97,13 @@ export interface HistoryInput {
   standings: HistoryStanding[]
   matchups: HistoryMatchup[]
   lineups: HistoryLineup[]
+  /**
+   * Auction picks, for the draft half of a member page.
+   *
+   * Optional because most reports do not need them and loading 800 rows to
+   * render the all-time table would be waste.
+   */
+  picks?: HistoryPick[]
 }
 
 // ---------------------------------------------------------------------------
@@ -852,5 +859,211 @@ export function seasonInReview(input: HistoryInput, season: number): SeasonRevie
       : null,
     mostConsistent: variability[0] ?? null,
     mostVolatile: variability[variability.length - 1] ?? null,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Head to head
+// ---------------------------------------------------------------------------
+
+export interface H2HCell {
+  managerId: number
+  opponentManagerId: number
+  wins: number
+  losses: number
+  ties: number
+  pointsFor: number
+  pointsAgainst: number
+}
+
+export interface H2HReport {
+  cells: H2HCell[]
+  coverage: Coverage
+  /** Look a pairing up without scanning. Key is `${a}:${b}`. */
+  get: (managerId: number, opponentManagerId: number) => H2HCell | undefined
+}
+
+/**
+ * Every manager's record against every other, regular season only.
+ *
+ * Playoffs are excluded deliberately. A head-to-head table is read as "who owns
+ * whom over a long run", and playoff meetings are both rare and unevenly
+ * distributed — two managers who met three times in January would show a record
+ * that says more about seeding than about the matchup. It also keeps this
+ * directly comparable to the league's own Everyone-vs-Everyone sheet, which
+ * counts regular-season games.
+ */
+export function headToHead(matchups: HistoryMatchup[], seasons: HistorySeason[]): H2HReport {
+  const cells = new Map<string, H2HCell>()
+
+  for (const m of matchups) {
+    if (m.isPlayoff) continue
+    const key = `${m.managerId}:${m.opponentManagerId}`
+    const cell =
+      cells.get(key) ??
+      {
+        managerId: m.managerId,
+        opponentManagerId: m.opponentManagerId,
+        wins: 0,
+        losses: 0,
+        ties: 0,
+        pointsFor: 0,
+        pointsAgainst: 0,
+      }
+    if (m.result === 'W') cell.wins++
+    else if (m.result === 'L') cell.losses++
+    else cell.ties++
+    cell.pointsFor += m.points
+    cell.pointsAgainst += m.opponentPoints
+    cells.set(key, cell)
+  }
+
+  for (const cell of cells.values()) {
+    cell.pointsFor = round(cell.pointsFor)
+    cell.pointsAgainst = round(cell.pointsAgainst)
+  }
+
+  return {
+    cells: [...cells.values()],
+    coverage: coverageFor(seasons, ['weekly'], 'since Sleeper', playedSeasons(matchups)),
+    get: (a, b) => cells.get(`${a}:${b}`),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// One member's career
+// ---------------------------------------------------------------------------
+
+/** A pick, for the draft half of a member page. Optional in {@link HistoryInput}. */
+export interface HistoryPick {
+  season: number
+  managerId: number
+  playerName: string
+  playerPosition: string
+  price: number
+}
+
+export interface MemberSeasonRow {
+  season: number
+  dataTier: DataTier
+  place: number | null
+  wins: number
+  losses: number
+  ties: number
+  pointsFor: number | null
+  pointsAgainst: number | null
+  madePlayoffs: boolean
+  playoffWins: number | null
+  playoffLosses: number | null
+  /** Where they finished in the bracket, when they finished on the podium. */
+  finish: 'champion' | 'runner-up' | 'third' | null
+  prize: number | null
+  /** Null when that season's auction is not on record. */
+  draftSpend: number | null
+  biggestBuy: { playerName: string; price: number } | null
+}
+
+export interface MemberProfile {
+  member: HistoryMember
+  seasons: MemberSeasonRow[]
+  allTime: AllTimeStats
+  weekly: WeeklyStats | null
+  /** Best and worst by regular-season win percentage. Null before any season. */
+  bestSeason: MemberSeasonRow | null
+  worstSeason: MemberSeasonRow | null
+  /** Their record against each opponent, best win rate first. */
+  h2h: H2HCell[]
+  allTimeCoverage: Coverage
+  weeklyCoverage: Coverage
+}
+
+/**
+ * One member, from every angle the league has a record of.
+ *
+ * Reuses `leagueSummary` for the career totals rather than recomputing them, so
+ * a member page and the all-time table can never disagree — the failure mode
+ * that makes people stop trusting both.
+ */
+export function memberProfile(input: HistoryInput, managerId: number): MemberProfile | null {
+  const member = input.members.find((m) => m.managerId === managerId)
+  if (!member) return null
+
+  const summary = leagueSummary(input)
+  const row = summary.rows.find((r) => r.member.managerId === managerId)
+  if (!row) return null
+
+  const bySeason = new Map(input.seasons.map((s) => [s.season, s]))
+  const picks = input.picks ?? []
+
+  const seasons: MemberSeasonRow[] = input.standings
+    .filter((s) => s.managerId === managerId)
+    .sort((a, b) => b.season - a.season)
+    .map((s) => {
+      const meta = bySeason.get(s.season)
+      const mine = picks.filter((p) => p.season === s.season && p.managerId === managerId)
+      const biggest = mine.length
+        ? mine.reduce((a, b) => (b.price > a.price ? b : a))
+        : null
+      const finish =
+        meta?.championManagerId === managerId
+          ? ('champion' as const)
+          : meta?.runnerUpManagerId === managerId
+            ? ('runner-up' as const)
+            : meta?.thirdManagerId === managerId
+              ? ('third' as const)
+              : null
+      return {
+        season: s.season,
+        dataTier: meta?.dataTier ?? 'standings',
+        place: s.place,
+        wins: s.wins,
+        losses: s.losses,
+        ties: s.ties,
+        pointsFor: s.pointsFor,
+        pointsAgainst: s.pointsAgainst,
+        madePlayoffs: s.madePlayoffs,
+        playoffWins: s.playoffWins,
+        playoffLosses: s.playoffLosses,
+        finish,
+        prize:
+          finish === 'champion'
+            ? (meta?.championPrize ?? null)
+            : finish === 'runner-up'
+              ? (meta?.runnerUpPrize ?? null)
+              : finish === 'third'
+                ? (meta?.thirdPrize ?? null)
+                : null,
+        // Null, not zero: a season whose auction is not on record has an unknown
+        // spend, and zero would read as "they drafted nobody".
+        draftSpend: mine.length ? sum(mine.map((p) => p.price)) : null,
+        biggestBuy: biggest ? { playerName: biggest.playerName, price: biggest.price } : null,
+      }
+    })
+
+  const rate = (s: MemberSeasonRow) => {
+    const games = s.wins + s.losses + s.ties
+    return games ? s.wins / games : -1
+  }
+  const played = seasons.filter((s) => s.wins + s.losses + s.ties > 0)
+  const ranked = [...played].sort((a, b) => rate(b) - rate(a))
+
+  const h2h = headToHead(input.matchups, input.seasons)
+    .cells.filter((c) => c.managerId === managerId)
+    .sort((a, b) => {
+      const ra = a.wins / Math.max(a.wins + a.losses + a.ties, 1)
+      const rb = b.wins / Math.max(b.wins + b.losses + b.ties, 1)
+      return rb - ra
+    })
+
+  return {
+    member,
+    seasons,
+    allTime: row.allTime,
+    weekly: row.weekly,
+    bestSeason: ranked[0] ?? null,
+    worstSeason: ranked[ranked.length - 1] ?? null,
+    h2h,
+    allTimeCoverage: summary.allTime,
+    weeklyCoverage: summary.weekly,
   }
 }

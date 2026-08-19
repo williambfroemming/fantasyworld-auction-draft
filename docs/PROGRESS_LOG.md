@@ -2112,3 +2112,61 @@ while JavaScript is still loading, which on draft night is worth having. `invisi
   Draft History while `/board` sits under Draft, and no amount of path-matching would guess that.
 
 **Next:** H10 — member pages and the head-to-head grid.
+
+---
+
+## Step 43 — Phase 2 H10: members, head to head, favourites
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `headToHead()` and `memberProfile()` in `src/lib/history.ts` (+13 tests),
+`getFavoritePlayers`/`getMostCarried` in the service, `/history/members`,
+`/history/members/[id]`, `/history/h2h`, and a sortable all-time table.
+
+**287 unit tests passing.** Phase 2's ten build steps are complete.
+
+### Favourite players — the feature the data was already carrying
+
+`picks` knows what somebody paid; `player_weeks` knows how long they carried them. Joined per
+manager, that answers "who does this person actually like" — and the two halves disagree usefully.
+Bill's most expensive player and his most-carried are both Ja'Marr Chase, but Keenan Allen and
+Christian Kirk show up near the top of the weeks list having **never been drafted at all**.
+
+Ranked by weeks rather than money, on the league's instruction: a $54 buy dropped by week four says
+less than a waiver pickup kept for four seasons. A **FULL JOIN**, because drafting and rostering are
+independent — a waiver pickup has weeks and no price, a 2026 pick has a price and no weeks.
+
+### Seed and Finish are two different columns now
+
+The first cut put an unlabelled medal beside a column headed "Place", which read as a contradiction:
+a trophy next to 4th. It is not — Bill was the 4 seed in 2016 and won it. Two columns, each saying
+which question it answers.
+
+### The all-time table sorts
+
+Every column, because the interesting question changes by reader. `LeagueSummaryTable` becomes the
+one client component in `/history`; everything else stays a Server Component shipping no JavaScript.
+
+**Learned:**
+
+- **A null must not be sortable as a zero.** Nulls here mean "no record for this era", so they sort
+  last in *both* directions — floating a manager with no weekly data to the top of "worst lineup
+  efficiency" would be a confident wrong answer.
+- **`memberProfile` reuses `leagueSummary` rather than recomputing.** A member page and the all-time
+  table disagreeing by a game is the kind of thing that makes people stop trusting both, and a test
+  asserts they are identical.
+- **A grid child defaults to `min-width: auto`.** The wide season table forced the whole row wider
+  than its container and pushed the right column's values off the screen edge; `min-w-0` on the grid
+  and both children fixes it. Caught by looking at a screenshot, not by a test.
+
+**Watch out for:**
+
+- **Head-to-head is regular season only**, deliberately. Playoff meetings are rare and unevenly
+  distributed, so including them would say more about seeding than about the matchup — and it keeps
+  the grid comparable to the league's own Everyone-vs-Everyone sheet.
+- Cell tint tracks win rate but **colour is never the only encoding**: every cell prints its record.
+- An unknown draft spend renders as `—`, never `$0`. A season whose auction is not on record is not
+  a season somebody drafted nobody.
+
+**Next:** Phase 2's build steps are done. Remaining: run the migrations and imports against Neon
+once the quota clears, and a UAT pass over the new pages.

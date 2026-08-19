@@ -4,8 +4,10 @@ import {
   coverageFor,
   highLowWeeks,
   isCountedPlayoff,
+  headToHead,
   leagueSummary,
   longestStreaks,
+  memberProfile,
   records,
   seasonInReview,
   type HistoryInput,
@@ -483,5 +485,110 @@ describe('best and worst record rank by percentage, not margin', () => {
     const bestRec = records(input).seasons.find((r) => r.key === 'bestRecord')!
     expect(bestRec.managerId).toBe(1)
     expect(bestRec.display).toBe('11-2')
+  })
+})
+
+describe('headToHead', () => {
+  const seasons = [season(2021, 'weekly')]
+  // 1 beats 2 twice; 3 and 4 split.
+  const matchups = [
+    ...week(2021, 1, [40, 30, 20, 10]),
+    ...week(2021, 2, [40, 30, 10, 20]),
+  ]
+
+  it('records both sides of a pairing', () => {
+    const h2h = headToHead(matchups, seasons)
+    expect(h2h.get(1, 2)).toMatchObject({ wins: 2, losses: 0 })
+    expect(h2h.get(2, 1)).toMatchObject({ wins: 0, losses: 2 })
+  })
+
+  it('splits a split', () => {
+    const h2h = headToHead(matchups, seasons)
+    expect(h2h.get(3, 4)).toMatchObject({ wins: 1, losses: 1 })
+  })
+
+  it('accumulates points for and against', () => {
+    expect(headToHead(matchups, seasons).get(1, 2)).toMatchObject({
+      pointsFor: 80,
+      pointsAgainst: 60,
+    })
+  })
+
+  it('excludes playoff meetings', () => {
+    // Rare and unevenly distributed: a pairing that met three times in January
+    // would show a record that says more about seeding than the matchup.
+    const withPlayoff = [...matchups, ...week(2021, 15, [1, 99, 1, 1], { isPlayoff: true })]
+    expect(headToHead(withPlayoff, seasons).get(1, 2)).toMatchObject({ wins: 2, losses: 0 })
+  })
+
+  it('has no cell for a pairing that never met', () => {
+    expect(headToHead(matchups, seasons).get(1, 3)).toBeUndefined()
+  })
+})
+
+describe('memberProfile', () => {
+  const seasons = [
+    season(2015, 'standings', { championManagerId: 1, championPrize: 500 }),
+    season(2021, 'weekly', { thirdManagerId: 1, thirdPrize: 100 }),
+  ]
+  const input: HistoryInput = {
+    members,
+    seasons,
+    standings: [
+      standing(2015, 1, { wins: 10, losses: 3 }),
+      standing(2021, 1, { wins: 4, losses: 10 }),
+      ...members.slice(1).flatMap((m) => [standing(2015, m.managerId), standing(2021, m.managerId)]),
+    ],
+    matchups: week(2021, 1, [40, 30, 20, 10]),
+    lineups: [],
+    picks: [
+      { season: 2021, managerId: 1, playerName: 'Big Buy', playerPosition: 'RB', price: 60 },
+      { season: 2021, managerId: 1, playerName: 'Cheap Guy', playerPosition: 'WR', price: 2 },
+      { season: 2021, managerId: 2, playerName: 'Someone Else', playerPosition: 'QB', price: 30 },
+    ],
+  }
+
+  it('lists seasons newest first with the podium finish', () => {
+    const p = memberProfile(input, 1)!
+    expect(p.seasons.map((s) => s.season)).toEqual([2021, 2015])
+    expect(p.seasons.find((s) => s.season === 2015)!.finish).toBe('champion')
+    expect(p.seasons.find((s) => s.season === 2021)!.finish).toBe('third')
+  })
+
+  it('carries the prize for the placing actually achieved', () => {
+    const p = memberProfile(input, 1)!
+    expect(p.seasons.find((s) => s.season === 2015)!.prize).toBe(500)
+    expect(p.seasons.find((s) => s.season === 2021)!.prize).toBe(100)
+  })
+
+  it('sums only that member’s draft spend, and names their biggest buy', () => {
+    const s = memberProfile(input, 1)!.seasons.find((x) => x.season === 2021)!
+    expect(s.draftSpend).toBe(62)
+    expect(s.biggestBuy).toMatchObject({ playerName: 'Big Buy', price: 60 })
+  })
+
+  it('reports an unknown draft spend as null, never zero', () => {
+    // Zero would read as "they drafted nobody" for a season whose auction
+    // simply is not on record.
+    const s = memberProfile(input, 1)!.seasons.find((x) => x.season === 2015)!
+    expect(s.draftSpend).toBeNull()
+    expect(s.biggestBuy).toBeNull()
+  })
+
+  it('picks best and worst season by win rate, not by wins', () => {
+    const p = memberProfile(input, 1)!
+    expect(p.bestSeason!.season).toBe(2015)
+    expect(p.worstSeason!.season).toBe(2021)
+  })
+
+  it('agrees with the all-time table rather than recomputing it', () => {
+    // The failure this avoids: a member page and the summary disagreeing, which
+    // makes people stop trusting both.
+    const fromSummary = leagueSummary(input).rows.find((r) => r.member.managerId === 1)!
+    expect(memberProfile(input, 1)!.allTime).toEqual(fromSummary.allTime)
+  })
+
+  it('returns null for somebody who is not in the league', () => {
+    expect(memberProfile(input, 999)).toBeNull()
   })
 })

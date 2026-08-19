@@ -28,7 +28,15 @@ import type {
   HistorySeason,
   HistoryStanding,
 } from '@/lib/history'
-import { leagueSummary, records, seasonInReview, type LeagueSummaryReport } from '@/lib/history'
+import {
+  headToHead,
+  leagueSummary,
+  memberProfile,
+  records,
+  seasonInReview,
+  type HistoryPick,
+  type LeagueSummaryReport,
+} from '@/lib/history'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v))
@@ -38,7 +46,7 @@ const numOrNull = (v: unknown): number | null =>
 export async function getHistoryInput(): Promise<HistoryInput> {
   const sql = getSql()
 
-  const [members, seasons, standings, matchups, lineups] = await Promise.all([
+  const [members, seasons, standings, matchups, lineups, picks] = await Promise.all([
     sql`SELECT id, name, display_name, color FROM managers ORDER BY id`,
     sql`SELECT season, data_tier, regular_season_weeks,
                champion_manager_id, runner_up_manager_id, third_manager_id,
@@ -53,6 +61,10 @@ export async function getHistoryInput(): Promise<HistoryInput> {
           FROM season_matchups ORDER BY season, week`,
     sql`SELECT season, week, manager_id, actual_points, optimal_points
           FROM season_lineups ORDER BY season, week`,
+    // Auction picks, for the draft half of a member page. Snapshot columns only
+    // — never a join to `players`, which is re-imported every August.
+    sql`SELECT season, manager_id, player_name, player_position, price
+          FROM picks ORDER BY season DESC, price DESC`,
   ])
 
   return {
@@ -107,6 +119,15 @@ export async function getHistoryInput(): Promise<HistoryInput> {
         playoffRound: numOrNull(r.playoff_round),
         playoffPlacement: numOrNull(r.playoff_placement),
         result: r.result as HistoryMatchup['result'],
+      }),
+    ),
+    picks: picks.map(
+      (r): HistoryPick => ({
+        season: Number(r.season),
+        managerId: Number(r.manager_id),
+        playerName: String(r.player_name),
+        playerPosition: String(r.player_position),
+        price: num(r.price),
       }),
     ),
     lineups: lineups.map(
@@ -238,4 +259,121 @@ export async function listAuctions(): Promise<AuctionSummary[]> {
       isCurrent: season === Number(current),
     }
   })
+}
+
+export async function getHeadToHead() {
+  const input = await getHistoryInput()
+  return { report: headToHead(input.matchups, input.seasons), members: input.members }
+}
+
+export async function getMemberProfile(managerId: number) {
+  const input = await getHistoryInput()
+  return { profile: memberProfile(input, managerId), members: input.members }
+}
+
+export async function listMembers() {
+  const input = await getHistoryInput()
+  const summary = leagueSummary(input)
+  return summary.rows.map((r) => ({
+    member: r.member,
+    titles: r.allTime.titles,
+    seasons: r.allTime.seasons,
+    wins: r.allTime.wins,
+    losses: r.allTime.losses,
+    winPct: r.allTime.winPct,
+  }))
+}
+
+export interface FavoritePlayer {
+  playerId: string
+  playerName: string
+  position: string | null
+  /** How many separate auctions they bought this player in. */
+  timesDrafted: number
+  totalSpent: number
+  seasons: number[]
+  weeksRostered: number
+  weeksStarted: number
+  pointsScored: number
+}
+
+/**
+ * Who a manager keeps coming back to.
+ *
+ * Two different affections, side by side: money spent at auction, and weeks
+ * actually carried. They disagree more often than you would think — a player
+ * bought once for $54 and dropped by week four is a different kind of favourite
+ * from one rostered for four seasons off waivers.
+ *
+ * A **FULL JOIN** on purpose. Drafting and rostering are independent: a waiver
+ * pickup has weeks and no price, and a player bought in 2026 has a price and no
+ * weeks yet. An inner join would quietly hide both.
+ *
+ * Aggregated in SQL rather than in `history.ts` because this is the one report
+ * that needs `player_weeks` — 17,000 rows that no other page loads.
+ */
+export async function getFavoritePlayers(
+  managerId: number,
+  limit = 20,
+): Promise<FavoritePlayer[]> {
+  const sql = getSql()
+  const rows = await sql`
+    WITH drafted AS (
+      SELECT pk.player_sleeper_id            AS player_id,
+             count(*)::int                   AS times_drafted,
+             sum(pk.price)::int              AS total_spent,
+             array_agg(pk.season ORDER BY pk.season) AS seasons,
+             (array_agg(pk.player_name ORDER BY pk.season DESC))[1]     AS player_name,
+             (array_agg(pk.player_position ORDER BY pk.season DESC))[1] AS position
+        FROM picks pk
+       WHERE pk.manager_id = ${managerId}
+         AND pk.player_sleeper_id IS NOT NULL
+       GROUP BY pk.player_sleeper_id
+    ),
+    carried AS (
+      SELECT pw.player_id,
+             count(*)::int                                AS weeks_rostered,
+             count(*) FILTER (WHERE pw.is_starter)::int    AS weeks_started,
+             COALESCE(sum(pw.points) FILTER (WHERE pw.is_starter), 0) AS points_scored,
+             (array_agg(pw.player_name ORDER BY pw.season DESC))[1] AS player_name,
+             (array_agg(pw.position    ORDER BY pw.season DESC))[1] AS position
+        FROM player_weeks pw
+       WHERE pw.manager_id = ${managerId}
+       GROUP BY pw.player_id
+    )
+    SELECT COALESCE(d.player_id, c.player_id)          AS player_id,
+           COALESCE(d.player_name, c.player_name)      AS player_name,
+           COALESCE(d.position, c.position)            AS position,
+           COALESCE(d.times_drafted, 0)                AS times_drafted,
+           COALESCE(d.total_spent, 0)                  AS total_spent,
+           COALESCE(d.seasons, '{}')                   AS seasons,
+           COALESCE(c.weeks_rostered, 0)               AS weeks_rostered,
+           COALESCE(c.weeks_started, 0)                AS weeks_started,
+           COALESCE(c.points_scored, 0)                AS points_scored
+      FROM drafted d
+      FULL JOIN carried c ON c.player_id = d.player_id
+     ORDER BY COALESCE(d.total_spent, 0) DESC,
+              COALESCE(c.weeks_rostered, 0) DESC
+     LIMIT ${limit}`
+
+  return rows.map((r) => ({
+    playerId: String(r.player_id),
+    playerName: String(r.player_name ?? r.player_id),
+    position: r.position === null ? null : String(r.position),
+    timesDrafted: num(r.times_drafted),
+    totalSpent: num(r.total_spent),
+    seasons: ((r.seasons as number[] | null) ?? []).map(Number),
+    weeksRostered: num(r.weeks_rostered),
+    weeksStarted: num(r.weeks_started),
+    pointsScored: num(r.points_scored),
+  }))
+}
+
+/** The same, ranked by weeks carried rather than money — a different question. */
+export async function getMostCarried(managerId: number, limit = 10) {
+  const all = await getFavoritePlayers(managerId, 200)
+  return [...all]
+    .filter((p) => p.weeksRostered > 0)
+    .sort((a, b) => b.weeksRostered - a.weeksRostered || b.weeksStarted - a.weeksStarted)
+    .slice(0, limit)
 }
