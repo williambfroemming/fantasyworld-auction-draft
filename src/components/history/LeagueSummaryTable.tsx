@@ -212,7 +212,15 @@ export function LeagueSummaryTable({ report }: { report: LeagueSummaryReport }) 
           </tr>
           <tr className="border-b border-rule-strong">
             <Head className="sticky left-0 z-10 bg-slate-950" align="left" sortKey="name" sort={sort} onSort={onSort}>Member</Head>
-            <Head title="Championships" sortKey="titles" sort={sort} onSort={onSort}>🏆</Head>
+            {/* Titles reach back further than the record beside them. */}
+            <Head
+              title={`Championships, ${report.titles.from}–${report.titles.to}`}
+              sortKey="titles"
+              sort={sort}
+              onSort={onSort}
+            >
+              🏆
+            </Head>
             <Head title="Prize money won, all placings" sortKey="money" sort={sort} onSort={onSort}>Won</Head>
             <Head title="Cumulative regular-season record" sortKey="record" sort={sort} onSort={onSort}>Record</Head>
             <Head sortKey="winPct" sort={sort} onSort={onSort}>Win %</Head>

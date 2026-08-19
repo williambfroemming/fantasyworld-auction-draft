@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { EraBadge } from '@/components/history/EraBadge'
 import { SiteNav } from '@/components/SiteNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { managerColor, managerTint, textOn } from '@/lib/colors'
+import { managerColor } from '@/lib/colors'
 import { getHeadToHead } from '@/server/history-service'
 
 /**
@@ -12,9 +12,16 @@ import { getHeadToHead } from '@/server/history-service'
  * long run", and playoff meetings are rare and unevenly distributed enough that
  * including them says more about seeding than about the matchup.
  *
- * ⚠️ Colour is never the only encoding. Each cell prints its record in text and
- * is tinted by win rate on top; the tint is an accelerant for scanning, not the
- * information.
+ * ## Reading the colour
+ *
+ * One diverging scale, not ten. The first cut tinted each cell by the row
+ * manager's own colour and computed the text colour from that tint — which put
+ * pale text on pale backgrounds in the light theme and made half the grid
+ * unreadable. Ten hues also compete with each other, so nothing stands out.
+ *
+ * Now: green above .500, red below, intensity tracking distance from even, and
+ * the **text colour is left alone** so contrast is whatever the theme already
+ * guarantees. Colour is never the only encoding — every cell prints its record.
  */
 export const revalidate = 3600
 
@@ -39,6 +46,18 @@ export default async function HeadToHeadPage() {
           <p className="text-xs text-slate-400">
             Read across: each row is that manager&rsquo;s record <em>against</em> the manager in the
             column. Regular season only.
+          </p>
+          <p className="flex items-center gap-2 text-[0.68rem] text-slate-500">
+            <span
+              className="inline-block h-3 w-6"
+              style={{ backgroundColor: 'color-mix(in oklab, var(--color-rose-500) 26%, transparent)' }}
+            />
+            losing
+            <span
+              className="inline-block h-3 w-6"
+              style={{ backgroundColor: 'color-mix(in oklab, var(--color-emerald-500) 26%, transparent)' }}
+            />
+            winning
           </p>
           <EraBadge coverage={report.coverage} />
         </div>
@@ -70,7 +89,7 @@ export default async function HeadToHeadPage() {
                 const l = mine.reduce((s, c) => s + c.losses, 0)
                 const t = mine.reduce((s, c) => s + c.ties, 0)
                 return (
-                  <tr key={row.managerId} className="border-t border-rule">
+                  <tr key={row.managerId} className="border-t border-rule even:bg-slate-500/[0.04]">
                     <th
                       scope="row"
                       className="sticky left-0 z-10 bg-slate-950 px-2 py-1.5 text-left font-semibold"
@@ -105,24 +124,24 @@ export default async function HeadToHeadPage() {
                         )
                       }
                       const games = cell.wins + cell.losses + cell.ties
-                      const pct = games ? cell.wins / games : 0
-                      const base = managerColor(row.color)
-                      // Tint strength tracks win rate; the record is still printed.
-                      const strength = Math.round(Math.abs(pct - 0.5) * 2 * 42)
-                      const winning = pct > 0.5
+                      const pct = games ? cell.wins / games : 0.5
+                      // 0 at even, 1 at a clean sweep. Squared-off so a 6-5 is
+                      // barely tinted and an 8-2 is obvious.
+                      const away = Math.min(Math.abs(pct - 0.5) * 2, 1)
+                      const alpha = Math.round(away * 26)
+                      const hue = pct >= 0.5 ? 'emerald' : 'rose'
                       return (
                         <td
                           key={col.managerId}
-                          className="px-2 py-1.5 text-center font-mono text-xs tabular-nums"
+                          className="px-2 py-1.5 text-center font-mono text-xs font-medium tabular-nums"
                           style={
-                            strength > 4
+                            alpha >= 3
                               ? {
-                                  backgroundColor: managerTint(base, winning ? strength : 0),
-                                  color: winning ? textOn(managerTint(base, strength)) : undefined,
+                                  backgroundColor: `color-mix(in oklab, var(--color-${hue}-500) ${alpha}%, transparent)`,
                                 }
                               : undefined
                           }
-                          title={`${row.displayName} vs ${col.displayName}: ${cell.wins}-${cell.losses}${cell.ties ? `-${cell.ties}` : ''} · ${cell.pointsFor.toFixed(0)} pts for, ${cell.pointsAgainst.toFixed(0)} against`}
+                          title={`${row.displayName} vs ${col.displayName}: ${cell.wins}-${cell.losses}${cell.ties ? `-${cell.ties}` : ''} · ${cell.pointsFor.toFixed(0)} points for, ${cell.pointsAgainst.toFixed(0)} against`}
                         >
                           {cell.wins}-{cell.losses}
                           {cell.ties ? `-${cell.ties}` : ''}

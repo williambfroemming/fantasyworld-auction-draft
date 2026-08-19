@@ -359,7 +359,16 @@ export interface LeagueSummaryReport {
   rows: LeagueSummaryRow[]
   allTime: Coverage
   weekly: Coverage
-  /** Champions from before the membership record, by name only. */
+  /**
+   * Championships reach further back than anything else.
+   *
+   * 2006–2010 survive as a champion and nothing else, and those titles count —
+   * rings are counted from the start of the record. So the trophy column spans
+   * more years than the record beside it, and says so rather than letting a
+   * reader assume both cover the same era.
+   */
+  titles: Coverage
+  /** The seasons that contribute a champion and nothing else. */
   legacyNote: Coverage
 }
 
@@ -473,6 +482,12 @@ export function leagueSummary(input: HistoryInput): LeagueSummaryReport {
     rows: rows.sort((a, b) => b.allTime.winPct - a.allTime.winPct),
     allTime: coverageFor(seasons, ['standings', 'weekly'], 'all-time', played),
     weekly: coverageFor(seasons, ['weekly'], 'since Sleeper', weekly),
+    titles: coverageFor(
+      seasons,
+      ['legacy', 'standings', 'weekly'],
+      'titles',
+      new Set(seasons.filter((s) => s.championManagerId !== null).map((s) => s.season)),
+    ),
     legacyNote: coverageFor(seasons, ['legacy'], 'champions only'),
   }
 }

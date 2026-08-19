@@ -8,9 +8,11 @@
  *
  *  - **2011–2019 standings** — the only grain that exists for those years, and
  *    therefore the entire factual base of the "All-Time" era.
- *  - **2006–2010 champions** — a name and nothing else. Deliberately not linked
- *    to `managers`: those years predate the league's membership record, and
- *    asserting the 2006 "Daniel" is today's Daniel is a guess dressed as a fact.
+ *  - **2006–2010 champions** — a name and nothing else, but the name IS resolved
+ *    to a manager. Those titles count: rings are counted from the start of the
+ *    record, the way every other sport does it. It is the one place the app
+ *    asserts that a pre-membership-record name is the person carrying it today,
+ *    and the league confirmed it.
  *  - **The podium and its prize money, 2011–2024.** Money is a league fact that
  *    exists nowhere in the API.
  *  - **Draft locations, 2010–2025.** Likewise.
@@ -69,6 +71,22 @@ async function main() {
 
   // Every season the workbook knows about, plus the ones already on record.
   const podium = new Map<number, { place: number; managerId: number; money: number | null }[]>()
+
+  // 2006-2010 survive as a champion's name and nothing else. The league counts
+  // those titles — rings are counted from the start of the record, the way every
+  // other sport does it — so the name is resolved to a manager here.
+  //
+  // ⚠️ This is the one place the app asserts that a name from before the
+  // membership record is the person who carries it today. The league confirmed
+  // it; the resolver still throws on anything it does not recognise, so a new
+  // name in that block stops the import rather than inventing an eleventh member.
+  for (const r of legacy) {
+    const year = Number(r.championship_year)
+    podium.set(year, [
+      { place: 1, managerId: managerIdForName(r.member), money: money(r.money_won) },
+    ])
+  }
+
   for (const r of wins) {
     const year = Number(r.championship_year)
     const list = podium.get(year) ?? []
@@ -109,6 +127,8 @@ async function main() {
 
   // --- seasons --------------------------------------------------------------
   const seasonRows = allYears.map((year) => {
+    // Still 'legacy': a champion is all these years have, and the tier is what
+    // stops points and records reaching for data that does not exist.
     const tier = year < 2011 ? 'legacy' : year < SLEEPER_FROM ? 'standings' : 'weekly'
     const l = loc.get(year)
     return {

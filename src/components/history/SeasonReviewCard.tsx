@@ -72,11 +72,20 @@ export function SeasonReviewCard({
         )}
       </header>
 
+      {/*
+        A legacy season has a champion and literally nothing else. Rendering the
+        other three rows as em-dashes filled the card with absence and made a
+        complete record look like a broken one.
+      */}
       <div className="space-y-0.5">
         <Line label="🏆 Champion">{place(r.champion)}</Line>
-        <Line label="🥈 Runner-up">{place(r.runnerUp)}</Line>
-        <Line label="🥉 Third">{place(r.third)}</Line>
-        <Line label="👑 Regular season">{place(r.regularSeasonWinner)}</Line>
+        {r.dataTier !== 'legacy' && (
+          <>
+            <Line label="🥈 Runner-up">{place(r.runnerUp)}</Line>
+            <Line label="🥉 Third">{place(r.third)}</Line>
+            <Line label="👑 Regular season">{place(r.regularSeasonWinner)}</Line>
+          </>
+        )}
       </div>
 
       {r.dataTier === 'weekly' ? (
@@ -113,7 +122,7 @@ export function SeasonReviewCard({
       ) : (
         <p className="mt-2 border-t border-rule pt-2 text-[0.7rem] leading-relaxed text-slate-500">
           {r.dataTier === 'legacy'
-            ? 'Only the champion survives from this season.'
+            ? 'The champion is the whole record for this season.'
             : 'Week-by-week results were not recorded this season, so there are no game records for it.'}
         </p>
       )}

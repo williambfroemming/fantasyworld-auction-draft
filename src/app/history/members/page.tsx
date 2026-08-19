@@ -44,10 +44,18 @@ export default async function MembersPage() {
                     seasons
                   </span>
                 </span>
+                {/*
+                  Up to three rings are drawn; past that it becomes one ring and
+                  a count. Three trophies followed by "×4" reads as three times
+                  four, which is how a five-time champion looked like a
+                  twelve-time one.
+                */}
                 {m.titles > 0 && (
-                  <span className="shrink-0 font-mono text-sm text-amber-400 tabular-nums">
-                    {'🏆'.repeat(Math.min(m.titles, 3))}
-                    {m.titles > 3 ? ` ×${m.titles}` : ''}
+                  <span
+                    className="shrink-0 font-mono text-sm text-amber-400 tabular-nums"
+                    title={`${m.titles} championship${m.titles === 1 ? '' : 's'}`}
+                  >
+                    {m.titles <= 3 ? '🏆'.repeat(m.titles) : `🏆 ×${m.titles}`}
                   </span>
                 )}
               </Link>

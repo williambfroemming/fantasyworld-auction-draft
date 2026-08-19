@@ -2229,3 +2229,53 @@ placed behind Jerome Ford until the halves were added together.
   seasons of committed files and would let a Sleeper revision quietly rewrite settled history.
 - `CURRENT_SLEEPER_SEASON` is the one place a literal current year lives, and it moves every August
   alongside `npm run season:new`.
+
+---
+
+## Step 45 — Every ring counts, and the grid becomes readable
+
+**Date:** 2026-08-18  **Status:** done
+
+**Changed:** 2006–2010 champions now resolve to managers, the head-to-head grid moves to one
+diverging scale, legacy season cards drop their empty rows, and the trophy display stops
+multiplying.
+
+**291 unit tests passing.**
+
+### Championships reach back to 2006
+
+The earlier position — that linking a pre-membership-record name to today's manager was "a guess
+dressed as a fact" — was overruled by the league, correctly. Rings are counted from the start of the
+record, the way every other sport does it, and the league knows whether the 2006 Daniel is this
+Daniel. Bryan goes to **5**, Daniel to **4**, Justin to **2**.
+
+It does create a real era mismatch, so the trophy column carries its own `Coverage`: titles span
+2006–2025 while the record beside them spans 2011–2025. That is exactly what `EraBadge` is for.
+
+### The head-to-head grid was unreadable, and it was my fault
+
+Cells were tinted with the row manager's own colour and the text colour was computed from that tint
+— which in the light theme put pale text on a pale background across half the grid. Ten competing
+hues also meant nothing stood out.
+
+One diverging scale now: green above .500, red below, intensity tracking distance from even, and
+**the text colour left alone** so contrast is whatever the theme already guarantees. It cannot
+regress to light-on-light, because nothing overrides the foreground any more.
+
+**Learned:**
+
+- **Computing a foreground from a computed background is where contrast bugs live.** Leaving the
+  text alone and tinting only behind it is both simpler and safe in every theme by construction.
+- **Absence rendered as content reads as breakage.** A legacy card showing Runner-up, Third and
+  Regular season as three em-dashes made a complete record look like a broken one. Showing only what
+  exists says more.
+- **`🏆🏆🏆 ×4` reads as twelve.** Repetition and multiplication in the same glyph run multiply in the
+  reader's head. Past three it is one trophy and a count.
+
+**Watch out for:**
+
+- Linking legacy champions is the **one** place the app asserts a pre-record name is today's person.
+  The resolver still throws on anything unrecognised, so a new name there stops the import rather
+  than inventing an eleventh member.
+- The trophy column's span is wider than the table's. If a column is ever added that also reaches
+  past 2011, it needs its own badge too.

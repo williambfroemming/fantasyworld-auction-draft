@@ -71,15 +71,20 @@ export default async function HistoryPage() {
                 were not recorded that way.
               </span>
             </p>
-            {report.legacyNote.seasons.length > 0 && (
-              <p className="flex flex-wrap items-baseline gap-x-2">
-                <EraBadge coverage={report.legacyNote} />
-                <span>
-                  — {report.legacyNote.seasons.join(', ')} survive as a champion&rsquo;s name only,
-                  so they appear in no column above.
-                </span>
-              </p>
-            )}
+            <p className="flex flex-wrap items-baseline gap-x-2">
+              <EraBadge coverage={report.titles} />
+              <span>
+                — championships only. Rings are counted from the start of the record, so the 🏆
+                column reaches further back than the record beside it
+                {report.legacyNote.seasons.length > 0 && (
+                  <>
+                    : {report.legacyNote.seasons.join(', ')} survive as a champion&rsquo;s name and
+                    nothing else, and contribute to no other column
+                  </>
+                )}
+                .
+              </span>
+            </p>
             <p className="pt-1">
               <span className="text-slate-300">—</span> means unknown, which is not the same as
               zero. Third-place games count toward playoff records; the fifth-place game does not.
