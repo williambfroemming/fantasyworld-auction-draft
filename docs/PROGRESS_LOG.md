@@ -1211,3 +1211,89 @@ sibling, and it opens one drawer with several entry points rather than several c
   must lose the badge, or the board fills with injuries that resolved weeks ago and nobody trusts it.
 
 **Next:** §8 is all that remains — mobile, push-to-Sleeper, accessibility.
+
+---
+
+## Step 27 — Phase 2 H1: the sources, pinned and proven
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/history/xlsm-to-csv.py` + `data/history/*.csv` (8 files, 14,317 rows);
+`scripts/history/pull-sleeper.ts` + `data/sleeper/2020..2025/*.json` (2.0MB, 6 seasons);
+`src/lib/history-identity.ts` + 25 unit tests. No schema, no UI. Phase 2 §12.
+
+**201 unit tests passing**, lint and typecheck clean.
+
+This is the acquisition layer for league history: sixteen seasons back to 2011, champions named
+back to 2006. Nothing here writes to a database — it lands committed, hashed artifacts so every
+importer that follows is reproducible, offline, and diffable in review.
+
+### Sleeper is the source of record from 2020, and that decision paid for itself
+
+The workbook's weekly sheets were themselves pulled from the Sleeper API and then hand-maintained.
+Going back to the origin rather than importing a copy killed three problems outright:
+
+- `player_details_by_team` sums **6.4 points below** the real team score in 681 of 690 member-weeks.
+  Not missing kickers — this league doesn't roster any — but an approximate scoring model, the gap
+  correlating **0.54 with team-defense points**. Real `players_points` reconcile exactly.
+- `lineup_efficiency_weekly.actual_points` sits on that same approximate scale, so efficiency could
+  only ever be `actual/optimal`, never comparable across eras.
+- `regular_season` and `matchup_data` disagree on PF/PA in **15 of 50** member-seasons (0.5–3.5 pts).
+  Both are internally coherent; Sleeper settles it, and the workbook rows become the cross-check.
+
+### Three namespaces, none of which share an id space
+
+The app says `Gabes`/`Bolek`/`Grossman`; the workbook says `Brian`/`Jon`/`Eric + Mark`; Sleeper says
+`bgabrielsen`/`OGJonnyB`/`gizzle4`. And the workbook's `member_id` is **not** `managers.id` — Bill is
+workbook 1 and manager 4. Every pairing was *derived*, not guessed:
+
+- Nicknames: joined `auction_drafts` to `Drafts/AllTimeDraftData.xlsx` on (year, player). 40+
+  concordant picks per seat, zero conflicts.
+- Sleeper ids: matched each owner's 2022 drafted roster against the workbook's `drafted_by`. Every
+  owner scored **16/16 against exactly one member, with the runner-up at zero**.
+- `markcubs` turned out to be a Sleeper **co-owner** of gizzle4's roster from 2023 — the "Mark" of
+  "Eric + Mark". One seat, two humans, two user_ids.
+
+### What the cross-check against Sleeper found in the auction record
+
+Comparing drafted rosters year by year: **2023 is perfect, zero differences.** 2022 differs by
+exactly one player. 2021 differs by three, all of which are the *same player renamed* (Robby Anderson
+→ Robbie Chosen, Will/William Fuller, Washington Football Team → Commanders). And in 2022 the
+workbook has George Pickens **twice** (pick 138 `"George Pickens"` $1, pick 160 `"george pickens"`
+$3, both to Nate) while Sleeper has him once — which is why Nate read 17 players/$203 and resolves to
+exactly 16/$200. The one genuinely missing pick, Bill's 16th, is **Tyler Boyd**.
+
+**Learned:**
+
+- **A second source is worth more than a careful reading of the first.** Three years of hand-checking
+  the workbook would not have found the Pickens duplicate; one roster diff did, and it also recovered
+  a missing pick and independently confirmed the whole identity map.
+- **Ask what a field is worth before importing it.** Sleeper's auction *amounts* are a formality —
+  2022, 2023 and 2025 each record 160 picks totalling exactly $160, every pick $1, because the room
+  drafted on a Google Sheet and entered results afterwards to set rosters. The same endpoint whose
+  prices are worthless has *rosters* that are authoritative.
+- **Recomputing a spreadsheet is how you audit it.** All-play, win %, high/low weeks and the $10/week
+  side bet reproduce the dashboard exactly — which is what makes the one disagreement meaningful:
+  Eric + Mark show 0 high-scorer weeks and $0 because a lookup keys on `Eric` against data spelling
+  it `Eric + Mark`. True answer: 4 high, 2 low, **+$20**.
+
+**Watch out for:**
+
+- **Never select the Sleeper league by name.** The account holds an unrelated 18-team *Guillotine
+  League* in 2024 and 2025, and the real 2025 league is **misnamed "Fantasy 101 XIX"** — 2024's name.
+  `verifyLeagueChain()` walks `previous_league_id` instead, and the ids are pinned.
+- **Roster shape changed in 2022.** 2020–2021 start 9; 2022+ start 10, adding `SUPER_FLEX`. Any
+  optimal-lineup calculation must read *that season's* `roster_positions` — assuming superflex
+  throughout silently misreports four seasons, and assuming it never applies misreports the other two.
+- **`data/` must stay out of the test and compile globs.** Checked: `vitest.config.ts` includes only
+  `src/**/*.test.ts` and tsconfig only picks up `.ts`. 2.8MB of CSV and JSON is fine committed and
+  very much not fine parsed on every test run.
+- **Every identity lookup throws, deliberately.** An unmapped name is not a row to skip — it means a
+  source holds someone the league has no record of. The league has had the same ten members since
+  2011, so a miss is a bug in the map, not an eleventh manager.
+- **The identity test reads the real committed data**, so a source that gains an unmapped spelling
+  fails the build rather than being discovered three importers later.
+
+**Next:** H2 — the history schema (`seasons`, `season_standings`, `season_matchups`,
+`season_lineups`, `player_weeks`, `player_seasons`, `legacy_champions`) via a hand-written
+idempotent migration.

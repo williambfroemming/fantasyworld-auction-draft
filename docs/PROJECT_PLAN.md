@@ -285,6 +285,8 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 - [x] **25.** **Theme toggle + the rule role** — Paper / Night / Auto in every header, off a single `color-scheme` property now that every token is a `light-dark()` pair. `--color-rule` split out of the slate ramp so panel edges are actually visible, solid-ink position badges, and the `rule-strong` section head.
 - [x] **24.** **Sunday Broadsheet** — the app gets a visual identity instead of Tailwind's default. Newsprint in light, Late Edition in dark, off one redefined set of scales whose ramp is semantic by position and inverts between themes. Oswald / Source Serif 4 / Geist Mono. `managers.color` becomes theme-aware via `--mgr-*`. Runner-up palette parked in BACKLOG §10.
 
+- [x] **27.** **Phase 2 H1 — the sources** (§12) — `data/history/*.csv` from the league's workbook and `data/sleeper/2020..2025/*.json` from the API, both committed with sha256 manifests so every importer is reproducible and offline. `src/lib/history-identity.ts` reconciles the three namespaces that have never agreed on a name (app / workbook / Sleeper), every lookup throwing rather than guessing. The Sleeper roster cross-check found a duplicated 2022 pick and recovered a missing one.
+
 ### Timeline
 
 | When | Steps | State at end |
@@ -318,3 +320,76 @@ Running list — add to it, and mirror anything hard-won into `PROGRESS_LOG.md`.
 - A migration script that hardcodes a `CREATE OR REPLACE VIEW` becomes a loaded gun the moment that view changes. `scripts/migrate-called-auction.ts` now refuses to run once `draft.season` exists
 - `@neondatabase/serverless` v1 `sql` is **tagged-template-only**; a plain call throws. Use `sql.query()` when the identifier is dynamic
 - Any "is a draft under way?" check built on `COUNT(picks)` needs the season filter, or it sticks at 160 forever once a season completes (`scripts/check-idle.ts`)
+
+---
+
+## 12. League history (Phase 2)
+
+The draft app knows about one season. The league has sixteen on record, back to 2011, plus
+champions named back to 2006. Phase 2 brings that history in and builds the views the league reads:
+the all-time League Summary, a record book, per-season and per-member pages, and a head-to-head grid.
+
+### Source of record, by era
+
+| Years | Source | Why it and not the other |
+|---|---|---|
+| 2020–2025 | **Sleeper API**, pulled to `data/sleeper/` | The workbook's weekly sheets came from this API and then drifted. Going back to the origin removes an approximate scoring model, an incomparable efficiency scale, and a PF/PA disagreement in 15 of 50 member-seasons |
+| 2011–2019 | Workbook `regular_season`, `playoffs_legacy` | Pre-Sleeper. Member-season W/L/PF/PA is the only grain that exists |
+| 2006–2010 | Workbook `win_history` legacy block | A champion's name and nothing else. Predates the membership record, so these are **names, not manager ids** |
+| any year | Workbook `win_history`, `draft_locations` | Prize money and where the draft was held are league facts Sleeper cannot know |
+| 2021–2024 | Workbook `auction_drafts` | **Auction prices exist only here.** Sleeper's amounts are a formality — every pick $1 |
+| 2025 | The league's Google Sheet | The 2025 auction in full, plus that year's drawn draft order |
+
+⚠️ **Sleeper's auction amounts must never be imported as prices.** 2022, 2023 and 2025 each record
+160 picks totalling exactly $160; 2021 totals $250; 2024 has no picks at all. The room drafted aloud
+on a sheet and entered results into Sleeper afterwards purely to set rosters. Those records are
+authoritative about **which players** each manager took — that cross-check found a duplicated 2022
+pick and recovered a missing one — and worthless about what they cost.
+
+⚠️ **Never select the league by name.** The account holds an unrelated 18-team *Guillotine League*
+in 2024 and 2025, and the real 2025 league is misnamed with 2024's name. League ids are pinned in
+`SLEEPER_LEAGUE_IDS` and checked against Sleeper's own `previous_league_id` chain.
+
+### The two-era rule
+
+Metrics needing week-level data — all-play, lineup efficiency, high/low scorer weeks, every score
+record — exist only from 2020. Standings-level metrics go back to 2011. **This is enforced
+structurally, not by convention:** `seasons.data_tier` is `'legacy' | 'standings' | 'weekly'`, every
+compute function returns a `Coverage` alongside its numbers, and `EraBadge` cannot render without
+one. The workbook mixes the eras silently and contradicts itself as a result — its hidden
+`All-time Records` sheet claims a high score of 203.9 (Nate, 2014) while the dashboard says 234.96
+(Daniel, 2023).
+
+### Schema principles — why the tables don't mirror the sheets
+
+1. **Store facts, derive everything else.** High/low weeks, margin of victory, points left on bench
+   and efficiency percentage are computed. Same rule that keeps budgets derived.
+2. **One fact, one table.** Three sheets say "a game happened"; `season_matchups` does, with
+   `is_playoff`. Every record question spans both.
+3. **IDs, not names.** The sheets carry `member` *and* `member_id` on every row, which is exactly how
+   a name mismatch broke a lookup and cost Eric + Mark their high-scorer weeks.
+4. **Every primary key is the grain.** That makes "two rows per game" a decision, not an accident.
+5. **Null means unknown, never zero.** Prize money is a real $0 for 2011–2013 and genuinely unknown
+   for 2006–2010.
+6. **Sparse stat columns become one `jsonb`.**
+
+### Identity — `src/lib/history-identity.ts`
+
+Three namespaces, no shared id space: the app says `Gabes`/`Bolek`/`Grossman`, the workbook says
+`Brian`/`Jon`/`Eric + Mark`, Sleeper says `bgabrielsen`/`OGJonnyB`/`gizzle4`, and the workbook's
+`member_id` is not `managers.id`. All three are reconciled in one frozen constant, **not a table** —
+nothing at runtime consults it, since every imported row already carries a resolved `manager_id`, and
+a table would be a second place the truth could drift. Every lookup **throws**: the league has had
+the same ten members since 2011, so an unmapped name is a bug in the map, not an eleventh manager.
+The co-managed seat has two Sleeper user_ids (`gizzle4` owns the roster, `markcubs` co-owns it).
+
+### Budget anomalies are imported as recorded, never reconciled
+
+Some manager-seasons don't balance: 2023 has Bryan at $205 and Mario at $194 against a $200 budget
+(auction dollars were traded), and 2025 ends with Bolek at **−$1** — the exact failure §1 names as
+the reason this app exists. These import faithfully and the archive **displays** them, flagged, with
+the reason. A balancing row in `budget_adjustments` would be a stored budget wearing a disguise, in
+the one table whose whole job is provenance. `getArchivedSeason` must not clamp a negative to zero.
+
+Departures from a source are never silent: they live in one reviewable `HISTORY_PICK_CORRECTIONS`
+list with a reason and a date.

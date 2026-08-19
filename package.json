@@ -36,7 +36,8 @@
     "db:migrate-identity": "dotenv -e .env.local -- tsx scripts/migrate-player-identity.ts",
     "news:refresh": "dotenv -e .env.local -- tsx scripts/refresh-news.ts",
     "season:new": "dotenv -e .env.local -- tsx scripts/new-season.ts",
-    "season:list": "dotenv -e .env.local -- tsx scripts/list-seasons.ts"
+    "season:list": "dotenv -e .env.local -- tsx scripts/list-seasons.ts",
+    "history:pull": "tsx scripts/history/pull-sleeper.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

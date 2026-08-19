@@ -1,0 +1,63 @@
+[
+  {
+    "created": 1722541132583,
+    "creators": [
+      "596552796187181056"
+    ],
+    "draft_id": "1124822672346198017",
+    "draft_order": {
+      "482305993246502912": 4,
+      "596547532989972480": 1,
+      "596552796187181056": 2,
+      "597564674589913088": 5,
+      "597587057577086976": 3,
+      "597587272728113152": 8,
+      "597822038236774400": 10,
+      "597851820731203584": 6,
+      "598753920659034112": 9,
+      "599337029230194688": 7
+    },
+    "last_message_id": "1130601807794876416",
+    "last_message_time": 1723918985846,
+    "last_picked": 1723918964895,
+    "league_id": "1124822672346198016",
+    "metadata": {
+      "description": "",
+      "name": "Fantasy 101 XIX",
+      "nominating_slot": "1",
+      "nominating_user_id": "596547532989972480",
+      "paused_pick_timer": "40",
+      "scoring_type": "2qb"
+    },
+    "season": "2024",
+    "season_type": "regular",
+    "settings": {
+      "alpha_sort": 0,
+      "autopause_enabled": 0,
+      "autopause_end_time": 960,
+      "autopause_start_time": 240,
+      "autostart": 0,
+      "budget": 200,
+      "cpu_autopick": 1,
+      "enforce_position_limits": 1,
+      "nomination_timer": 60,
+      "pick_timer": 120,
+      "player_type": 0,
+      "reversal_round": 0,
+      "rounds": 16,
+      "slots_bn": 6,
+      "slots_def": 1,
+      "slots_flex": 1,
+      "slots_qb": 1,
+      "slots_rb": 2,
+      "slots_super_flex": 1,
+      "slots_te": 1,
+      "slots_wr": 3,
+      "teams": 10
+    },
+    "sport": "nfl",
+    "start_time": 1723919729000,
+    "status": "complete",
+    "type": "auction"
+  }
+]

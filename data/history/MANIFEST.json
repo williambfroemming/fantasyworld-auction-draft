@@ -1,0 +1,108 @@
+{
+  "source": "2025_FantasyWorld_History.xlsm",
+  "files": {
+    "member.csv": {
+      "sheet": "member",
+      "rows": 10,
+      "columns": [
+        "member_id",
+        "member_name"
+      ],
+      "sha256": "bc4997b5f1da7a5e903d9b01afdbff1344c6e704e83b96d9c4bf629e69fd7a7f"
+    },
+    "regular_season.csv": {
+      "sheet": "regular_season",
+      "rows": 140,
+      "columns": [
+        "member_id",
+        "member",
+        "reg_season_year",
+        "reg_season_place",
+        "reg_season_wins",
+        "reg_season_losses",
+        "points_for",
+        "points_against"
+      ],
+      "sha256": "6fc1510e6ff5505f5a21295fd74c55191bd0ed7b46c57f5b09970d87c20f0c69"
+    },
+    "playoffs_legacy.csv": {
+      "sheet": "playoffs_legacy",
+      "rows": 84,
+      "columns": [
+        "member_id",
+        "member",
+        "playoff_year",
+        "playoff_wins",
+        "playoff_losses"
+      ],
+      "sha256": "17f23bdee93763058ffa5d1e4ea368407fb9e7e157980527d30505539bc69f19"
+    },
+    "draft_locations.csv": {
+      "sheet": "draft_locations",
+      "rows": 21,
+      "columns": [
+        "year",
+        "city",
+        "state",
+        "country"
+      ],
+      "sha256": "1e2c9880f7d5b8c2e88f301a9eb56c9667e140dba584a33b523f76a0ddf463a0"
+    },
+    "auction_drafts.csv": {
+      "sheet": "auction_drafts",
+      "rows": 640,
+      "columns": [
+        "year",
+        "pick",
+        "nominator",
+        "player",
+        "member_id",
+        "drafted_by",
+        "price",
+        "position",
+        "total_fan_points",
+        "fan_points_per_dollar_spent"
+      ],
+      "sha256": "796fc779377d2895dcfb69230ca65780d55aebc9c1f6b73e74e571f3b486791f"
+    },
+    "player_total_points.csv": {
+      "sheet": "player_total_points",
+      "rows": 13375,
+      "columns": [
+        "year",
+        "player_id",
+        "player_name",
+        "LOOKUP Column",
+        "position",
+        "nfl_team",
+        "weeks_played",
+        "total_fantasy_points",
+        "avg_points_per_game"
+      ],
+      "sha256": "d13262ce70cf56ed107017bdbe8eab619bb7c4aefd4257cb9a1ce38bd6af1f2f"
+    },
+    "win_history.csv": {
+      "sheet": "win_history",
+      "rows": 42,
+      "columns": [
+        "championship_year",
+        "place",
+        "member_id",
+        "member",
+        "money_won"
+      ],
+      "sha256": "44a090645afebd4515ce65f32003946d2964b53a5d60aab3a2e03e760058ccdf"
+    },
+    "legacy_champions.csv": {
+      "sheet": "win_history",
+      "rows": 5,
+      "columns": [
+        "championship_year",
+        "place",
+        "member",
+        "money_won"
+      ],
+      "sha256": "87f86a0769b4b520bb43683fda4fd4033a3aecd9ae87d015a014a8925c9e3301"
+    }
+  }
+}

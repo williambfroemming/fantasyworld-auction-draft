@@ -1,0 +1,52 @@
+[
+  {
+    "created": 1596592001448,
+    "creators": [
+      "596552796187181056"
+    ],
+    "draft_id": "596553727872122880",
+    "draft_order": {
+      "482305993246502912": 1,
+      "596547532989972480": 10,
+      "596552796187181056": 3,
+      "597564674589913088": 2,
+      "597587057577086976": 9,
+      "597587272728113152": 8,
+      "597822038236774400": 6,
+      "597851820731203584": 5,
+      "598753920659034112": 4,
+      "599337029230194688": 7
+    },
+    "last_message_id": "605603163940089856",
+    "last_message_time": 1598749555147,
+    "last_picked": 1598749553864,
+    "league_id": "596553726760632320",
+    "metadata": {
+      "description": "",
+      "name": "Fantasy 101 XVI",
+      "scoring_type": "std"
+    },
+    "season": "2020",
+    "season_type": "regular",
+    "settings": {
+      "alpha_sort": 0,
+      "cpu_autopick": 1,
+      "pick_timer": 120,
+      "player_type": 0,
+      "reversal_round": 0,
+      "rounds": 16,
+      "slots_bn": 7,
+      "slots_def": 1,
+      "slots_flex": 1,
+      "slots_qb": 1,
+      "slots_rb": 2,
+      "slots_te": 1,
+      "slots_wr": 3,
+      "teams": 10
+    },
+    "sport": "nfl",
+    "start_time": 1598749553863,
+    "status": "complete",
+    "type": "snake"
+  }
+]

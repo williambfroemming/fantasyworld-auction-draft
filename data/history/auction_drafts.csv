@@ -1,0 +1,641 @@
+year,pick,nominator,player,member_id,drafted_by,price,position,total_fan_points,fan_points_per_dollar_spent
+2021,1,Jon,Christian McCaffrey,3,Bryan,66,RB,110,1.6666666666666667
+2021,2,Mario,Ezekiel Elliott,1,Bill,54,RB,228.06,4.223333333333334
+2021,3,Jack,Alvin Kamara,5,Eric + Mark,64,RB,200.5,3.1328125
+2021,4,Justin,Tyreek Hill,6,Jack,44,WR,225.8,5.131818181818182
+2021,5,Bill,Patrick Mahomes,5,Eric + Mark,21,QB,358.46,17.069523809523808
+2021,6,Grossman,Derrick Henry,7,Jon,58,RB,208.3,3.591379310344828
+2021,7,Bryan,Dalvin Cook,2,Brian,62,RB,202.6,3.267741935483871
+2021,8,Nate,Saquon Barkley,3,Bryan,49,RB,122.2,2.4938775510204083
+2021,9,Brian,Calvin Ridley,1,Bill,38,WR,47.1,1.2394736842105263
+2021,10,Daniel,Nick Chubb,4,Daniel,55,RB,228.3,4.150909090909091
+2021,11,Daniel,Aaron Jones,10,Nate,56,RB,203.5,3.6339285714285716
+2021,12,Brian,Travis Kelce,8,Justin,39,TE,195.4,5.01025641025641
+2021,13,Nate,Jonathan Taylor,10,Nate,48,RB,393.1,8.189583333333333
+2021,14,Bryan,Antonio Gibson,6,Jack,47,RB,199,4.23404255319149
+2021,15,Grossman,Davante Adams,2,Brian,47,WR,268.3,5.708510638297873
+2021,16,Bill,Darren Waller,4,Daniel,25,TE,94.3,3.772
+2021,17,Justin,Stefon Diggs,4,Daniel,43,WR,197.9,4.602325581395349
+2021,18,Jack,DK Metcalf,9,Mario,38,WR,183,4.815789473684211
+2021,19,Mario,David Montgomery,8,Justin,30,RB,179.6,5.986666666666666
+2021,20,Jon,Joe Mixon,3,Bryan,33,RB,279.9,8.48181818181818
+2021,21,Jon,Chris Carson,7,Jon,31,RB,46.6,1.5032258064516129
+2021,22,Mario,Clyde Edwards-Helaire,8,Justin,34,RB,114.1,3.355882352941176
+2021,23,Jack,Mike Evans,6,Jack,22,WR,191.6,8.709090909090909
+2021,24,Justin,Austin Ekeler,8,Justin,46,RB,281.9,6.128260869565217
+2021,25,Bill,Justin Jefferson,10,Nate,34,WR,248.8,7.31764705882353
+2021,26,Grossman,DeAndre Hopkins,9,Mario,38,WR,117.2,3.0842105263157897
+2021,27,Bryan,Najee Harris,10,Nate,49,RB,264.7,5.40204081632653
+2021,28,Nate,A.J. Brown,8,Justin,33,WR,130.1,3.9424242424242424
+2021,29,Brian,Miles Sanders,1,Bill,25,RB,114.7,4.588
+2021,30,Daniel,Terry McLaurin,9,Mario,33,WR,154.7,4.6878787878787875
+2021,31,Daniel,Keenan Allen,3,Bryan,29,WR,183.1,6.313793103448275
+2021,32,Brian,Allen Robinson,6,Jack,29,WR,54.8,1.889655172413793
+2021,33,Nate,CeeDee Lamb,2,Brian,31,WR,180.3,5.816129032258065
+2021,34,Bryan,George Kittle,5,Eric + Mark,25,TE,150,6
+2021,35,Grossman,Josh Allen,4,Daniel,22,QB,415.22,18.873636363636365
+2021,36,Bill,Kyler Murray,2,Brian,18,QB,299.88,16.66
+2021,37,Justin,Lamar Jackson,1,Bill,17,QB,271.98,15.998823529411766
+2021,38,Jack,Robert Woods,5,Eric + Mark,21,WR,109.2,5.2
+2021,39,Mario,Julio Jones,2,Brian,17,WR,47.1,2.7705882352941176
+2021,40,Jon,Adam Thielen,7,Jon,21,WR,148.3,7.061904761904763
+2021,41,Jon,Tyler Lockett,5,Eric + Mark,18,WR,171.4,9.522222222222222
+2021,42,Mario,Chris Godwin,7,Jon,16,WR,180.9,11.30625
+2021,43,Jack,Mark Andrews,6,Jack,15,TE,227.1,15.139999999999999
+2021,44,Justin,Josh Jacobs,4,Daniel,20,RB,175.1,8.754999999999999
+2021,45,Bill,Cooper Kupp,1,Bill,14,WR,329.4,23.52857142857143
+2021,46,Grossman,James Robinson,9,Mario,23,RB,165.9,7.21304347826087
+2021,47,Bryan,D'Andre Swift,6,Jack,25,RB,159.3,6.372000000000001
+2021,48,Nate,Dak Prescott,6,Jack,7,QB,304.76,43.537142857142854
+2021,49,Brian,Kyle Pitts,7,Jon,10,TE,134.8,13.48
+2021,50,Daniel,Chase Claypool,1,Bill,9,WR,115.1,12.788888888888888
+2021,51,Daniel,Amari Cooper,5,Eric + Mark,18,WR,147.6,8.2
+2021,52,Brian,Aaron Rodgers,7,Jon,5,QB,329.58,65.916
+2021,53,Nate,DJ Moore,7,Jon,11,WR,168.5,15.318181818181818
+2021,54,Bryan,Darrell Henderson,9,Mario,11,RB,153.9,13.990909090909092
+2021,55,Grossman,Tee Higgins,1,Bill,7,WR,176.6,25.228571428571428
+2021,56,Bill,Myles Gaskin,7,Jon,17,RB,138.6,8.152941176470588
+2021,57,Justin,Diontae Johnson,4,Daniel,14,WR,193.3,13.807142857142859
+2021,58,Jack,Tampa Bay Buccaneers,10,Nate,2,DST,59,29.5
+2021,59,Mario,T.J. Hockenson,9,Mario,10,TE,98.3,9.83
+2021,60,Jon,Odell Beckham,3,Bryan,8,WR,93.8,11.725
+2021,61,Jon,Tom Brady,7,Jon,2,QB,375.7,187.85
+2021,62,Mario,Mike Davis,9,Mario,8,RB,109.4,13.675
+2021,63,Jack,Jaylen Waddle,7,Jon,3,WR,161.1,53.699999999999996
+2021,64,Justin,Kenny Golladay,3,Bryan,5,WR,64.9,12.98
+2021,65,Bill,Damien Harris,1,Bill,9,RB,208.3,23.144444444444446
+2021,66,Grossman,JuJu Smith-Schuster,6,Jack,2,WR,22.8,11.4
+2021,67,Bryan,Kareem Hunt,7,Jon,8,RB,101.5,12.6875
+2021,68,Nate,Justin Herbert,7,Jon,4,QB,378.84,94.71
+2021,69,Brian,Chase Edmonds,5,Eric + Mark,10,RB,123.3,12.33
+2021,70,Daniel,Gus Edwards,9,Mario,18,RB,0,0
+2021,71,Daniel,Courtland Sutton,2,Brian,3,WR,110.3,36.766666666666666
+2021,72,Brian,Robbie Chosen,1,Bill,3,WR,85.5,28.5
+2021,73,Nate,Russell Wilson,9,Mario,3,QB,227.8,75.93333333333334
+2021,74,Bryan,Jerry Jeudy,9,Mario,8,WR,54.5,6.8125
+2021,75,Grossman,Brandon Aiyuk,1,Bill,12,WR,117.1,9.758333333333333
+2021,76,Bill,Ja'Marr Chase,6,Jack,2,WR,257,128.5
+2021,77,Justin,Deebo Samuel,4,Daniel,3,RB,274,91.33333333333333
+2021,78,Jack,Los Angeles Rams,6,Jack,1,DST,45.5,45.5
+2021,79,Mario,Brandin Cooks,5,Eric + Mark,2,WR,166.7,83.35
+2021,80,Jon,DeVonta Smith,7,Jon,5,WR,139.5,27.9
+2021,81,Jon,Emmanuel Sanders,7,Jon,1,WR,104.2,104.2
+2021,82,Mario,Ronald Jones,2,Brian,2,RB,80.7,40.35
+2021,83,Jack,William Fuller,8,Justin,2,WR,6.1,3.05
+2021,84,Justin,James Conner,2,Brian,2,RB,223.4,111.7
+2021,85,Bill,Raheem Mostert,2,Brian,7,RB,2.5,0.35714285714285715
+2021,86,Grossman,Jalen Hurts,5,Eric + Mark,3,QB,338.16,112.72000000000001
+2021,87,Bryan,Ryan Tannehill,8,Justin,2,QB,258.08,129.04
+2021,88,Nate,Matthew Stafford,10,Nate,1,QB,326.22,326.22
+2021,89,Brian,Noah Fant,1,Bill,3,TE,101.4,33.800000000000004
+2021,90,Daniel,Javonte Williams,4,Daniel,6,RB,186.5,31.083333333333332
+2021,91,Daniel,Trey Sermon,2,Brian,5,RB,29.8,5.96
+2021,92,Brian,Hunter Henry,2,Brian,1,TE,117.2,117.2
+2021,93,Nate,Laviska Shenault,5,Eric + Mark,2,WR,72.3,36.15
+2021,94,Bryan,Joe Burrow,3,Bryan,1,QB,336.24,336.24
+2021,95,Grossman,Zack Moss,5,Eric + Mark,1,RB,95.3,95.3
+2021,96,Bill,A.J. Dillon,4,Daniel,4,RB,172.4,43.1
+2021,97,Justin,Leonard Fournette,5,Eric + Mark,2,RB,223,111.5
+2021,98,Jack,Jamaal Williams,1,Bill,2,RB,109.1,54.55
+2021,99,Mario,Melvin Gordon,8,Justin,2,RB,178,89
+2021,100,Jon,Corey Davis,7,Jon,3,WR,82.7,27.566666666666666
+2021,101,Jon,Cleveland Browns,7,Jon,5,DST,45.5,9.1
+2021,102,Mario,Mike Williams,9,Mario,1,WR,177.2,177.2
+2021,103,Jack,Tony Pollard,1,Bill,2,RB,143.6,71.8
+2021,104,Justin,Michael Gallup,8,Justin,1,WR,69,69
+2021,105,Bill,Justin Fields,1,Bill,1,QB,137.8,137.8
+2021,106,Grossman,Michael Thomas,5,Eric + Mark,3,WR,0,0
+2021,107,Bryan,Robert Tonyan,3,Bryan,1,TE,36.4,36.4
+2021,108,Nate,Logan Thomas,10,Nate,1,TE,39.1,39.1
+2021,109,Brian,Tyler Higbee,2,Brian,1,TE,82,82
+2021,110,Daniel,Michael Carter,5,Eric + Mark,3,RB,138.5,46.166666666666664
+2021,111,Daniel,Phillip Lindsay,4,Daniel,2,RB,41.4,20.7
+2021,112,Brian,Tyler Boyd,2,Brian,1,WR,135.34,135.34
+2021,113,Nate,Marquez Callaway,8,Justin,2,WR,120.8,60.4
+2021,114,Bryan,Matt Ryan,3,Bryan,1,QB,222.08,222.08
+2021,115,Grossman,Tre'Quan Smith,5,Eric + Mark,3,WR,48.1,16.033333333333335
+2021,116,Bill,Elijah Moore,1,Bill,1,WR,107.7,107.7
+2021,117,Justin,Sony Michel,8,Justin,1,RB,147.9,147.9
+2021,118,Jack,Devin Singletary,6,Jack,1,RB,158.1,158.1
+2021,119,Mario,Nelson Agholor,9,Mario,1,WR,73.6,73.6
+2021,120,Mario,Michael Pittman,9,Mario,3,WR,163.2,54.4
+2021,121,Jack,Henry Ruggs,5,Eric + Mark,3,WR,69.5,23.166666666666668
+2021,122,Justin,Jarvis Landry,8,Justin,1,WR,82.5,82.5
+2021,123,Bill,Pittsburgh Steelers,1,Bill,3,DST,32,10.666666666666666
+2021,124,Bryan,Antonio Brown,8,Justin,2,WR,97.6,48.8
+2021,125,Nate,DJ Chark,10,Nate,1,WR,29.9,29.9
+2021,126,Brian,Kenyan Drake,9,Mario,2,RB,84.5,42.25
+2021,127,Daniel,Mecole Hardman,4,Daniel,1,WR,84.1,84.1
+2021,128,Daniel,Darnell Mooney,4,Daniel,1,WR,151.6,151.6
+2021,129,Brian,Jonnu Smith,2,Brian,1,TE,46.4,46.4
+2021,130,Nate,Jakobi Meyers,10,Nate,1,WR,117.3,117.3
+2021,131,Bryan,Curtis Samuel,3,Bryan,1,WR,5.8,5.8
+2021,132,Justin,Baltimore Ravens,8,Justin,1,DST,39.5,39.5
+2021,133,Jack,J.D. McKissic,6,Jack,1,RB,97.4,97.4
+2021,134,Mario,Trey Lance,9,Mario,1,QB,68.42,68.42
+2021,135,Mario,David Johnson,9,Mario,1,RB,53.2,53.2
+2021,136,Jack,Tua Tagovailoa,8,Justin,2,QB,172.26,86.13
+2021,137,Justin,Alexander Mattison,8,Justin,1,RB,112.8,112.8
+2021,138,Bryan,Cole Beasley,3,Bryan,1,WR,92.2,92.2
+2021,139,Nate,Marquise Brown,10,Nate,1,WR,156.1,156.1
+2021,140,Brian,Jameis Winston,2,Brian,1,QB,125.4,125.4
+2021,141,Daniel,Washington Commanders,4,Daniel,1,DST,22.5,22.5
+2021,142,Daniel,Nyheim Hines,4,Daniel,1,RB,84.2,84.2
+2021,143,Brian,Rondale Moore,2,Brian,1,WR,66.6,66.6
+2021,144,Nate,Dallas Goedert,10,Nate,1,TE,132,132
+2021,145,Bryan,Marvin Jones,3,Bryan,1,WR,111.4,111.4
+2021,146,Jack,Trevor Lawrence,6,Jack,1,QB,191.42,191.42
+2021,147,Jack,Allen Lazard,6,Jack,1,WR,92.5,92.5
+2021,148,Bryan,Blake Jarwin,3,Bryan,1,TE,22.5,22.5
+2021,149,Nate,Rhamondre Stevenson,10,Nate,1,RB,116.3,116.3
+2021,150,Daniel,San Francisco 49ers,4,Daniel,1,DST,54.5,54.5
+2021,151,Nate,Jalen Reagor,10,Nate,1,WR,48.7,48.7
+2021,152,Bryan,Giovani Bernard,3,Bryan,1,RB,40.1,40.1
+2021,153,Jack,DeVante Parker,6,Jack,1,WR,75.8,75.8
+2021,154,Jack,Rashaad Penny,6,Jack,1,RB,106.2,106.2
+2021,155,Bryan,Russell Gage,3,Bryan,1,WR,94.4,94.4
+2021,156,Nate,Kirk Cousins,10,Nate,1,QB,293.94,293.94
+2021,157,Nate,Tevin Coleman,10,Nate,1,RB,50.4,50.4
+2021,158,Bryan,Denver Broncos,3,Bryan,1,DST,67,67
+2021,159,Nate,Latavius Murray,4,Daniel,1,RB,85.6,85.6
+2021,160,Bryan,Ty Johnson,10,Nate,1,WR,97.6,97.6
+2022,1,Brian,Jonathan Taylor,3,Bryan,52,RB,141.9,2.728846153846154
+2022,2,Bryan,Derrick Henry,9,Mario,47,RB,304.96,6.488510638297872
+2022,3,Mario,Josh Allen,9,Mario,46,QB,414.98,9.021304347826087
+2022,4,Bill,Christian McCaffrey,5,Eric + Mark,46,RB,306.46,6.662173913043477
+2022,5,Grossman,Justin Herbert,6,Jack,45,QB,277.94,6.176444444444444
+2022,6,Justin,Austin Ekeler,7,Jon,44,RB,294.7,6.697727272727272
+2022,7,Nate,Jalen Hurts,10,Nate,41,QB,404.08,9.85560975609756
+2022,8,Nate,Patrick Mahomes,4,Daniel,40,QB,434.92,10.873000000000001
+2022,9,Grossman,Justin Jefferson,1,Bill,40,WR,294.36,7.359
+2022,10,Bill,Ja'Marr Chase,8,Justin,40,WR,171.8,4.295
+2022,11,Brian,Najee Harris,10,Nate,40,RB,194.46,4.8615
+2022,12,Bryan,Lamar Jackson,4,Daniel,39,QB,263.58,6.758461538461538
+2022,13,Daniel,Cooper Kupp,6,Jack,37,WR,155.9,4.213513513513513
+2022,14,Jack,Dalvin Cook,10,Nate,37,RB,228.1,6.164864864864865
+2022,15,Jon,Kyler Murray,5,Eric + Mark,36,QB,215.52,5.986666666666667
+2022,16,Jack,Alvin Kamara,4,Daniel,36,RB,169.7,4.713888888888889
+2022,17,Mario,Stefon Diggs,2,Brian,36,WR,236.8,6.577777777777778
+2022,18,Brian,Dak Prescott,1,Bill,36,QB,197.88,5.496666666666666
+2022,19,Daniel,Joe Mixon,5,Eric + Mark,36,RB,196.4,5.455555555555556
+2022,20,Justin,Joe Burrow,2,Brian,33,QB,366.88,11.117575757575757
+2022,21,Mario,CeeDee Lamb,1,Bill,33,WR,223.4,6.7696969696969695
+2022,22,Daniel,Davante Adams,7,Jon,32,WR,267.2,8.35
+2022,23,Bill,Javonte Williams,6,Jack,32,RB,32.5,1.015625
+2022,24,Bryan,D'Andre Swift,3,Bryan,32,RB,149.5,4.671875
+2022,25,Bryan,Russell Wilson,7,Jon,32,QB,210.64,6.5825
+2022,26,Nate,Saquon Barkley,8,Justin,31,RB,266,8.580645161290322
+2022,27,Grossman,Aaron Jones,1,Bill,27,RB,226.8,8.4
+2022,28,Jack,Travis Kelce,8,Justin,27,TE,247,9.148148148148149
+2022,29,Daniel,Leonard Fournette,9,Mario,27,RB,184.2,6.822222222222222
+2022,30,Nate,Mark Andrews,4,Daniel,26,TE,146.5,5.634615384615385
+2022,31,Justin,Aaron Rodgers,9,Mario,25,QB,230.5,9.22
+2022,32,Grossman,Nick Chubb,7,Jon,25,RB,281.7,11.267999999999999
+2022,33,Jon,Trey Lance,5,Eric + Mark,24,QB,15.96,0.665
+2022,34,Bill,Deebo Samuel,2,Brian,24,WR,125.5,5.229166666666667
+2022,35,Jack,Mike Evans,6,Jack,23,WR,179.9,7.821739130434783
+2022,36,Mario,Tom Brady,6,Jack,23,QB,278.3,12.1
+2022,37,Jon,Kirk Cousins,8,Justin,22,QB,291.08,13.23090909090909
+2022,38,Brian,Matthew Stafford,3,Bryan,21,QB,109.38,5.208571428571428
+2022,39,Brian,Tyreek Hill,7,Jon,20,WR,274.9,13.745
+2022,40,Jon,Travis Etienne,2,Brian,20,RB,206.7,10.334999999999999
+2022,41,Mario,A.J. Dillon,3,Bryan,20,RB,159.3,7.965000000000001
+2022,42,Bill,Courtland Sutton,4,Daniel,19,WR,106.1,5.584210526315789
+2022,43,Mario,James Conner,10,Nate,18,RB,182.7,10.149999999999999
+2022,44,Mario,Derek Carr,3,Bryan,18,QB,226.08,12.56
+2022,45,Nate,Ezekiel Elliott,9,Mario,17,RB,189.3,11.13529411764706
+2022,46,Nate,Michael Pittman,3,Bryan,16,WR,136.5,8.53125
+2022,47,Jon,David Montgomery,1,Bill,16,RB,165.6,10.35
+2022,48,Grossman,Dameon Pierce,2,Brian,15,RB,168.4,11.226666666666667
+2022,49,Bill,A.J. Brown,8,Justin,15,WR,234.1,15.606666666666666
+2022,50,Daniel,J.K. Dobbins,3,Bryan,15,RB,91.2,6.08
+2022,51,Mario,Trevor Lawrence,2,Brian,15,QB,303.94,20.262666666666668
+2022,52,Jack,Keenan Allen,5,Eric + Mark,14,WR,93.3,6.664285714285714
+2022,53,Brian,Cam Akers,8,Justin,14,RB,137.5,9.821428571428571
+2022,54,Justin,Josh Jacobs,8,Justin,12,RB,331.3,27.608333333333334
+2022,55,Daniel,Justin Fields,8,Justin,12,QB,329.48,27.456666666666667
+2022,56,Bryan,Tee Higgins,10,Nate,12,WR,175.5,14.625
+2022,57,Bill,Kyle Pitts,2,Brian,12,TE,56.6,4.716666666666667
+2022,58,Nate,Mike Williams,10,Nate,12,WR,135.3,11.275
+2022,59,Justin,Brandin Cooks,1,Bill,11,WR,83,7.545454545454546
+2022,60,Daniel,Elijah Mitchell,4,Daniel,11,RB,28.6,2.6
+2022,61,Bryan,Amon-Ra St. Brown,3,Bryan,11,WR,195.2,17.745454545454546
+2022,62,Daniel,Gabe Davis,10,Nate,11,WR,134.7,12.245454545454544
+2022,63,Bryan,DJ Moore,2,Brian,10,WR,160.6,16.06
+2022,64,Brian,Darren Waller,5,Eric + Mark,10,TE,59.8,5.9799999999999995
+2022,65,Bryan,Allen Robinson,9,Mario,10,WR,61.9,6.1899999999999995
+2022,66,Bryan,Dalton Schultz,10,Nate,10,TE,92.9,9.290000000000001
+2022,67,Grossman,Jaylen Waddle,2,Brian,9,WR,215.4,23.933333333333334
+2022,68,Justin,Tony Pollard,4,Daniel,9,RB,241.9,26.87777777777778
+2022,69,Jack,Breece Hall,1,Bill,9,RB,111.6,12.399999999999999
+2022,70,Bill,George Kittle,1,Bill,8,TE,139.6,17.45
+2022,71,Nate,Marquise Brown,9,Mario,8,WR,105.3,13.1625
+2022,72,Daniel,Damien Harris,4,Daniel,8,RB,79.2,9.9
+2022,73,Mario,Matt Ryan,7,Jon,8,QB,164.28,20.535
+2022,74,Grossman,Jameis Winston,7,Jon,8,QB,44.92,5.615
+2022,75,Nate,Rashod Bateman,8,Justin,8,WR,43,5.375
+2022,76,Bryan,Chris Godwin,7,Jon,8,WR,143.3,17.9125
+2022,77,Jack,Diontae Johnson,6,Jack,7,WR,111.4,15.914285714285715
+2022,78,Jon,Terry McLaurin,5,Eric + Mark,7,WR,172.1,24.585714285714285
+2022,79,Jack,Tua Tagovailoa,2,Brian,7,QB,242.92,34.70285714285714
+2022,80,Grossman,Jerry Jeudy,1,Bill,7,WR,138.4,19.771428571428572
+2022,81,Nate,DK Metcalf,5,Eric + Mark,7,WR,156.8,22.400000000000002
+2022,82,Jack,Antonio Gibson,8,Justin,7,RB,142.4,20.342857142857145
+2022,83,Bryan,DeAndre Hopkins,3,Bryan,7,WR,107.7,15.385714285714286
+2022,84,Jack,Rashaad Penny,7,Jon,7,RB,57.7,8.242857142857144
+2022,85,Justin,Darnell Mooney,6,Jack,6,WR,70.5,11.75
+2022,86,Jon,Adam Thielen,7,Jon,6,WR,122.3,20.383333333333333
+2022,87,Jack,Allen Lazard,9,Mario,6,WR,125.2,20.866666666666667
+2022,88,Nate,Rhamondre Stevenson,10,Nate,6,RB,202.9,33.81666666666667
+2022,89,Bill,Darrell Henderson,6,Jack,6,RB,64.5,10.75
+2022,90,Bill,Kareem Hunt,1,Bill,6,RB,107,17.833333333333332
+2022,91,Grossman,Michael Thomas,5,Eric + Mark,6,WR,40.1,6.683333333333334
+2022,92,Jon,Melvin Gordon,8,Justin,6,RB,74.1,12.35
+2022,93,Jon,Miles Sanders,5,Eric + Mark,5,RB,224.9,44.980000000000004
+2022,94,Grossman,JuJu Smith-Schuster,2,Brian,5,WR,129.3,25.860000000000003
+2022,95,Justin,Christian Kirk,2,Brian,5,WR,169.5,33.9
+2022,96,Brian,Daniel Jones,10,Nate,5,QB,320,64
+2022,97,Bryan,Chase Edmonds,6,Jack,5,RB,59.2,11.84
+2022,98,Bill,Hunter Renfrow,9,Mario,5,WR,37.7,7.540000000000001
+2022,99,Brian,Alexander Mattison,2,Brian,5,RB,62.4,12.48
+2022,100,Jon,Cordarrelle Patterson,5,Eric + Mark,4,RB,141.8,35.45
+2022,101,Daniel,Amari Cooper,6,Jack,4,WR,198.4,49.6
+2022,102,Jon,Clyde Edwards-Helaire,7,Jon,3,RB,91.3,30.433333333333334
+2022,103,Jack,Mac Jones,6,Jack,3,QB,162.86,54.28666666666667
+2022,104,Nate,Brandon Aiyuk,10,Nate,3,WR,164.4,54.800000000000004
+2022,105,Brian,Ryan Tannehill,8,Justin,2,QB,167.24,83.62
+2022,106,Mario,Dawson Knox,6,Jack,2,TE,89.9,44.95
+2022,107,Daniel,Denver Broncos,6,Jack,2,DEF,57,28.5
+2022,108,Justin,DeVonta Smith,3,Bryan,2,WR,186.4,93.2
+2022,109,Grossman,Elijah Moore,2,Brian,2,WR,61,30.5
+2022,110,Justin,Michael Gallup,4,Daniel,2,WR,75.4,37.7
+2022,111,Nate,Devin Singletary,9,Mario,2,RB,166,83
+2022,112,Grossman,Chris Olave,6,Jack,2,WR,143.7,71.85
+2022,113,Bill,Baker Mayfield,1,Bill,2,QB,116.94,58.47
+2022,114,Jack,Kenneth Walker,4,Daniel,2,RB,191.6,95.8
+2022,115,Bill,Marquez Valdes-Scantling,9,Mario,2,WR,93.7,46.85
+2022,116,Jon,Chase Claypool,7,Jon,2,WR,68.14,34.07
+2022,117,Jack,Raheem Mostert,6,Jack,2,RB,157.7,78.85
+2022,118,Nate,Cole Kmet,4,Daniel,2,TE,94.6,47.3
+2022,119,Jon,Dallas Cowboys,7,Jon,2,,71,35.5
+2022,120,Justin,Buffalo Bills,8,Justin,1,DEF,73.5,73.5
+2022,121,Grossman,Los Angeles Rams,5,Eric + Mark,1,DEF,43.5,43.5
+2022,122,Bill,Jared Goff,1,Bill,1,QB,284.36,284.36
+2022,123,Justin,Zach Ertz,8,Justin,1,TE,78.6,78.6
+2022,124,Brian,Tampa Bay Buccaneers,2,Brian,1,DEF,51,51
+2022,125,Daniel,San Francisco 49ers,4,Daniel,1,DEF,93.5,93.5
+2022,126,Brian,T.J. Hockenson,2,Brian,1,TE,150.3,150.3
+2022,127,Mario,Dallas Goedert,9,Mario,1,TE,100.6,100.6
+2022,128,Jon,Hunter Henry,7,Jon,1,TE,68.2,68.2
+2022,129,Justin,Romeo Doubs,8,Justin,1,WR,68.6,68.6
+2022,130,Mario,Carson Wentz,9,Mario,1,QB,120.3,120.3
+2022,131,Daniel,Robert Woods,4,Daniel,1,WR,72.2,72.2
+2022,132,Mario,James Robinson,9,Mario,1,RB,90.6,90.6
+2022,133,Jon,Tyler Lockett,7,Jon,1,WR,167.4,167.4
+2022,134,Jack,Kadarius Toney,6,Jack,1,WR,34.4,34.4
+2022,135,Bryan,Drake London,3,Bryan,1,WR,114.1,114.1
+2022,136,Bryan,Davis Mills,3,Bryan,1,QB,163.5,163.5
+2022,137,Grossman,Marcus Mariota,5,Eric + Mark,1,QB,209.56,209.56
+2022,138,Nate,George Pickens,10,Nate,1,WR,119.8,119.8
+2022,139,Justin,Treylon Burks,8,Justin,1,WR,70.7,70.7
+2022,140,Jon,Joshua Kelley,7,Jon,1,RB,56.9,56.9
+2022,141,Mario,Joshua Palmer,9,Mario,1,WR,112.9,112.9
+2022,142,Daniel,James Cook,4,Daniel,1,RB,93.4,93.4
+2022,143,Daniel,DeVante Parker,4,Daniel,1,WR,63.5,63.5
+2022,144,Mario,Indianapolis Colts,9,Mario,1,DEF,48.5,48.5
+2022,145,Nate,Green Bay Packers,10,Nate,1,,58,58
+2022,146,Grossman,Mecole Hardman,5,Eric + Mark,1,WR,74.3,74.3
+2022,147,Bill,Skyy Moore,1,Bill,1,WR,28.4,28.4
+2022,148,Bryan,Cleveland Browns,3,Bryan,1,,60,60
+2022,149,Bryan,K.J. Osborn,3,Bryan,1,WR,98.4,98.4
+2022,150,Bill,Kenny Pickett,1,Bill,1,QB,147.96,147.96
+2022,151,Grossman,Garrett Wilson,5,Eric + Mark,1,WR,153.3,153.3
+2022,152,Daniel,Jameson Williams,4,Daniel,1,WR,14.6,14.6
+2022,153,Nate,Rondale Moore,10,Nate,1,WR,54.9,54.9
+2022,154,Grossman,Jahan Dotson,5,Eric + Mark,1,WR,98.4,98.4
+2022,155,Bill,Baltimore Ravens,1,Bill,1,,59,59
+2022,156,Bryan,Gerald Everett,3,Bryan,1,TE,86.7,86.7
+2022,157,Bryan,Pat Freiermuth,3,Bryan,1,TE,102.7,102.7
+2022,158,Nate,New Orleans Saints,10,Nate,1,,57,57
+2022,159,Nate,Kenneth Gainwell,10,Nate,1,RB,69.7,69.7
+2022,160,Bryan,george pickens,10,Nate,3,WR,119.8,39.93333333333333
+2023,1,Bryan,Justin Fields,1,Bill,45,QB,241.06,5.356888888888889
+2023,2,Justin,Garrett Wilson,5,Eric + Mark,29,WR,140.3,4.837931034482759
+2023,3,Brian,Saquon Barkley,7,Jon,38,RB,188.5,4.9605263157894735
+2023,4,Daniel,Josh Allen,4,Daniel,47,QB,395.08,8.405957446808511
+2023,5,Grossman,Austin Ekeler,6,Jack,42,RB,154.5,3.6785714285714284
+2023,6,Nate,Justin Jefferson,5,Eric + Mark,47,WR,138.2,2.9404255319148933
+2023,7,Mario,Aaron Rodgers,9,Mario,11,QB,0,0
+2023,8,Jon,Tyreek Hill,2,Brian,41,WR,295.7,7.212195121951219
+2023,9,Bill,Patrick Mahomes,6,Jack,42,QB,301.72,7.183809523809525
+2023,10,Jack,Bijan Robinson,8,Justin,40,RB,204.7,5.1175
+2023,11,Jack,Jonathan Taylor,9,Mario,29,RB,127.3,4.389655172413793
+2023,12,Bill,Jalen Hurts,4,Daniel,54,QB,388.22,7.18925925925926
+2023,13,Jon,Nick Chubb,10,Nate,42,RB,25.6,0.6095238095238096
+2023,14,Mario,Christian McCaffrey,9,Mario,44,RB,384.8,8.745454545454546
+2023,15,Nate,Ja'Marr Chase,1,Bill,42,WR,198.32,4.721904761904762
+2023,16,Grossman,Amon-Ra St. Brown,10,Nate,37,WR,239,6.45945945945946
+2023,17,Daniel,Travis Kelce,6,Jack,38,TE,153.4,4.036842105263158
+2023,18,Brian,Josh Jacobs,9,Mario,29,RB,169.6,5.848275862068966
+2023,19,Justin,Derrick Henry,7,Jon,37,RB,229.86,6.212432432432433
+2023,20,Bryan,Trevor Lawrence,3,Bryan,37,QB,259.84,7.022702702702702
+2023,21,Bryan,A.J. Brown,3,Bryan,33,WR,230.2,6.975757575757576
+2023,22,Justin,Tee Higgins,6,Jack,19,WR,113.6,5.978947368421053
+2023,23,Brian,Mark Andrews,1,Bill,24,TE,100.9,4.204166666666667
+2023,24,Daniel,Cooper Kupp,2,Brian,31,WR,127.4,4.109677419354839
+2023,25,Grossman,Stefon Diggs,1,Bill,33,WR,192.1,5.821212121212121
+2023,26,Nate,CeeDee Lamb,8,Justin,29,WR,297.2,10.248275862068965
+2023,27,Mario,Tua Tagovailoa,3,Bryan,24,QB,274.74,11.4475
+2023,28,Jon,DK Metcalf,2,Brian,13,WR,185.9,14.3
+2023,29,Bill,Lamar Jackson,10,Nate,49,QB,359.72,7.341224489795919
+2023,30,Jack,Daniel Jones,8,Justin,21,QB,63.96,3.045714285714286
+2023,31,Jack,Justin Herbert,8,Justin,42,QB,248.16,5.908571428571428
+2023,32,Bill,Joe Burrow,5,Eric + Mark,40,QB,157.66,3.9415
+2023,33,Jon,Joe Mixon,3,Bryan,16,RB,219.3,13.70625
+2023,34,Mario,Tony Pollard,10,Nate,38,RB,184,4.842105263157895
+2023,35,Nate,Davante Adams,7,Jon,27,WR,182.3,6.751851851851852
+2023,36,Grossman,Jaylen Waddle,8,Justin,24,WR,154.6,6.441666666666666
+2023,37,Daniel,Deshaun Watson,5,Eric + Mark,11,QB,89.3,8.118181818181817
+2023,38,Brian,Najee Harris,3,Bryan,20,RB,171.7,8.584999999999999
+2023,39,Justin,T.J. Hockenson,3,Bryan,15,TE,147.5,9.833333333333334
+2023,40,Mario,Travis Etienne,2,Brian,23,RB,249.2,10.834782608695651
+2023,41,Bryan,Cam Akers,3,Bryan,10,RB,41.7,4.17
+2023,42,Bryan,Chris Olave,9,Mario,24,WR,167.7,6.9875
+2023,43,Brian,Keenan Allen,2,Brian,9,WR,208.36,23.151111111111113
+2023,44,Daniel,Jahmyr Gibbs,2,Brian,32,RB,210.1,6.565625
+2023,45,Grossman,Russell Wilson,7,Jon,6,QB,278.4,46.4
+2023,46,Nate,Rhamondre Stevenson,5,Eric + Mark,24,RB,127.7,5.320833333333334
+2023,47,Justin,Jahan Dotson,3,Bryan,4,WR,87.1,21.775
+2023,48,Jon,DeVonta Smith,4,Daniel,17,WR,170.6,10.035294117647059
+2023,49,Bill,Deebo Samuel,4,Daniel,19,WR,203.5,10.710526315789474
+2023,50,Jack,Brandon Aiyuk,6,Jack,7,WR,211.7,30.24285714285714
+2023,51,Jack,Kirk Cousins,7,Jon,13,QB,159.74,12.287692307692309
+2023,52,Bill,Breece Hall,2,Brian,10,RB,217,21.7
+2023,53,Jon,Jerry Jeudy,3,Bryan,13,WR,86.4,6.6461538461538465
+2023,54,Mario,Aaron Jones,6,Jack,9,RB,111.8,12.422222222222222
+2023,55,Nate,Amari Cooper,9,Mario,11,WR,189.5,17.227272727272727
+2023,56,Grossman,J.K. Dobbins,5,Eric + Mark,8,RB,9.7,1.2125
+2023,57,Daniel,DJ Moore,4,Daniel,16,WR,222.1,13.88125
+2023,58,Brian,DeAndre Hopkins,9,Mario,5,WR,164,32.8
+2023,59,Justin,Khalil Herbert,4,Daniel,6,RB,109.4,18.233333333333334
+2023,60,Bryan,Calvin Ridley,3,Bryan,20,WR,163.8,8.190000000000001
+2023,61,Bryan,Kenneth Walker,1,Bill,21,RB,184.8,8.8
+2023,62,Justin,Dak Prescott,9,Mario,11,QB,339.18,30.834545454545456
+2023,63,Brian,Terry McLaurin,7,Jon,9,WR,146.6,16.288888888888888
+2023,64,Daniel,James Conner,5,Eric + Mark,9,RB,178.6,19.844444444444445
+2023,65,Grossman,Geno Smith,1,Bill,13,QB,217.4,16.723076923076924
+2023,66,Nate,Miles Sanders,4,Daniel,20,RB,73.8,3.69
+2023,67,Mario,Anthony Richardson,2,Brian,7,QB,74.68,10.668571428571429
+2023,68,Jon,George Kittle,7,Jon,9,TE,162.7,18.077777777777776
+2023,69,Bill,Alexander Mattison,8,Justin,19,RB,114.8,6.042105263157895
+2023,70,Jack,Mike Evans,7,Jon,8,WR,227.3,28.4125
+2023,71,Jack,George Pickens,5,Eric + Mark,6,WR,174.5,29.083333333333332
+2023,72,Bill,Jared Goff,2,Brian,15,QB,275.8,18.386666666666667
+2023,73,Jon,Tyler Lockett,6,Jack,5,WR,128.8,25.76
+2023,74,Mario,Derek Carr,6,Jack,9,QB,225.96,25.10666666666667
+2023,75,Nate,Christian Watson,10,Nate,17,WR,81.3,4.7823529411764705
+2023,76,Grossman,Christian Kirk,7,Jon,5,WR,112.76,22.552
+2023,77,Daniel,Philadelphia Eagles,9,Mario,4,DS,40,10
+2023,78,Brian,Alvin Kamara,7,Jon,6,RB,187.5,31.25
+2023,79,Justin,Isiah Pacheco,7,Jon,7,RB,203.9,29.12857142857143
+2023,80,Bryan,Brock Purdy,9,Mario,7,QB,311.1,44.44285714285714
+2023,81,Bryan,Jordan Love,10,Nate,7,QB,308.52,44.074285714285715
+2023,82,Justin,Drake London,6,Jack,5,WR,126.28,25.256
+2023,83,Brian,Tank Bigsby,3,Bryan,3,RB,24.7,8.233333333333333
+2023,84,Daniel,Dameon Pierce,4,Daniel,12,RB,71.2,5.933333333333334
+2023,85,Grossman,Mike Williams,7,Jon,10,WR,37.2,3.72
+2023,86,Nate,A.J. Dillon,6,Jack,8,RB,115.6,14.45
+2023,87,Mario,Dalvin Cook,9,Mario,5,RB,31.7,6.34
+2023,88,Jon,Jaxon Smith-Njigba,7,Jon,7,WR,97.4,13.914285714285715
+2023,89,Bill,David Montgomery,7,Jon,8,RB,212.7,26.5875
+2023,90,Jack,Michael Pittman,5,Eric + Mark,5,WR,168.3,33.660000000000004
+2023,91,Jack,Michael Thomas,6,Jack,3,WR,60.8,20.266666666666666
+2023,92,Bill,Chris Godwin,1,Bill,5,WR,149.7,29.939999999999998
+2023,93,Jon,San Francisco 49ers,7,Jon,1,DS,64.5,64.5
+2023,94,Mario,James Cook,1,Bill,7,RB,220,31.428571428571427
+2023,95,Nate,Diontae Johnson,9,Mario,4,WR,101.8,25.45
+2023,96,Grossman,Darren Waller,7,Jon,8,TE,67.7,8.4625
+2023,97,Daniel,Dallas Cowboys,6,Jack,2,DS,92.5,46.25
+2023,98,Brian,Elijah Mitchell,4,Daniel,2,RB,34.3,17.15
+2023,99,Justin,Zach Charbonnet,2,Brian,2,RB,84.1,42.05
+2023,100,Bryan,Javonte Williams,5,Eric + Mark,11,RB,139.2,12.654545454545454
+2023,101,Bryan,Marquise Brown,9,Mario,2,WR,98.2,49.1
+2023,102,Justin,New England Patriots,8,Justin,1,DS,64,64
+2023,103,Brian,Evan Engram,6,Jack,3,TE,121.9,40.63333333333333
+2023,104,Daniel,Rachaad White,8,Justin,5,RB,226.1,45.22
+2023,105,Grossman,D'Andre Swift,2,Brian,6,RB,190.3,31.71666666666667
+2023,106,Nate,Brian Robinson,9,Mario,2,RB,181.6,90.8
+2023,107,Mario,Cole Kmet,9,Mario,1,TE,121.5,121.5
+2023,108,Bill,Tyler Allgeier,1,Bill,3,RB,135.2,45.06666666666666
+2023,109,Jack,Treylon Burks,6,Jack,1,WR,27.9,27.9
+2023,110,Jack,Matthew Stafford,6,Jack,5,QB,254.1,50.82
+2023,111,Bill,Kenny Pickett,2,Brian,3,QB,115.7,38.56666666666667
+2023,112,Mario,Gabe Davis,8,Justin,2,WR,135.9,67.95
+2023,113,Nate,Samaje Perine,5,Eric + Mark,2,RB,85.3,42.65
+2023,114,Grossman,Dallas Goedert,9,Mario,5,TE,93.9,18.78
+2023,115,Daniel,Kyle Pitts,2,Brian,5,TE,97.1,19.419999999999998
+2023,116,Brian,Antonio Gibson,8,Justin,2,RB,88.8,44.4
+2023,117,Justin,Jimmy Garoppolo,5,Eric + Mark,2,QB,69.1,34.55
+2023,118,Bryan,Kenneth Gainwell,3,Bryan,2,RB,73.68,36.84
+2023,119,Bryan,K.J. Osborn,3,Bryan,2,WR,83.6,41.8
+2023,120,Justin,Bryce Young,3,Bryan,2,QB,159.72,79.86
+2023,121,Brian,Kadarius Toney,8,Justin,2,WR,32.5,16.25
+2023,122,Daniel,Pat Freiermuth,5,Eric + Mark,2,TE,51.7,25.85
+2023,123,Grossman,Rashaad Penny,2,Brian,2,RB,2.7,1.35
+2023,124,Nate,Jeff Wilson,8,Justin,2,RB,27.8,13.9
+2023,125,Bill,Courtland Sutton,8,Justin,2,WR,144,72
+2023,126,Jack,Roschon Johnson,6,Jack,1,RB,76.1,76.1
+2023,127,Bill,JuJu Smith-Schuster,1,Bill,1,WR,38,38
+2023,128,Nate,Jordan Addison,8,Justin,3,WR,157.1,52.36666666666667
+2023,129,Grossman,Ezekiel Elliott,5,Eric + Mark,2,RB,133.9,66.95
+2023,130,Daniel,Jamaal Williams,4,Daniel,1,RB,41.4,41.4
+2023,131,Brian,Buffalo Bills,2,Brian,1,DS,62,62
+2023,132,Justin,Dalton Kincaid,8,Justin,3,TE,80.9,26.96666666666667
+2023,133,Bryan,Baltimore Ravens,3,Bryan,2,DS,85.5,42.75
+2023,134,Bryan,Clyde Edwards-Helaire,3,Bryan,2,RB,60.1,30.05
+2023,135,Justin,Mac Jones,8,Justin,1,QB,110.9,110.9
+2023,136,Brian,Zay Flowers,2,Brian,2,WR,149.4,74.7
+2023,137,Daniel,Raheem Mostert,4,Daniel,1,RB,268.7,268.7
+2023,138,Grossman,Brandin Cooks,5,Eric + Mark,1,WR,124.5,124.5
+2023,139,Nate,Skyy Moore,10,Nate,2,WR,39.2,19.6
+2023,140,Bill,Quentin Johnston,1,Bill,1,WR,62.7,62.7
+2023,141,Bill,Jerick McKinnon,1,Bill,1,RB,65.36,65.36
+2023,142,Nate,Damien Harris,10,Nate,1,RB,21,21
+2023,143,Grossman,New Orleans Saints,5,Eric + Mark,1,DS,83,83
+2023,144,Daniel,David Njoku,4,Daniel,1,TE,138.7,138.7
+2023,145,Daniel,Nico Collins,4,Daniel,1,WR,182.9,182.9
+2023,146,Nate,Pittsburgh Steelers,10,Nate,1,DS,55.5,55.5
+2023,147,Bill,New York Jets,1,Bill,1,DS,74,74
+2023,148,Bill,C.J. Stroud,1,Bill,1,QB,274.46,274.46
+2023,149,Nate,Sam Howell,10,Nate,1,QB,263.12,263.12
+2023,150,Daniel,Kyler Murray,4,Daniel,1,QB,132.08,132.08
+2023,151,Daniel,Kansas City Chiefs,4,Daniel,1,DS,64,64
+2023,152,Nate,Rashod Bateman,10,Nate,1,WR,54.5,54.5
+2023,153,Bill,Jaylen Warren,1,Bill,1,RB,160.9,160.9
+2023,154,Bill,Michael Gallup,1,Bill,1,WR,62.3,62.3
+2023,155,Nate,Ryan Tannehill,10,Nate,1,QB,69.12,69.12
+2023,156,Nate,Elijah Moore,10,Nate,1,WR,87.6,87.6
+2023,157,Nate,Jameson Williams,10,Nate,1,WR,62.3,62.3
+2023,158,Nate,Gus Edwards,10,Nate,1,RB,192.2,192.2
+2023,159,Nate,Dalton Schultz,10,Nate,1,TE,103.3,103.3
+2023,160,Daniel,Kendre Miller,4,Daniel,1,RB,24.4,24.4
+2024,1,Bill,Anthony Richardson,4,Daniel,38,QB,176.36,4.6410526315789475
+2024,2,Bryan,Josh Allen,5,Eric + Mark,55,QB,405.04,7.3643636363636364
+2024,3,Daniel,Jalen Hurts,4,Daniel,54,QB,341.12,6.3170370370370375
+2024,4,Grossman,Christian McCaffrey,6,Jack,47,RB,41.8,0.8893617021276595
+2024,5,Nate,Lamar Jackson,5,Eric + Mark,46,QB,433.4,9.421739130434782
+2024,6,Mario,CeeDee Lamb,8,Justin,41,WR,194.4,4.741463414634146
+2024,7,Brian,Jonathan Taylor,1,Bill,40,RB,246.2,6.154999999999999
+2024,8,Jack,Jahmyr Gibbs,9,Mario,34,RB,312.4,9.188235294117646
+2024,9,Justin,C.J. Stroud,1,Bill,35,QB,225.38,6.4394285714285715
+2024,10,Jon,Derrick Henry,10,Nate,37,RB,345.8,9.345945945945946
+2024,11,Jon,Puka Nacua,8,Justin,29,WR,160.1,5.520689655172413
+2024,12,Justin,Tyreek Hill,2,Brian,40,WR,165.7,4.1425
+2024,13,Jack,Breece Hall,6,Jack,45,RB,194.7,4.326666666666666
+2024,14,Brian,Ja'Marr Chase,1,Bill,39,WR,300.9,7.715384615384615
+2024,15,Mario,Patrick Mahomes,7,Jon,50,QB,298.02,5.9604
+2024,16,Nate,Joe Burrow,3,Bryan,32,QB,383.84,11.995
+2024,17,Grossman,Kyler Murray,2,Brian,38,QB,282.36,7.430526315789474
+2024,18,Daniel,Jordan Love,10,Nate,33,QB,235.1,7.124242424242424
+2024,19,Bryan,Bijan Robinson,9,Mario,48,RB,296.4,6.175
+2024,20,Bill,Saquon Barkley,8,Justin,37,RB,385.8,10.427027027027027
+2024,21,Bill,Kyren Williams,9,Mario,35,RB,283.6,8.102857142857143
+2024,22,Bryan,Justin Jefferson,2,Brian,34,WR,244.58,7.193529411764707
+2024,23,Daniel,A.J. Brown,6,Jack,33,WR,181.9,5.512121212121213
+2024,24,Grossman,Garrett Wilson,4,Daniel,28,WR,179.3,6.403571428571429
+2024,25,Nate,De'Von Achane,3,Bryan,26,RB,231.8,8.915384615384616
+2024,26,Mario,Amon-Ra St. Brown,10,Nate,35,WR,229.98,6.570857142857142
+2024,27,Brian,Chris Olave,9,Mario,26,WR,57.7,2.2192307692307693
+2024,28,Jack,Mike Evans,5,Eric + Mark,20,WR,180.5,9.025
+2024,29,Justin,Trevor Lawrence,8,Justin,22,QB,154.2,7.009090909090909
+2024,30,Jon,Dak Prescott,3,Bryan,21,QB,122.52,5.8342857142857145
+2024,31,Jon,Kenneth Walker,3,Bryan,20,RB,156.7,7.834999999999999
+2024,32,Justin,Travis Etienne,10,Nate,33,RB,103.7,3.1424242424242426
+2024,33,Jack,Josh Jacobs,7,Jon,28,RB,286.5,10.232142857142858
+2024,34,Brian,Travis Kelce,8,Justin,19,TE,122.4,6.442105263157895
+2024,35,Mario,Isiah Pacheco,10,Nate,31,RB,53.4,1.7225806451612902
+2024,36,Nate,Rachaad White,4,Daniel,24,RB,170.6,7.108333333333333
+2024,37,Grossman,Jayden Daniels,8,Justin,21,QB,379.1,18.052380952380954
+2024,38,Daniel,Sam LaPorta,4,Daniel,21,TE,124.8,5.942857142857143
+2024,39,Bryan,Jared Goff,9,Mario,19,QB,334.72,17.61684210526316
+2024,40,Bill,Deebo Samuel,1,Bill,23,WR,121.1,5.265217391304348
+2024,41,Bill,Joe Mixon,2,Brian,18,RB,240.7,13.372222222222222
+2024,42,Bryan,Brock Purdy,7,Jon,19,QB,290.86,15.30842105263158
+2024,43,Daniel,Marvin Harrison,5,Eric + Mark,20,WR,142.7,7.135
+2024,44,Grossman,DJ Moore,6,Jack,19,WR,148.5,7.815789473684211
+2024,45,Nate,Drake London,5,Eric + Mark,19,WR,180.6,9.505263157894737
+2024,46,Mario,Raheem Mostert,3,Bryan,17,RB,62.4,3.6705882352941175
+2024,47,Brian,Jaylen Waddle,6,Jack,15,WR,107.6,7.173333333333333
+2024,48,Jack,Aaron Jones,3,Bryan,15,RB,216.6,14.44
+2024,49,Justin,Nico Collins,10,Nate,18,WR,160.3,8.905555555555557
+2024,50,Jon,Brandon Aiyuk,2,Brian,15,WR,48.9,3.26
+2024,51,Jon,Tua Tagovailoa,9,Mario,15,QB,191.08,12.738666666666667
+2024,52,Justin,Cooper Kupp,7,Jon,18,WR,125.5,6.972222222222222
+2024,53,Jack,James Cook,4,Daniel,21,RB,255.4,12.161904761904761
+2024,54,Brian,DeVonta Smith,1,Bill,13,WR,152.4,11.723076923076924
+2024,55,Mario,James Conner,5,Eric + Mark,13,RB,255.8,19.676923076923078
+2024,56,Nate,Davante Adams,9,Mario,14,WR,166.5,11.892857142857142
+2024,57,Grossman,D'Andre Swift,8,Justin,14,RB,185,13.214285714285714
+2024,58,Daniel,Rhamondre Stevenson,2,Brian,7,RB,164.9,23.557142857142857
+2024,59,Bryan,Caleb Williams,6,Jack,22,QB,264.62,12.02818181818182
+2024,60,Bill,DK Metcalf,3,Bryan,10,WR,134.4,13.440000000000001
+2024,61,Bill,Trey McBride,2,Brian,11,TE,160.3,14.572727272727274
+2024,62,Bryan,Justin Herbert,2,Brian,15,QB,268.86,17.924
+2024,63,Daniel,Mark Andrews,3,Bryan,7,TE,136.9,19.557142857142857
+2024,64,Grossman,David Montgomery,7,Jon,10,RB,214.72,21.472
+2024,65,Nate,Malik Nabers,2,Brian,10,WR,182.2,18.22
+2024,66,Mario,Zamir White,5,Eric + Mark,7,RB,25.8,3.685714285714286
+2024,67,Brian,Stefon Diggs,7,Jon,9,WR,88.92,9.88
+2024,68,Jack,Tee Higgins,3,Bryan,7,WR,165.3,23.614285714285717
+2024,69,Justin,Dalton Kincaid,1,Bill,13,TE,67.3,5.176923076923076
+2024,70,Jon,Alvin Kamara,7,Jon,8,RB,234.3,29.2875
+2024,71,Jon,Terry McLaurin,7,Jon,4,WR,203.6,50.9
+2024,72,Justin,Michael Pittman,7,Jon,9,WR,108.1,12.011111111111111
+2024,73,Jack,George Pickens,3,Bryan,5,WR,126.4,25.28
+2024,74,Brian,Deshaun Watson,2,Brian,1,QB,80.22,80.22
+2024,75,Mario,Will Levis,6,Jack,3,QB,114.14,38.04666666666667
+2024,76,Nate,Kyle Pitts,3,Bryan,7,TE,90.7,12.957142857142857
+2024,77,Grossman,Aaron Rodgers,1,Bill,5,QB,235.12,47.024
+2024,78,Daniel,Khalil Shakir,5,Eric + Mark,2,WR,126,63
+2024,79,Bryan,Matthew Stafford,3,Bryan,7,QB,223.58,31.94
+2024,80,Bill,Keenan Allen,6,Jack,3,WR,132.9,44.300000000000004
+2024,81,Bill,Kirk Cousins,3,Bryan,11,QB,184.32,16.756363636363634
+2024,82,Bryan,Amari Cooper,7,Jon,4,WR,88.7,22.175
+2024,83,Daniel,Rome Odunze,2,Brian,2,WR,110.1,55.05
+2024,84,Grossman,Nick Chubb,3,Bryan,4,RB,66.3,16.575
+2024,85,Nate,Baker Mayfield,6,Jack,5,QB,365.16,73.03200000000001
+2024,86,Mario,Javonte Williams,7,Jon,6,RB,116.1,19.349999999999998
+2024,87,Brian,George Kittle,5,Eric + Mark,9,TE,184.4,20.48888888888889
+2024,88,Jack,Najee Harris,1,Bill,2,RB,189,94.5
+2024,89,Justin,Rashee Rice,1,Bill,3,WR,51.9,17.3
+2024,90,Jon,Geno Smith,7,Jon,4,QB,255.68,63.92
+2024,91,Jon,Christian Kirk,7,Jon,11,WR,52.4,4.763636363636364
+2024,92,Justin,Ezekiel Elliott,8,Justin,1,RB,52.5,52.5
+2024,93,Jack,Jonathon Brooks,8,Justin,3,RB,5.5,1.8333333333333333
+2024,94,Brian,Zack Moss,7,Jon,3,RB,69.4,23.133333333333336
+2024,95,Mario,Tank Dell,3,Bryan,8,WR,108.5,13.5625
+2024,96,Nate,Brian Robinson,1,Bill,5,RB,165.7,33.14
+2024,97,Grossman,Zay Flowers,8,Justin,4,WR,165.4,41.35
+2024,98,Daniel,Blake Corum,4,Daniel,3,RB,32.3,10.766666666666666
+2024,99,Bryan,Calvin Ridley,1,Bill,4,WR,147.9,36.975
+2024,100,Bill,Jayden Reed,1,Bill,3,WR,158.4,52.800000000000004
+2024,101,Bill,Gus Edwards,1,Bill,5,RB,67.6,13.52
+2024,102,Bryan,Marquise Brown,3,Bryan,1,WR,11.6,11.6
+2024,103,Daniel,Tony Pollard,2,Brian,2,RB,186.5,93.25
+2024,104,Grossman,Devin Singletary,5,Eric + Mark,3,RB,84.9,28.3
+2024,105,Nate,Tyjae Spears,1,Bill,3,RB,95.1,31.7
+2024,106,Mario,Daniel Jones,1,Bill,2,QB,146.3,73.15
+2024,107,Brian,Jaylen Warren,2,Brian,4,RB,105.5,26.375
+2024,108,Jack,Jordan Addison,6,Jack,1,WR,168.5,168.5
+2024,109,Justin,Chase Brown,8,Justin,4,RB,233.5,58.375
+2024,110,Jon,Jake Ferguson,7,Jon,7,TE,52.7,7.528571428571429
+2024,111,Jon,Chicago Bears,7,Jon,10,DST,47.5,4.75
+2024,112,Justin,Russell Wilson,8,Justin,1,QB,169.26,169.26
+2024,113,Jack,David Njoku,6,Jack,1,TE,93.5,93.5
+2024,114,Brian,Ladd McConkey,2,Brian,1,WR,174.4,174.4
+2024,115,Mario,Joshua Palmer,10,Nate,2,WR,81.9,40.95
+2024,116,Nate,Bryce Young,10,Nate,2,QB,162.58,81.29
+2024,117,Grossman,Bo Nix,5,Eric + Mark,1,QB,300.66,300.66
+2024,118,Daniel,Christian Watson,4,Daniel,1,WR,90.3,90.3
+2024,119,Bill,Kansas City Chiefs,1,Bill,5,DST,60.5,12.1
+2024,120,Daniel,Chris Godwin,4,Daniel,1,WR,106.3,106.3
+2024,121,Grossman,Courtland Sutton,5,Eric + Mark,1,WR,172.5,172.5
+2024,122,Nate,Xavier Worthy,10,Nate,2,WR,143.7,71.85
+2024,123,Mario,Evan Engram,9,Mario,1,TE,52.5,52.5
+2024,124,Brian,Jerome Ford,4,Daniel,2,RB,113,56.5
+2024,125,Jack,Baltimore Ravens,6,Jack,1,DST,39.5,39.5
+2024,126,Justin,Brian Thomas,8,Justin,1,WR,214.2,214.2
+2024,127,Justin,Austin Ekeler,8,Justin,1,RB,107.6,107.6
+2024,128,Jack,J.K. Dobbins,4,Daniel,2,RB,176.3,88.15
+2024,129,Brian,Trey Benson,2,Brian,1,RB,50,50
+2024,130,Mario,Diontae Johnson,9,Mario,1,WR,65.9,65.9
+2024,131,Nate,Brock Bowers,10,Nate,1,TE,171.7,171.7
+2024,132,Grossman,Rico Dowdle,5,Eric + Mark,1,RB,180.9,180.9
+2024,133,Daniel,Zach Charbonnet,4,Daniel,1,RB,151.3,151.3
+2024,134,Daniel,Jaleel McLaughlin,4,Daniel,1,RB,79.4,79.4
+2024,135,Grossman,Cole Kmet,5,Eric + Mark,1,TE,83.6,83.6
+2024,136,Nate,Justin Fields,10,Nate,1,QB,128.14,128.14
+2024,137,Mario,Curtis Samuel,9,Mario,1,WR,31,31
+2024,138,Brian,MarShawn Lloyd,2,Brian,1,RB,1.8,1.8
+2024,139,Jack,Tyler Allgeier,6,Jack,1,RB,107.3,107.3
+2024,140,Justin,Jaxon Smith-Njigba,8,Justin,1,WR,183.2,183.2
+2024,141,Justin,Pittsburgh Steelers,8,Justin,1,DST,71.5,71.5
+2024,142,Jack,Ty Chandler,6,Jack,1,RB,27.9,27.9
+2024,143,Mario,Braelon Allen,9,Mario,1,RB,76.4,76.4
+2024,144,Nate,New York Jets,10,Nate,1,DST,37,37
+2024,145,Grossman,Keon Coleman,5,Eric + Mark,1,WR,88.5,88.5
+2024,146,Daniel,Chuba Hubbard,4,Daniel,1,RB,237.1,237.1
+2024,147,Daniel,Khalil Herbert,4,Daniel,1,RB,15.2,15.2
+2024,148,Grossman,Sam Darnold,5,Eric + Mark,1,QB,316.82,316.82
+2024,149,Nate,Derek Carr,10,Nate,1,QB,151.4,151.4
+2024,150,Mario,DeAndre Hopkins,9,Mario,1,WR,106,106
+2024,151,Jack,Jameson Williams,6,Jack,1,WR,174.3,174.3
+2024,152,Jack,Dallas Goedert,6,Jack,1,TE,65.1,65.1
+2024,153,Nate,Tyler Lockett,10,Nate,1,WR,85.2,85.2
+2024,154,Daniel,San Francisco 49ers,4,Daniel,1,DST,35,35
+2024,155,Nate,Jaylen Wright,10,Nate,1,RB,29.6,29.6
+2024,156,Brian,Rashid Shaheed,10,Nate,1,WR,59.3,59.3
+2024,157,Mario,Romeo Doubs,9,Mario,1,WR,100.6,100.6
+2024,158,Mario,Ja'Lynn Polk,9,Mario,1,WR,21.7,21.7
+2024,159,Mario,Justice Hill,9,Mario,1,RB,98.6,98.6
+2024,160,Mario,Brandin Cooks,9,Mario,1,WR,50.1,50.1
