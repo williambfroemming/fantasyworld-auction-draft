@@ -47,7 +47,8 @@
     "db:local:seed": "sh -c \"export DATABASE_URL=postgres://postgres:postgres@localhost:5432/neondb; npx tsx scripts/seed.ts \\\"\\$@\\\"\" --",
     "local": "sh -c \"export DATABASE_URL=postgres://postgres:postgres@localhost:5432/neondb TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5433/neondb_test; \\\"\\$@\\\"\" --",
     "dev:local": "npm run local -- next dev",
-    "db:local:setup-test": "sh -c \"export DATABASE_URL=postgres://postgres:postgres@localhost:5433/neondb_test; npx tsx scripts/local/bootstrap.ts\""
+    "db:local:setup-test": "sh -c \"export DATABASE_URL=postgres://postgres:postgres@localhost:5433/neondb_test; npx tsx scripts/local/bootstrap.ts\"",
+    "history:player-map": "tsx scripts/history/pull-player-map.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

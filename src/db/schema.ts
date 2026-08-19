@@ -479,9 +479,21 @@ export const seasons = pgTable('seasons', {
   draftState: text('draft_state'),
   draftCountry: text('draft_country'),
   /**
-   * The podium, **recorded and never derived**. The playoff bracket is six
-   * teams over three rounds, so there is no third-place game — deriving third
-   * from the matchups would produce a confident, wrong name.
+   * The podium.
+   *
+   * For 2020+ this is read from Sleeper's `winners_bracket`, which tags the
+   * championship game `p: 1` and the third-place game `p: 3`. That derivation was
+   * checked against the workbook's own `win_history` for all five overlapping
+   * seasons and matched on every one of the fifteen placings.
+   *
+   * Third place **is** played, contrary to an earlier reading of the data. The
+   * bracket holds seven games, not five: two quarter-finals, two semi-finals, a
+   * fifth-place game, the final, and a third-place game. The workbook recorded
+   * only five of them — it dropped the fifth- and third-place games from
+   * `playoff_matchup_data` while still recording a third-place finisher in
+   * `win_history`, which is what made it look unplayed.
+   *
+   * Pre-2020 it is transcribed from `win_history`, because nothing finer exists.
    */
   championManagerId: integer('champion_manager_id').references(() => managers.id),
   runnerUpManagerId: integer('runner_up_manager_id').references(() => managers.id),
