@@ -534,6 +534,21 @@ export const seasonStandings = pgTable(
     wins: integer('wins').notNull(),
     losses: integer('losses').notNull(),
     ties: integer('ties').notNull().default(0),
+    /**
+     * Sleeper's own published season total, not a re-sum of the weekly rows.
+     *
+     * Those two disagree slightly for eight rosters across 2020-21 — a stat
+     * correction that reached the weekly rows and not the stored total. The
+     * league's decision is to take the platform's figure, which is also what the
+     * history workbook's standings sheet recorded, so the archive agrees with
+     * both. Checked: 49 of 50 overlapping member-seasons match the workbook to
+     * the cent, and the one that does not (Brian, 2023) is a workbook error —
+     * Sleeper's season total and its weekly rows both say 1976.62 there.
+     *
+     * ⚠️ Summing `season_matchups.points` will therefore not always equal this.
+     * That is the source's inconsistency, not a defect here; anything showing
+     * both must say which one it is showing.
+     */
     pointsFor: numeric('points_for', { precision: 8, scale: 2 }),
     pointsAgainst: numeric('points_against', { precision: 8, scale: 2 }),
     madePlayoffs: boolean('made_playoffs').notNull().default(false),

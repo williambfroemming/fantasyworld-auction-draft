@@ -240,7 +240,6 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
   }
 
   const matchupRows: unknown[][] = []
-  const weekTotals = new Map<number, number>()
   for (const [week, entries] of [...weeks].sort((a, b) => a[0] - b[0])) {
     const isPlayoffWeek = week >= playoffStart
     for (const side of pairWeek(week, entries)) {
@@ -254,25 +253,22 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
         isPlayoffWeek, isPlayoffWeek ? playoffRound(week, playoffStart) : null, side.result,
         isPlayoffWeek ? (placementOf.get(`${week}:${side.rosterId}`) ?? null) : null,
       ])
-      if (!isPlayoffWeek) {
-        weekTotals.set(side.rosterId, (weekTotals.get(side.rosterId) ?? 0) + side.points)
-      }
     }
   }
 
   // --- standings -----------------------------------------------------------
-  // Points come from the sum of the weekly results, not the roster's stored
-  // `fpts`: Sleeper's own aggregate drifts from its weekly rows in 2020 and
-  // 2021, and a season total that does not equal the games it is made of cannot
-  // be reconciled on screen. See src/lib/sleeper-history.test.ts.
+  // Points for and against are Sleeper's own season totals, not a re-sum of the
+  // weekly rows. Those two disagree slightly for eight rosters across 2020-21
+  // (a stat correction that reached the weekly rows and not the stored total),
+  // and the league's decision is to take the platform's published figure — it is
+  // what Sleeper shows, and what the history workbook's standings sheet already
+  // recorded, so the archive agrees with both.
+  //
+  // ⚠️ Consequence: summing a manager's `season_matchups.points` will not always
+  // equal their `season_standings.points_for`. That is expected and is the
+  // source's own inconsistency, not a bug here. Anything comparing the two must
+  // pick one and say which.
   const table = standings(rosters)
-  const against = new Map<number, number>()
-  for (const row of matchupRows) {
-    const [, , managerId, , , , oppPoints, isPlayoff] = row as [
-      number, number, number, number, number, number, number, boolean,
-    ]
-    if (!isPlayoff) against.set(managerId, (against.get(managerId) ?? 0) + Number(oppPoints))
-  }
 
   const playoffTally = new Map<number, { w: number; l: number }>()
   for (const row of matchupRows) {
@@ -293,8 +289,7 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
     const tally = playoffTally.get(managerId)
     return [
       season, managerId, row.place, row.wins, row.losses, row.ties,
-      Number((weekTotals.get(row.rosterId) ?? 0).toFixed(2)),
-      Number((against.get(managerId) ?? 0).toFixed(2)),
+      row.pointsFor, row.pointsAgainst,
       Boolean(tally), tally?.w ?? null, tally?.l ?? null,
     ]
   })
@@ -376,7 +371,7 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
     if (ref.place !== place) {
       problems.push({ season, manager: String(managerId), field: 'place', ours: place, workbook: ref.place })
     }
-    if (Math.abs(ref.pf - Number(pf)) > 4) {
+    if (Math.abs(ref.pf - Number(pf)) > 0.011) {
       problems.push({ season, manager: String(managerId), field: 'points_for', ours: Number(pf), workbook: ref.pf })
     }
   }
@@ -418,11 +413,7 @@ async function main() {
   } else {
     console.table(problems)
     const hard = problems.filter((p) => p.field !== 'points_for')
-    console.log(
-      `  ${problems.length} difference(s); ${hard.length} in record or place.\n` +
-        '  Points-for differences up to ~3.5 are expected: Sleeper\'s stored season\n' +
-        '  total drifts from the sum of its own weekly results in 2020 and 2021.\n',
-    )
+    console.log(`  ${problems.length} difference(s); ${hard.length} in record or place.\n`)
     if (hard.length) {
       console.error('✗ A record or place disagrees. That is not rounding — stopping.')
       process.exit(1)
