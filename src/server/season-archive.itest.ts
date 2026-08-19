@@ -239,6 +239,29 @@ d('seasons + archive (real Postgres)', () => {
     expect(live.managers.find((m) => m.id === managers[0].id)!.budget).toBe(200)
   })
 
+  it('never offers an inactive player in the draft pool', async () => {
+    // The history import seeds several hundred retired players so that
+    // picks.player_id has something to reference. The active flag is the only
+    // thing keeping them off a live board, and seed.ts deliberately protects any
+    // player a pick points at from the annual wipe — so there is no second line
+    // of defence.
+    await sql`INSERT INTO players (id, name, position, active)
+              VALUES ('retired-guy', 'Retired Guy', 'RB', false)
+              ON CONFLICT (id) DO UPDATE SET active = false`
+
+    const [{ season }] = await sql`SELECT season FROM draft WHERE id = 1`
+    const pool = await sql`
+      SELECT p.id FROM players p
+       WHERE p.active
+         AND NOT EXISTS (SELECT 1 FROM picks pk WHERE pk.player_id = p.id AND pk.season = ${season})
+         AND NOT EXISTS (SELECT 1 FROM lots l WHERE l.player_id = p.id AND l.status = 'open' AND l.season = ${season})`
+
+    expect(pool.map((r) => r.id)).not.toContain('retired-guy')
+    expect(pool.length).toBeGreaterThan(0)
+
+    await sql`DELETE FROM players WHERE id = 'retired-guy'`
+  })
+
   it('renders a past season with ITS settings, not the current draft\'s', async () => {
     // The bug this replaces: getArchivedSeason read roster_size and
     // starting_budget straight from `draft`, so changing a rule today silently

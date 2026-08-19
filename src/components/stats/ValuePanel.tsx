@@ -110,6 +110,29 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
   }
 
   const { scored, unscored, byManager } = report!
+
+  if (scored.length === 0) {
+    // A finished season with no ranks on record — every pre-2026 auction, whose
+    // pool was replaced long before `picks.player_rank` existed. Two empty
+    // tables would read as a bug; the reason is the interesting part, and it is
+    // not recoverable.
+    return shell(
+      <div className="grid flex-1 place-items-center p-8 text-center">
+        <div className="max-w-md">
+          <p className="text-lg text-slate-300">Not scored for {input.season}.</p>
+          <p className="mt-2 text-sm text-slate-500">
+            Value compares a price against what the room paid for similarly ranked players, and
+            this season has no pool rankings on record. Rank stops being recoverable the moment a
+            season&rsquo;s player pool is replaced, which happens every August.
+          </p>
+          <p className="mt-3 text-xs uppercase tracking-widest text-slate-600">
+            {unscored} pick{unscored === 1 ? '' : 's'} unranked
+          </p>
+        </div>
+      </div>,
+    )
+  }
+
   const overpays = scored.slice(0, 8)
   const bargains = [...scored].reverse().slice(0, 8)
 

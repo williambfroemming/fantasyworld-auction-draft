@@ -51,7 +51,8 @@
     "history:player-map": "tsx scripts/history/pull-player-map.ts",
     "history:import-sleeper": "dotenv -e .env.local -- tsx scripts/import-sleeper-history.ts",
     "history:import-workbook": "dotenv -e .env.local -- tsx scripts/import-workbook-history.ts",
-    "season:prizes": "dotenv -e .env.local -- tsx scripts/set-season-prizes.ts"
+    "season:prizes": "dotenv -e .env.local -- tsx scripts/set-season-prizes.ts",
+    "history:picks": "dotenv -e .env.local -- tsx scripts/import-history-picks.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

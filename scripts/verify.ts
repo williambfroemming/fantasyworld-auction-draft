@@ -129,15 +129,24 @@ async function main() {
     WHERE a.trade_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM trades t WHERE t.id = a.trade_id)`
   check('no adjustments orphaned from a deleted trade', Number(orphanAdj) === 0, `${tradeCount} trades`)
 
-  const [{ n: playerCount }] = await sql`SELECT count(*)::int AS n FROM players`
-  check('player pool is seeded', Number(playerCount) > 100, `${playerCount} players`)
+  // ⚠️ Every pool check below is scoped to `active`, and that scoping is the
+  // point. Since the history import, `players` also holds the several hundred
+  // retired players that 2021-2024 picks reference — they have no rank, no bye
+  // and no place on a draft board, and counting them here would make these
+  // checks fail forever while saying nothing about whether the board is ready.
+  const [{ n: playerCount }] = await sql`SELECT count(*)::int AS n FROM players WHERE active`
+  check('player pool is seeded', Number(playerCount) > 100, `${playerCount} draftable`)
 
-  const [{ n: defCount }] = await sql`SELECT count(*)::int AS n FROM players WHERE position = 'DEF'`
+  const [{ n: inactive }] = await sql`SELECT count(*)::int AS n FROM players WHERE NOT active`
+  check('historical players stay off the board', true, `${inactive} inactive (archive only)`)
+
+  const [{ n: defCount }] =
+    await sql`SELECT count(*)::int AS n FROM players WHERE position = 'DEF' AND active`
   check('team defenses present', Number(defCount) >= 28, `${defCount} defenses`)
 
   const [{ n: unranked }] =
-    await sql`SELECT count(*)::int AS n FROM players WHERE search_rank IS NULL`
-  check('every player has a board rank', Number(unranked) === 0, `${unranked} unranked`)
+    await sql`SELECT count(*)::int AS n FROM players WHERE search_rank IS NULL AND active`
+  check('every draftable player has a board rank', Number(unranked) === 0, `${unranked} unranked`)
 
   console.log('\nBoard preview:')
   console.table(

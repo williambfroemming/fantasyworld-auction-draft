@@ -101,6 +101,27 @@ export default function BoardPage() {
         </div>
       </header>
 
+      {/*
+        What the record does not say about itself.
+        A negative budget on an archived board looks exactly like the -1 bug this
+        app was built to remove, so the reason is printed rather than the number
+        quietly clamped to zero. Same for a season whose source is missing a pick.
+      */}
+      {isArchive && archive && archive.notes.length > 0 && (
+        <aside className="shrink-0 border-b border-rule bg-amber-500/5 px-4 py-2">
+          <ul className="space-y-0.5 text-xs leading-relaxed text-amber-200/80">
+            {archive.notes.map((note) => (
+              <li key={note} className="flex gap-2">
+                <span aria-hidden className="text-amber-400/60">
+                  ※
+                </span>
+                <span>{note}</span>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+
       <div className="min-h-0 flex-1 p-3">
         {!isArchive ? (
           view === 'grid' ? (

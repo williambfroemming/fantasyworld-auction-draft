@@ -26,7 +26,16 @@ export async function GET() {
                p.injury_status, p.injury_body_part, p.injury_notes,
                p.practice_participation, p.injury_updated_at
         FROM players p
-        WHERE NOT EXISTS (
+        -- ⚠️ Load-bearing since the history import. The players table now holds
+        -- several hundred retired players drafted in 2021-2024, kept because
+        -- picks.player_id references them and scripts/seed.ts deliberately
+        -- protects any player a pick points at from the annual wipe. The active
+        -- flag is the ONLY thing keeping them off a live draft board — there is
+        -- no second line of defence.
+        -- (No backticks in here: they terminate the tagged template, and the
+        -- error surfaces as an unrelated parse failure. See AGENTS.md.)
+        WHERE p.active
+          AND NOT EXISTS (
                 SELECT 1 FROM picks pk
                 WHERE pk.player_id = p.id AND pk.season = ${season})
           AND NOT EXISTS (

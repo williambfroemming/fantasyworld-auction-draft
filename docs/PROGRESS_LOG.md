@@ -1951,3 +1951,64 @@ no such flag, still uses roster counts.
   season's numbers, and a season with no row must still render.
 
 **Next:** H8 — the 2021–2024 auction drafts into `picks`.
+
+---
+
+## Step 40 — Phase 2 H8: the auction years
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/import-history-picks.ts` (`npm run history:picks`), the `AND p.active` pool
+filter, a Value-panel empty state, an archive notes banner, and pool checks in `verify.ts` scoped
+to draftable players.
+
+**640 picks across 2021–2024 in `picks`.** 274 unit and 81 integration tests passing,
+`db:verify` green, `manager_totals` unchanged.
+
+The payoff step: `/board`'s year picker, all five `/stats` panels and `/api/export` now work on
+four more seasons with no new view code, because they were already season-agnostic.
+
+### Two corrections, both found by a second source
+
+Sleeper's auction *amounts* for this league are a formality — every pick $1 — but its record of
+**which players** each manager took is real, and diffing it against the workbook found:
+
+- **2022 pick 160 dropped.** George Pickens appears twice under two spellings; Sleeper has him
+  once. Removing it puts Nate at 16 players / $200 instead of 17 / $203.
+- **2022 Tyler Boyd added at $1.** Bill's sixteenth pick is missing from the workbook. The price is
+  arithmetic rather than judgement: $199 across the other fifteen, a $200 budget and a $1 minimum
+  leave no other value. The pick *number* is a placeholder and says so.
+
+Both live in one `HISTORY_PICK_CORRECTIONS` list with a reason and a date, and both are surfaced in
+`seasons.notes` and drawn on the archived board. After them, **every roster matches Sleeper player
+for player** for 2021–2023. 2024 has no Sleeper draft, so it is the one year with no second source.
+
+### 2023 still does not balance, and that is the point
+
+Bryan $205, Brian $202, Nate $201 against a $200 budget — auction dollars were traded, and the
+league confirmed it. The archive shows the negative budgets **unclamped**, with the reason printed
+beside them. Tidying that away would be the stored-budget lie this app exists to remove.
+
+**Learned:**
+
+- **A second source is worth more than a careful reading of the first.** No amount of staring at the
+  workbook would have found the duplicate; one roster diff found it, recovered a missing pick, and
+  then certified all 640.
+- **`verify.ts` was right to fail and its question was wrong.** "Every player has a board rank" broke
+  on 287 historical players who have no rank by design. Scoped to `active`, it is again asking the
+  thing it means: is the *draft board* ready.
+
+**Watch out for:**
+
+- **No backticks inside a SQL template literal.** Writing an explanatory comment containing
+  `players` terminated the tagged template, and the error surfaced as three unrelated TypeScript
+  parse errors twenty lines away. AGENTS.md says this; it is still easy to do.
+- **`active` is the only thing keeping retired players off a live board.** `scripts/seed.ts`
+  deliberately protects any player a pick references from the annual wipe, so there is no second
+  line of defence. An integration test now pins it.
+- **`player_rank` is NULL for all 640 and always will be.** Rank stops being recoverable the moment
+  a season's pool is replaced. The Value panel says so rather than rendering two empty tables.
+- Draft order for these seasons is each manager's **first nomination**, not the drawn seat — the
+  drawn order was never recorded, and the note on the board says exactly that.
+
+**Next:** H9 — the 2025 auction from the Google Sheet.
