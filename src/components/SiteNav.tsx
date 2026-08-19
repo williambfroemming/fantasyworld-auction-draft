@@ -36,7 +36,7 @@ interface NavItem {
 
 const SECTIONS: Record<Section, { label: string; home: string; items: NavItem[] }> = {
   draft: {
-    label: 'Auction Draft',
+    label: 'Draft',
     home: '/draft',
     items: [
       { href: '/draft', label: 'Draft' },
@@ -69,6 +69,20 @@ export function SiteNav({
 
   return (
     <nav className="flex flex-wrap items-center gap-x-3 gap-y-1.5" aria-label="Site sections">
+      {/*
+        The wordmark. The league is FantasyWorld; the auction draft is one thing
+        it does and the history is another, so the name belongs above both rather
+        than being one of them.
+      */}
+      <Link
+        href="/"
+        className="font-display text-sm font-bold uppercase tracking-[0.12em] text-slate-100 hover:text-amber-300"
+      >
+        FantasyWorld
+      </Link>
+
+      <span aria-hidden className="h-4 w-px bg-rule" />
+
       {/* The two sections. Whichever you are not in is a plain link home. */}
       <div className="flex items-center gap-1 rounded-lg bg-slate-900 p-1">
         {(Object.keys(SECTIONS) as Section[]).map((key) => (

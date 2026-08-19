@@ -1803,10 +1803,13 @@ the fifth-place game is excluded.
 back-links replaced with a section nav.
 
 ```
-[Auction Draft] [History]
+FANTASYWORLD  |  [Draft] [History]
   Draft   → Draft · Board · Stats · Trades · Setup (commissioner only)
   History → Summary
 ```
+
+The wordmark carries the league's name; the auction draft is one thing FantasyWorld does and the
+history is another, so the name sits above both rather than being one of them.
 
 ### Why the app has two halves
 
