@@ -172,3 +172,70 @@ export async function getSeasonReviews() {
     .sort((a, b) => b.season - a.season)
   return { reviews, members: input.members }
 }
+
+export interface AuctionSummary {
+  season: number
+  picks: number
+  spent: number
+  /** Managers who finished above the budget. The record does not always balance. */
+  overBudget: Array<{ displayName: string; spent: number }>
+  topPick: { playerName: string; price: number; displayName: string } | null
+  notes: string[]
+  isCurrent: boolean
+}
+
+/**
+ * Every auction the league has on record, newest first.
+ *
+ * Built from `picks` rather than a list of seasons, because an auction exists
+ * exactly when somebody drafted in it — the same rule `listSeasons` uses.
+ */
+export async function listAuctions(): Promise<AuctionSummary[]> {
+  const sql = getSql()
+  const [{ season: current }] = await sql`SELECT season FROM draft WHERE id = 1`
+
+  const rows = await sql`
+    SELECT pk.season,
+           count(*)::int          AS picks,
+           COALESCE(sum(pk.price), 0)::int AS spent
+      FROM picks pk GROUP BY pk.season ORDER BY pk.season DESC`
+
+  const spendRows = await sql`
+    SELECT pk.season, m.display_name, sum(pk.price)::int AS spent
+      FROM picks pk JOIN managers m ON m.id = pk.manager_id
+     GROUP BY pk.season, m.display_name
+     HAVING sum(pk.price) > COALESCE(
+       (SELECT s.starting_budget FROM seasons s WHERE s.season = pk.season),
+       (SELECT d.starting_budget FROM draft d WHERE d.id = 1))
+     ORDER BY sum(pk.price) DESC`
+
+  const topRows = await sql`
+    SELECT DISTINCT ON (pk.season) pk.season, pk.player_name, pk.price, m.display_name
+      FROM picks pk JOIN managers m ON m.id = pk.manager_id
+     ORDER BY pk.season, pk.price DESC, pk.pick_no`
+
+  const noteRows = await sql`SELECT season, notes FROM seasons`
+  const notes = new Map(noteRows.map((r) => [Number(r.season), (r.notes as string[] | null) ?? []]))
+
+  return rows.map((r) => {
+    const season = Number(r.season)
+    const top = topRows.find((t) => Number(t.season) === season)
+    return {
+      season,
+      picks: Number(r.picks),
+      spent: Number(r.spent),
+      overBudget: spendRows
+        .filter((s) => Number(s.season) === season)
+        .map((s) => ({ displayName: String(s.display_name), spent: Number(s.spent) })),
+      topPick: top
+        ? {
+            playerName: String(top.player_name),
+            price: Number(top.price),
+            displayName: String(top.display_name),
+          }
+        : null,
+      notes: notes.get(season) ?? [],
+      isCurrent: season === Number(current),
+    }
+  })
+}

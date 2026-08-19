@@ -1,62 +1,90 @@
 import Link from 'next/link'
 
 /**
- * The app's two sections, and where you are in one of them.
+ * Three sections, each a hover menu.
  *
- * ## Why two sections rather than a flat set of pages
+ * ## Why three, and why these three
  *
- * These are two products sharing a database. The draft pages are a live tool:
- * ten people, one room, three hours a year, polling every 400ms with money on
- * the line. The history pages are a reference read at leisure, rendered
- * statically once an hour. They have different cadences, different audiences and
- * different failure modes, and a flat nav that mixes them invites somebody to
- * treat one like the other.
+ * The first cut had two — Draft and History — and everything draft-shaped piled
+ * into one flat row. That conflated two genuinely different questions: *what is
+ * happening in this auction* and *what happened in past auctions*. They share
+ * pages but not intent, and a row of eight equal-weight links made the reader do
+ * that sorting themselves.
  *
- * It also fixes a smaller thing: `/history` first shipped with a "← Board"
- * button, which quietly claimed history was a sub-page of the draft.
+ *   Draft          — the live tool. Ten people, one room, three hours a year.
+ *   Draft History  — past auctions: who paid what, and whether it was worth it.
+ *   League History — the seasons themselves: records, championships, standings.
+ *
+ * ## Why hover menus rather than a flat row
+ *
+ * A flat row grows one item per feature and never shrinks. Nesting keeps the top
+ * level at three stable words, so the shape of the app is legible before you read
+ * any of it.
+ *
+ * The menus are **CSS-only** — `group-hover` plus `group-focus-within` — which
+ * keeps this component hook-free, so it renders unchanged inside the client draft
+ * pages and the server-rendered history pages. It also means the menus work with
+ * JavaScript still loading, which on draft night is worth having.
+ *
+ * Keyboard users reach every item by tabbing: the trigger is a real link and
+ * `focus-within` holds the menu open while anything inside it has focus.
  *
  * ## No trust lives here
  *
  * `isCommish` only decides whether a link is *drawn*. Every commissioner action
- * re-reads `is_commish` from the database against the session id, so hiding the
- * link is presentation and nothing more.
- *
- * Presentational and hook-free, so it renders inside the client draft pages and
- * the server-rendered history pages alike.
+ * re-reads `is_commish` from the database against the session id.
  */
 
-export type Section = 'draft' | 'history'
+export type Section = 'draft' | 'draft-history' | 'league-history'
 
 interface NavItem {
   href: string
   label: string
+  hint?: string
   /** Drawn only for the commissioner. Never a security boundary. */
   commishOnly?: boolean
 }
 
-const SECTIONS: Record<Section, { label: string; home: string; items: NavItem[] }> = {
-  draft: {
+interface SectionDef {
+  key: Section
+  label: string
+  home: string
+  items: NavItem[]
+}
+
+const SECTIONS: SectionDef[] = [
+  {
+    key: 'draft',
     label: 'Draft',
     home: '/draft',
     items: [
-      { href: '/draft', label: 'Draft' },
-      { href: '/board', label: 'Board' },
-      { href: '/stats', label: 'Stats' },
-      { href: '/trades', label: 'Trades' },
-      { href: '/setup', label: 'Setup', commishOnly: true },
+      { href: '/draft', label: 'Draft Room', hint: 'Nominate, bid, record a sale' },
+      { href: '/board', label: 'Board', hint: 'Who has whom' },
+      { href: '/trades', label: 'Trades', hint: 'Players and auction dollars' },
+      { href: '/setup', label: 'Setup', hint: 'Order and settings', commishOnly: true },
     ],
   },
-  history: {
-    label: 'History',
-    home: '/history',
-    // Listed as they are built. A nav that points at a 404 is worse than a
-    // short nav — it makes the section look broken rather than unfinished.
+  {
+    key: 'draft-history',
+    label: 'Draft History',
+    home: '/history/drafts',
     items: [
-      { href: '/history', label: 'Summary' },
-      { href: '/history/records', label: 'Records' },
+      { href: '/history/drafts', label: 'Past Auctions', hint: 'Every draft on record' },
+      { href: '/stats', label: 'Spend & Value', hint: 'Where the money went' },
     ],
   },
-}
+  {
+    key: 'league-history',
+    label: 'League History',
+    home: '/history',
+    // Listed as they are built: a nav pointing at a 404 makes a section look
+    // broken rather than unfinished.
+    items: [
+      { href: '/history', label: 'League Summary', hint: 'The all-time table' },
+      { href: '/history/records', label: 'Records', hint: 'Highs, lows and streaks' },
+    ],
+  },
+]
 
 export function SiteNav({
   section,
@@ -68,60 +96,70 @@ export function SiteNav({
   current: string
   isCommish?: boolean
 }) {
-  const items = SECTIONS[section].items.filter((i) => !i.commishOnly || isCommish)
-
   return (
-    <nav className="flex flex-wrap items-center gap-x-3 gap-y-1.5" aria-label="Site sections">
+    <nav className="flex flex-wrap items-center gap-x-2 gap-y-1" aria-label="Sections">
       {/*
-        The wordmark. The league is FantasyWorld; the auction draft is one thing
-        it does and the history is another, so the name belongs above both rather
-        than being one of them.
+        The wordmark. The league is FantasyWorld; the auction and the history are
+        both things it does, so the name sits above them rather than beside them.
       */}
       <Link
         href="/"
-        className="font-display text-sm font-bold uppercase tracking-[0.12em] text-slate-100 hover:text-amber-300"
+        className="mr-1 font-display text-sm font-bold uppercase tracking-[0.12em] text-slate-100 hover:text-amber-300"
       >
         FantasyWorld
       </Link>
 
-      <span aria-hidden className="h-4 w-px bg-rule" />
-
-      {/* The two sections. Whichever you are not in is a plain link home. */}
-      <div className="flex items-center gap-1 rounded-lg bg-slate-900 p-1">
-        {(Object.keys(SECTIONS) as Section[]).map((key) => (
-          <Link
-            key={key}
-            href={SECTIONS[key].home}
-            aria-current={key === section ? 'page' : undefined}
-            className={`rounded-md px-2.5 py-1 font-display text-xs font-semibold uppercase tracking-[0.06em] ${
-              key === section
-                ? 'bg-slate-700 text-slate-50'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-            }`}
-          >
-            {SECTIONS[key].label}
-          </Link>
-        ))}
-      </div>
-
-      <span aria-hidden className="h-4 w-px bg-rule" />
-
-      <ul className="flex flex-wrap items-center gap-1">
-        {items.map((item) => {
-          const active = current === item.href
+      <ul className="flex flex-wrap items-center gap-0.5">
+        {SECTIONS.map((s) => {
+          const items = s.items.filter((i) => !i.commishOnly || isCommish)
+          const active = s.key === section
           return (
-            <li key={item.href}>
+            <li key={s.key} className="group relative">
               <Link
-                href={item.href}
+                href={s.home}
                 aria-current={active ? 'page' : undefined}
-                className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                className={`flex items-center gap-1 rounded-md px-2.5 py-1.5 font-display text-xs font-semibold uppercase tracking-[0.06em] ${
                   active
-                    ? 'bg-slate-800 text-slate-100'
-                    : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                    ? 'bg-slate-800 text-slate-50'
+                    : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-200'
                 }`}
               >
-                {item.label}
+                {s.label}
+                <span aria-hidden className="text-[0.6em] text-slate-500 group-hover:text-slate-300">
+                  ▾
+                </span>
               </Link>
+
+              {/*
+                Opens on hover OR on keyboard focus anywhere inside. `invisible`
+                rather than `hidden` so the links stay in the tab order and the
+                menu can be reached without a mouse.
+              */}
+              <div className="invisible absolute left-0 top-full z-50 pt-1 opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+                <ul className="min-w-[13rem] border border-rule-strong bg-slate-950 py-1 shadow-xl">
+                  {items.map((item) => {
+                    const here = current === item.href
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          aria-current={here ? 'page' : undefined}
+                          className={`block px-3 py-1.5 ${
+                            here ? 'bg-slate-800 text-slate-100' : 'text-slate-300 hover:bg-slate-800/70'
+                          }`}
+                        >
+                          <span className="block text-xs font-semibold">{item.label}</span>
+                          {item.hint && (
+                            <span className="block text-[0.68rem] leading-tight text-slate-500">
+                              {item.hint}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
             </li>
           )
         })}

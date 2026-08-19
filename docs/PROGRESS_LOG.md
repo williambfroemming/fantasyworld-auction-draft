@@ -2065,3 +2065,50 @@ says so on the board.
   summary flagged. Same cause, different arithmetic.
 
 **Next:** H10 — member pages and the head-to-head grid.
+
+---
+
+## Step 42 — Three sections, on hover
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `SiteNav` rebuilt as three hover menus, `/history/drafts` (Past Auctions), and the
+redundant page title removed from `/draft`.
+
+```
+FANTASYWORLD   Draft ▾   Draft History ▾   League History ▾
+```
+
+### Two sections were one too few
+
+The first cut had Draft and History, and everything draft-shaped piled into one flat row. That
+conflated two genuinely different questions — *what is happening in this auction* and *what
+happened in past auctions* — which share pages but not intent. A row of eight equal-weight links
+made the reader do that sorting themselves.
+
+`/history/drafts` gives the middle section a home: every auction on record, its most expensive pick,
+who finished over budget, the notes, and buttons through to that year's board, spend view and CSV.
+The year picker on `/board` could already do this, but only for somebody who knew the picker existed.
+
+### The menus are CSS-only, deliberately
+
+`group-hover` plus `group-focus-within`, so `SiteNav` stays hook-free and renders unchanged inside
+the client draft pages and the server-rendered history pages alike. It also keeps the menus working
+while JavaScript is still loading, which on draft night is worth having. `invisible` rather than
+`hidden` keeps every link in the tab order, so the menus open on keyboard focus too.
+
+**Learned:**
+
+- **A flat nav grows one item per feature and never shrinks.** Nesting keeps the top level at three
+  stable words, so the shape of the app is legible before you read any of it.
+- **Two titles is one title too many.** `/draft` carried an "Auction Draft" heading beside the
+  wordmark and the section nav, all three saying the same thing.
+
+**Watch out for:**
+
+- Hover menus assume a pointer. Mobile is explicitly out of scope (`UAT.md`), but if that changes
+  this is the first thing to revisit.
+- The section a page belongs to is passed in, not inferred from the path — `/stats` sits under
+  Draft History while `/board` sits under Draft, and no amount of path-matching would guess that.
+
+**Next:** H10 — member pages and the head-to-head grid.

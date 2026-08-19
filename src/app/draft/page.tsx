@@ -104,7 +104,8 @@ export default function DraftPage() {
     >
       {/* Header */}
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-3">
-        <h1 className="text-lg font-bold tracking-tight">Auction Draft</h1>
+        {/* The wordmark and the section nav already say where you are; a
+            second title beside them was just noise. */}
         <SiteNav section="draft" current="/draft" isCommish={myManager?.isCommish} />
 
         {state.draft.status === 'paused' && (
