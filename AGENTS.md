@@ -114,6 +114,9 @@ npm run db:migrate-identity       # players.sleeper_id + picks.player_sleeper_id
 npm run db:migrate-identity -- --offline   # columns only, no network
 npm run news:refresh              # player availability from Sleeper. RUN THE WEEK OF THE DRAFT
 npm run pins -- --clear
+npm run season:prizes                 # what each season paid out
+npm run season:prizes -- 2025 --champion 2100 --runner-up 600 --third 300
+npm run season:prizes -- 2025 --high 10 --low 10   # the weekly high/low side bet
 ```
 
 > `drizzle-kit push` silently DROPS the `manager_totals` view, which 500s
