@@ -40,6 +40,12 @@ export interface StatsPick {
   /** Pool rank frozen at award time. Null = not scored. */
   rank: number | null
   posRank: number | null
+  /**
+   * Fantasy points this player scored that season, where the season has been
+   * played. Absent on the live board by design — mid-season points are not a
+   * verdict on a draft, and nothing on the polling path fetches them.
+   */
+  points?: number | null
 }
 
 export interface StatsTrade {

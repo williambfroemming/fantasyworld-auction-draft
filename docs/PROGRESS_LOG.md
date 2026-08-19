@@ -2437,3 +2437,48 @@ player against where they actually finished**, within their own position:
   database rebuild does not lose the text, and a re-generation is reviewable in a diff.
 - The recaps currently on record were written in-session from the committed fact packs, because no
   `ANTHROPIC_API_KEY` was available. Setting one and re-running replaces them.
+
+## The value tab now answers the question people actually ask
+
+Follow-on from the recaps. `/stats` → Bargains & overpays showed one of two things for a past
+draft: **nothing** ("not scored for 2021 — no pool rankings on record") for four of the five
+seasons, or the **room** calculation for 2024, which compares a price to what the room paid for
+similarly-ranked players *that night* and says nothing about whether the player was any good.
+
+Both are now replaced, wherever the season has been played, by `valueVsResults` — price rank
+against finish rank, within position. Every past draft has a real answer:
+
+| | Steal | Bust |
+|---|---|---|
+| 2021 | Jack, $2 Ja'Marr Chase → WR4 | Bill, $38 Calvin Ridley → WR50 |
+| 2022 | Bolek, $1 Tyler Lockett → WR16 | Bryan, $52 Jonathan Taylor → RB28 |
+| 2023 | Daniel, $1 Raheem Mostert → RB2 | Nate, $42 Nick Chubb → RB45 |
+| 2024 | Justin, $1 Jaxon Smith-Njigba → WR7 | Jack, $47 McCaffrey → RB44 |
+| 2025 | Jack, $3 Travis Etienne → RB10 | Bolek, $26 Tyreek Hill → WR44 |
+
+The room view is not deleted. It is the fallback for a season that has been drafted but not played
+— which is exactly 2026 today — because on draft night it is the only thing that exists.
+
+**Learned:**
+
+- **An empty state can hide a solved problem.** "Not scored for 2021" was accurate about ranks and
+  read as a dead end, so nobody asked whether a *different* measure was available. The data for the
+  better answer had been sitting in `player_seasons` since the Sleeper import.
+- **The archive's no-join rule is about the pool, not about joins.** `picks` must never join
+  `players` because the pool is replaced each August and a 2021 pick would show a 2026 team. Joining
+  `player_seasons` is safe for the opposite reason: it is keyed by (season, player_id) and is
+  history — re-importing a pool cannot change a 2021 row. Worth stating explicitly at the query,
+  because it looks like a violation at a glance.
+- **Credit follows the drafter, not the roster.** A steal is a claim about what somebody *paid*, so
+  it goes through `draftersByPick` like every other money view. Without it, trading a $1 breakout
+  away would hand the credit to whoever received them.
+
+**Watch out for:**
+
+- The live board deliberately has no `points` on its picks, so `/stats` on an in-progress draft can
+  only reach the room view. That is the intent — mid-season points are not a verdict, and nothing
+  on the polling path should be fetching them.
+- 2026 has no `seasons`-backed archive row at all while it is current, so it takes the live path.
+  When it is archived, results appear automatically once the season is imported.
+- Both measures now live behind one tab. If a third ever appears, the branch order in `ValuePanel`
+  is the precedence rule and should be stated there rather than inferred.
