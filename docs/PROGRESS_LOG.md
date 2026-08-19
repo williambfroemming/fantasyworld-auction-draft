@@ -1297,3 +1297,55 @@ exactly 16/$200. The one genuinely missing pick, Bill's 16th, is **Tyler Boyd**.
 **Next:** H2 — the history schema (`seasons`, `season_standings`, `season_matchups`,
 `season_lineups`, `player_weeks`, `player_seasons`, `legacy_champions`) via a hand-written
 idempotent migration.
+
+---
+
+## Step 28 — The poll loop learns to be quiet
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** visibility pause, finished-draft backoff and a re-entrancy guard in `src/hooks/useDraft.ts`.
+
+**Found while Phase 2 H2 could not open a database connection at all**: Neon was returning
+`HTTP 402 — data transfer quota exceeded` on both `neondb` and `neondb_test`. The cause was not the
+history import. It was this app, idling.
+
+`POLL_MS` is 400 and the loop had no idea whether anyone was looking. `getState()` runs **five
+queries on every poll**, including the 204 "nothing changed" path, because the version is computed
+from the state rather than stored — so there is no cheap path, only a cheap *response*. One browser
+tab left open is **~216,000 requests and ~1.08M queries a day**. The draft was 2026-08-14; this was
+found on the 18th.
+
+The loop is now fast when it matters and quiet when it does not:
+
+| Condition | Cadence |
+|---|---|
+| Tab hidden | **no requests at all**, waking every 5s only to re-check visibility |
+| `status === 'done'` | 30s |
+| setup / live / paused, visible | 400ms — unchanged |
+
+**Learned:**
+
+- **An uncached endpoint is not the same as an endpoint that must be polled forever.** `/api/state`
+  is still `force-dynamic` + `no-store`, and that rule was never the problem. The client's
+  willingness to ask 2.5 times a second, for four days, with nobody watching, was.
+- **A 204 is cheap for the client and not for the database.** The response is empty; the work behind
+  it is five queries including a view with correlated subqueries over `picks`. "Cheap path" in the
+  route comment describes the payload, not the cost.
+- **The app was built for one night and then kept running.** Ten laptops for three hours is 25 req/s
+  for an evening. The same code left idle is the same rate until someone closes a tab.
+
+**Watch out for:**
+
+- **A finished draft must keep polling, slowly — never stop.** `undoPick` flips `status` back to
+  `'live'`, and a client that had stopped would sit on a finished board with no way back.
+- **`visibilitychange` can start a second timer chain.** If the event lands while a poll is in
+  flight, the resumed chain and the original both call `setTimeout`, and the tab polls at double
+  rate for the rest of its life — the exact opposite of the fix. A `ticking` guard makes two chains
+  impossible.
+- **The hidden branch still reschedules.** A tab that only stopped on the event would stay dark
+  forever if the event were missed; it wakes every 5s to check, which costs no network.
+- `refresh()` re-arms the loop after polling, so undoing on a finished draft returns the acting
+  client to draft cadence immediately instead of leaving it on the 30s timer it was already sitting on.
+
+**Next:** H2 remains blocked until the Neon quota clears.
