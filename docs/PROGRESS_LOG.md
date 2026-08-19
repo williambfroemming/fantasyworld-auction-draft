@@ -1620,3 +1620,38 @@ reconciled on a page that shows both, and every derived metric reads from those 
 
 **Next:** H4 — the pre-Sleeper era (2006–2019) from the workbook: standings, podium, prize money
 and draft locations.
+
+---
+
+## Step 33 — Consolation games are kept, and counted separately
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `season_matchups.playoff_placement`, set from the bracket's own placement tag.
+
+The first cut of H3 treated all seven winners-bracket games as equal playoff games. The league does
+not: third place pays, and nobody tries in the fifth-place game. Counting a game people were not
+playing seriously toward "all-time high score" or a playoff record makes both worse.
+
+So the rows are all kept and the *meaning* is stored alongside them. `playoff_placement` is null on
+the championship path (quarter-final, semi-final, final) and otherwise names the place contested —
+`3` or `5`. Stats default to `playoff_placement IS NULL OR playoff_placement <= 3`; nothing is
+thrown away, and anyone who wants the consolation bracket can have it.
+
+Per season: 5 championship-path games, 1 third-place, 1 fifth-place.
+
+**Learned:**
+
+- **"Which games count" is a league rule, not a data question.** Sleeper marks the placement games
+  and stops there; whether a fifth-place game belongs in a record book is something only the league
+  can answer. Storing the tag rather than filtering on import means the answer can change later
+  without re-importing anything.
+
+**Watch out for:**
+
+- **The final carries `p: 1` but is not a placement game.** Treating any `p` as consolation would
+  drop the championship itself out of every playoff record.
+- The losers bracket is pulled and committed but **not imported at all**. If it is ever wanted, it
+  is already on disk.
+
+**Next:** H4 — the pre-Sleeper era.

@@ -188,6 +188,15 @@ async function main() {
 
   for (const [name, ddl] of TABLES) await step(`create ${name}`, ddl)
   console.log('')
+  // Additive column, added after the table shipped: which finishing place a
+  // playoff game decided. Null is the championship path; 3 and 5 are the
+  // placement games. See the schema comment.
+  await step(
+    'add season_matchups.playoff_placement',
+    'ALTER TABLE season_matchups ADD COLUMN IF NOT EXISTS playoff_placement integer',
+  )
+
+  console.log('')
   for (const [name, ddl] of INDEXES) await step(`index  ${name}`, ddl)
 
   // --- seed the current season so getArchivedSeason has a row to read -------

@@ -220,7 +220,11 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
   // --- matchups ------------------------------------------------------------
   // Regular season, plus the winners bracket only. The playoff weeks also hold
   // consolation games, which the league has never counted as part of its record.
+  // `p` on a bracket game is the place it decides: 1 the final, 3 the
+  // third-place game, 5 the fifth-place game. Games without it are on the
+  // championship path. Keyed by week and roster so each side can be tagged.
   const bracketPairs = new Map<number, Set<number>>()
+  const placementOf = new Map<string, number | null>()
   for (const g of bracket) {
     if (g.t1 == null || g.t2 == null) continue
     const week = playoffStart + (g.r - 1)
@@ -228,6 +232,11 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
     set.add(g.t1)
     set.add(g.t2)
     bracketPairs.set(week, set)
+    // The final decides first place but is the championship path, not a
+    // placement game — only 3rd, 5th and below are consolation-shaped.
+    const placement = g.p && g.p > 1 ? g.p : null
+    placementOf.set(`${week}:${g.t1}`, placement)
+    placementOf.set(`${week}:${g.t2}`, placement)
   }
 
   const matchupRows: unknown[][] = []
@@ -243,6 +252,7 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
         season, week, mgr(side.rosterId), side.matchupId, side.points,
         mgr(side.opponentRosterId), side.opponentPoints,
         isPlayoffWeek, isPlayoffWeek ? playoffRound(week, playoffStart) : null, side.result,
+        isPlayoffWeek ? (placementOf.get(`${week}:${side.rosterId}`) ?? null) : null,
       ])
       if (!isPlayoffWeek) {
         weekTotals.set(side.rosterId, (weekTotals.get(side.rosterId) ?? 0) + side.points)
@@ -266,10 +276,12 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
 
   const playoffTally = new Map<number, { w: number; l: number }>()
   for (const row of matchupRows) {
-    const [, , managerId, , , , , isPlayoff, , result] = row as [
-      number, number, number, number, number, number, number, boolean, number | null, string,
+    const [, , managerId, , , , , isPlayoff, , result, placement] = row as [
+      number, number, number, number, number, number, number, boolean, number | null, string, number | null,
     ]
-    if (!isPlayoff) continue
+    // Third place pays, so it counts. Fifth place and below is a game nobody
+    // plays seriously, and a playoff record that includes it is not a record.
+    if (!isPlayoff || (placement !== null && placement > 3)) continue
     const t = playoffTally.get(managerId) ?? { w: 0, l: 0 }
     if (result === 'W') t.w++
     else if (result === 'L') t.l++
@@ -335,8 +347,8 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
       ['season','manager_id','place','wins','losses','ties','points_for','points_against','made_playoffs','playoff_wins','playoff_losses'],
       standingRows, upsert(['season','manager_id'], ['place','wins','losses','ties','points_for','points_against','made_playoffs','playoff_wins','playoff_losses']))
     await insertBatch('season_matchups',
-      ['season','week','manager_id','matchup_id','points','opponent_manager_id','opponent_points','is_playoff','playoff_round','result'],
-      matchupRows, upsert(['season','week','manager_id'], ['matchup_id','points','opponent_manager_id','opponent_points','is_playoff','playoff_round','result']))
+      ['season','week','manager_id','matchup_id','points','opponent_manager_id','opponent_points','is_playoff','playoff_round','result','playoff_placement'],
+      matchupRows, upsert(['season','week','manager_id'], ['matchup_id','points','opponent_manager_id','opponent_points','is_playoff','playoff_round','result','playoff_placement']))
     await insertBatch('season_lineups',
       ['season','week','manager_id','actual_points','optimal_points'],
       lineupRows, upsert(['season','week','manager_id'], ['actual_points','optimal_points']))

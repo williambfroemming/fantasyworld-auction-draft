@@ -580,6 +580,21 @@ export const seasonMatchups = pgTable(
     opponentPoints: numeric('opponent_points', { precision: 8, scale: 2 }).notNull(),
     isPlayoff: boolean('is_playoff').notNull().default(false),
     playoffRound: integer('playoff_round'),
+    /**
+     * Which finishing place a playoff game decided, when it decided one.
+     *
+     * **Null means the championship path** — a quarter-final, a semi-final, or
+     * the final itself. Otherwise it is the place being contested: `3` for the
+     * third-place game, `5` for the fifth-place game.
+     *
+     * The distinction exists because the league does not treat these as equal.
+     * Third place pays, so that game counts. Nobody tries in the fifth-place
+     * game, so counting its scores toward "all-time high score" or a playoff
+     * record would put results from a game people were not playing seriously
+     * alongside ones they were. Stats default to `playoff_placement IS NULL OR
+     * playoff_placement <= 3`; the rows are all here for anyone who wants them.
+     */
+    playoffPlacement: integer('playoff_placement'),
     /** Stored, not derived: a scoring rule, in a league that could tie. */
     result: text('result', { enum: ['W', 'L', 'T'] }).notNull(),
   },
