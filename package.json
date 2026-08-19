@@ -49,7 +49,8 @@
     "dev:local": "npm run local -- next dev",
     "db:local:setup-test": "sh -c \"export DATABASE_URL=postgres://postgres:postgres@localhost:5433/neondb_test; npx tsx scripts/local/bootstrap.ts\"",
     "history:player-map": "tsx scripts/history/pull-player-map.ts",
-    "history:import-sleeper": "dotenv -e .env.local -- tsx scripts/import-sleeper-history.ts"
+    "history:import-sleeper": "dotenv -e .env.local -- tsx scripts/import-sleeper-history.ts",
+    "history:import-workbook": "dotenv -e .env.local -- tsx scripts/import-workbook-history.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

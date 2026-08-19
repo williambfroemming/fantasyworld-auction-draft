@@ -1655,3 +1655,56 @@ Per season: 5 championship-path games, 1 third-place, 1 fifth-place.
   is already on disk.
 
 **Next:** H4 — the pre-Sleeper era.
+
+---
+
+## Step 34 — Phase 2 H4: the pre-Sleeper era
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/import-workbook-history.ts` (`npm run history:import-workbook`).
+
+**The league's full record is now in Postgres — 2006 to 2025.** 20 seasons, 150 standings rows,
+5 legacy champions. `manager_totals` unchanged.
+
+| Tier | Years | What exists |
+|---|---|---|
+| legacy | 2006–2010 | a champion's name, nothing else |
+| standings | 2011–2019 | member-season record, points, place, playoff W/L, podium, money |
+| weekly | 2020–2025 | everything, from Sleeper |
+
+**Verified:** championships and prize money per manager reproduce the workbook's dashboard exactly
+for all ten managers through 2024 — Daniel 2/$4,000, Bryan 3/$3,275, Bolek 2/$2,575, down to Jack
+1/$1,025.
+
+### Filling gaps without overwriting better data
+
+This runs after the Sleeper import and must not undo it. The podium for 2020+ was derived from
+Sleeper's bracket and independently agrees with this workbook on all fifteen placings, so those
+columns fill with `COALESCE(existing, incoming)` rather than being replaced. Prize money goes the
+other way — it exists nowhere but here, so the workbook always wins. `data_tier` never downgrades a
+season Sleeper already described.
+
+**Learned:**
+
+- **Import order is a design decision, not an accident.** Two sources overlap on 2020–2024, and
+  which one wins per column is a per-column answer: bracket for the podium, workbook for the money,
+  Sleeper for everything weekly. Encoding that in the conflict clause makes re-running either
+  importer in any order safe.
+- **The sheet numbers its members *and* names them**, so the importer cross-checks the two on every
+  row rather than trusting `member_id`. Bill is workbook 1 and manager 4; an off-by-one there
+  produces a perfectly plausible wrong answer, like Bryan's championships showing under Mario.
+
+**Watch out for:**
+
+- **`money_won` of `'-'` is unknown, not zero.** 2006–2010 record a literal dash, while 2011–2013
+  record a real $0. Collapsing them makes a "Bag Secured" total quietly authoritative about five
+  years it knows nothing about — so those are null, and any sum over them must report its coverage.
+- **`legacy_champions` is deliberately unlinked from `managers`.** The names are recognisable, but
+  asserting the 2006 "Daniel" is today's Daniel is a guess dressed as a fact.
+- **Games per season are derived from the records, and asserted constant within a year.** Nothing
+  assumes 13 or 14; a season where managers disagree about how many games they played stops the run.
+- 2025 has no prize money on record — the workbook stops at 2024. Null, not zero.
+
+**Next:** H5 — `src/lib/history.ts` and the League Summary. Everything it needs is now in the
+database.
