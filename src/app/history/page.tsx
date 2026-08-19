@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { SiteNav } from '@/components/SiteNav'
 import { LeagueSummaryTable } from '@/components/history/LeagueSummaryTable'
 import { EraBadge } from '@/components/history/EraBadge'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -28,12 +28,7 @@ export default async function HistoryPage() {
   return (
     <main className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <Link
-          href="/board"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold hover:bg-slate-700"
-        >
-          ← Board
-        </Link>
+        <SiteNav section="history" current="/history" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">League History</h1>
         <span className="font-mono text-xs text-slate-400 tabular-nums">
           {oldest}–{newest}

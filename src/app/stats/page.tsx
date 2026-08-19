@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { SiteNav } from '@/components/SiteNav'
+import { useSession } from '@/hooks/useSession'
 import { useMemo, useState } from 'react'
 import { SeasonPicker } from '@/components/SeasonPicker'
 import { CurvePanel } from '@/components/stats/CurvePanel'
@@ -36,6 +38,7 @@ const VIEWS = [
  */
 export default function StatsPage() {
   const { state, board } = useDraft()
+  const { managerId } = useSession()
   const { seasons, viewing, setViewing, isArchive, archive, archiveError } = useSeasonView()
   const [view, setView] = useState<View>('teams')
 
@@ -64,6 +67,8 @@ export default function StatsPage() {
       : null
   }, [isArchive, archive, state, board])
 
+  const myManager = state?.managers.find((m) => m.id === managerId)
+
   if (!state) {
     return <main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
   }
@@ -71,12 +76,7 @@ export default function StatsPage() {
   return (
     <main className="flex h-dvh flex-col bg-slate-950 text-slate-100">
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <Link
-          href="/draft"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold hover:bg-slate-700"
-        >
-          ← Back to draft
-        </Link>
+        <SiteNav section="draft" current="/stats" isCommish={myManager?.isCommish} />
 
         <div className="flex items-center gap-1 rounded-lg bg-slate-900 p-1">
           {VIEWS.map(([key, label]) => (

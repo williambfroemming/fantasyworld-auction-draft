@@ -1792,3 +1792,52 @@ the fifth-place game is excluded.
   stays idempotent and safe to re-run on a database that never had them.
 
 **Next:** H6 — the record book.
+
+---
+
+## Step 37 — Two sections, not one pile of pages
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `src/components/SiteNav.tsx` and `src/hooks/useSession.ts`; every page's ad-hoc
+back-links replaced with a section nav.
+
+```
+[Auction Draft] [History]
+  Draft   → Draft · Board · Stats · Trades · Setup (commissioner only)
+  History → Summary
+```
+
+### Why the app has two halves
+
+These are two products sharing a database. The draft pages are a live tool — ten people, one room,
+three hours a year, polling every 400ms with money on the line. The history pages are a reference
+read at leisure, rendered on the server once an hour. Different cadence, different posture,
+different failure modes. A flat nav that mixes them invites somebody to treat one like the other.
+
+It also fixed something shipped an hour earlier: `/history` had a **"← Board"** button, which
+quietly claimed history was a sub-page of the draft.
+
+`/` stays the join screen. It is the link everyone opens on draft night and `DRAFT_NIGHT.md`
+depends on it; putting a hub in front of claiming a seat costs a click on the one night that is
+time-critical.
+
+**Learned:**
+
+- **A nav is an assertion about what exists.** The history section was written with five items and
+  trimmed to one, because four of them were pages yet to be built. A nav pointing at a 404 makes a
+  section look broken rather than unfinished; entries get added as pages land.
+- **The back-link you write on a new page encodes where you think it belongs.** Writing "← Board"
+  on `/history` was the tell that the information architecture had not been decided.
+
+**Watch out for:**
+
+- **`isCommish` here only decides whether a link is drawn.** Every commissioner action re-reads
+  `is_commish` from the database against the session id. Hiding a link is presentation; it is not
+  and must never become a trust boundary.
+- **`useSession` returns `undefined` while asking and `null` for nobody.** Collapsing those to
+  `null` would flash the commissioner's Setup link off on every load for the one person who wants it.
+- `/draft` and `/trades` keep their own inline session lookups, because theirs also redirect an
+  unsigned visitor to the join screen — a page-level decision a shared hook should not impose.
+
+**Next:** H6 — the record book, which adds the second History entry to the nav.

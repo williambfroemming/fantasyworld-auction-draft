@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { SiteNav } from '@/components/SiteNav'
 import { useEffect, useMemo, useState } from 'react'
 import { randomOrder, snakeSlot } from '@/lib/draft'
 import { useDraft } from '@/hooks/useDraft'
@@ -100,9 +101,7 @@ export default function SetupPage() {
       <main className="grid min-h-dvh place-items-center bg-slate-950 px-6 text-center text-slate-400">
         <div>
           <p>Setup is commissioner-only.</p>
-          <Link href="/draft" className="mt-3 inline-block text-emerald-400 underline">
-            Back to the draft
-          </Link>
+        <SiteNav section="draft" current="/setup" isCommish />
         </div>
       </main>
     )

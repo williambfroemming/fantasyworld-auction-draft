@@ -1,6 +1,7 @@
 'use client'
 
-import Link from 'next/link'
+import { SiteNav } from '@/components/SiteNav'
+import { useSession } from '@/hooks/useSession'
 import { useState } from 'react'
 import { LeagueBoard } from '@/components/LeagueBoard'
 import { MarketPanel } from '@/components/MarketPanel'
@@ -23,6 +24,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
  */
 export default function BoardPage() {
   const { state, board } = useDraft()
+  const { managerId } = useSession()
   const { seasons, viewing, setViewing, isArchive, archive, archiveError } = useSeasonView()
   const [view, setView] = useState<'grid' | 'market'>('grid')
 
@@ -32,16 +34,12 @@ export default function BoardPage() {
 
   const lot = state.lot
   const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
+  const myManager = state.managers.find((m) => m.id === managerId)
 
   return (
     <main className="flex h-dvh flex-col bg-slate-950 text-slate-100">
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <Link
-          href="/draft"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold hover:bg-slate-700"
-        >
-          ← Back to draft
-        </Link>
+        <SiteNav section="draft" current="/board" isCommish={myManager?.isCommish} />
 
         {/* Grid vs market: two ways of reading the same draft. The grid is who
             has whom; the market is what the money has been going to. */}
@@ -70,13 +68,6 @@ export default function BoardPage() {
           viewing={viewing}
           onSelect={setViewing}
         />
-
-        <Link
-          href="/stats"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
-        >
-          Stats →
-        </Link>
 
         <div className="ml-auto flex items-center gap-3">
           <ThemeToggle />
