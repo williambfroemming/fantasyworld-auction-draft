@@ -20,6 +20,7 @@
  * against a real draft.
  */
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 async function main() {
   const sql = neon(process.env.DATABASE_URL!)

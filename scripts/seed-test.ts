@@ -7,6 +7,7 @@
  * enough players to run several rounds.
  */
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 import { colorForSeat } from '../src/lib/colors'
 
 const MANAGERS = [
@@ -14,10 +15,26 @@ const MANAGERS = [
   'Nate', 'Mario', 'Jack', 'Bryan', 'Justin',
 ]
 
-/** 200 players, ranked 1..200, positions cycled so every slot type is fillable. */
+/**
+ * Ranked 1..POOL_SIZE, positions cycled so every slot type is fillable.
+ *
+ * ⚠️ **Sized against what the integration tests actually consume, not by feel.**
+ * `commish-service.itest.ts` builds its skip-run fixtures by reaching deep into
+ * the pool — `OFFSET 200 LIMIT 48` in one test and `OFFSET 300 LIMIT 48` in
+ * another, so it needs 348. A short pool hands those tests an empty array and
+ * they die on `undefined.id`, which reads like a bug in `nominatorAt` rather
+ * than a missing fixture.
+ *
+ * That went unnoticed because the shared Neon test database had accumulated rows
+ * from earlier runs, so the suite passed there by accident. On a database created
+ * from this script alone it did not. Keep the headroom, and move this number if a
+ * test ever reaches further.
+ */
+const POOL_SIZE = 400
+
 function pool() {
   const positions = ['WR', 'RB', 'WR', 'QB', 'RB', 'TE', 'WR', 'RB', 'DEF', 'K']
-  return Array.from({ length: 200 }, (_, i) => ({
+  return Array.from({ length: POOL_SIZE }, (_, i) => ({
     id: `test-${i + 1}`,
     name: `Test Player ${String(i + 1).padStart(3, '0')}`,
     team: ['BUF', 'KC', 'SF', 'DAL', 'PHI'][i % 5],

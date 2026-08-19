@@ -12,6 +12,7 @@
  * ⚠️ Resets draft state. Guarded by ALLOW_DB_RESET=1 like the integration tests.
  */
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 const BASE = process.env.SMOKE_BASE ?? 'http://localhost:3000'
 let failures = 0

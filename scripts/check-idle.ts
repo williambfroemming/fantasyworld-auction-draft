@@ -12,6 +12,7 @@
  * usual source of polling during development.
  */
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 const BASE = process.env.SMOKE_BASE ?? 'http://localhost:3000'
 

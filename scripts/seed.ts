@@ -10,6 +10,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 import { drizzle } from 'drizzle-orm/neon-http'
 import { sql } from 'drizzle-orm'
 import * as schema from '../src/db/schema'

@@ -13,6 +13,7 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 const TEST_DB_NAME = 'neondb_test'
 

@@ -8,6 +8,7 @@
  * chiefly that a fresh manager's max bid is exactly $185.
  */
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 async function main() {
   const url = process.env.DATABASE_URL

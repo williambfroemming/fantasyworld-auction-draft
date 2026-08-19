@@ -26,6 +26,7 @@
  * nothing else.
  */
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 import { fetchPool, injurySeverity } from '../src/lib/sleeper'
 
 const useTest = process.argv.includes('--test')

@@ -1,0 +1,73 @@
+# Local Postgres for development, behind a Neon-compatible HTTP proxy.
+#
+#   npm run db:local:up      start it
+#   npm run db:local:down    stop it (keeps data)
+#   npm run db:local:reset   stop it and throw the data away
+#
+# ## Why a proxy rather than swapping drivers
+#
+# The auction's correctness lives in hand-rolled single statements — data-modifying
+# CTEs that award a lot or execute a trade atomically, because neon-http has no
+# interactive transactions (docs/PROJECT_PLAN.md §4). Those statements are the part
+# of this codebase most worth not disturbing.
+#
+# `@neondatabase/serverless` speaks SQL-over-HTTP, not the Postgres wire protocol,
+# so it cannot talk to a local Postgres directly. The options were to swap in `pg`
+# behind a tagged-template shim for local dev, or to keep the identical driver and
+# only redirect where it sends its requests. A shim would sit between those award
+# and trade statements and the database in dev but not in production — which is
+# precisely where a difference must never exist. So: same driver, same protocol,
+# different endpoint.
+#
+# ## Why Postgres 17
+#
+# Matches what Neon runs. A local 14 from Homebrew would happily accept syntax that
+# then fails in production, which defeats the point of developing locally.
+services:
+  postgres:
+    image: postgres:17
+    container_name: fw-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: neondb
+    ports:
+      # Exposed so psql and any GUI can reach it directly. The app does NOT use
+      # this port — it goes through the proxy below.
+      - '5432:5432'
+    volumes:
+      - fw-pgdata:/var/lib/postgresql/data
+      - ./scripts/local/init-databases.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d neondb']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # One proxy per database: the image targets a single PG_CONNECTION_STRING, so
+  # the live and test databases need their own listeners. The port each one
+  # exposes is how `src/db/neon-local.ts` decides where to send a query.
+  neon-proxy:
+    image: ghcr.io/timowilhelm/local-neon-http-proxy:main
+    container_name: fw-neon-proxy
+    environment:
+      PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/neondb
+    ports:
+      - '4444:4444'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  neon-proxy-test:
+    image: ghcr.io/timowilhelm/local-neon-http-proxy:main
+    container_name: fw-neon-proxy-test
+    environment:
+      PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/neondb_test
+    ports:
+      - '4445:4444'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  fw-pgdata:

@@ -1,4 +1,5 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
+import '@/db/neon-local'
 
 /**
  * Raw Neon client for the auction's SQL.

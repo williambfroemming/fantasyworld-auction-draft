@@ -66,13 +66,32 @@ These look like mistakes and are not. Read `docs/PROJECT_PLAN.md` §4 before cha
 - **The value view compares within a position, never across.** A cross-position comparison doesn't measure value, it just rediscovers that this is a superflex league — every top "overpay" comes out a QB. There's a unit test that fails if this is "simplified".
 - **Roster is 16 slots.** `maxBid = budget − (16 − rostered − 1)` → $185 at the start. Getting this wrong skews every bid all draft.
 - **No backticks inside the SQL template literals.** They terminate the tagged template and the error surfaces as an unrelated esbuild parse failure.
+- **Never develop against the Neon database.** `npm run dev` against Neon exhausted the project's data-transfer quota in four days and took the *live* database down — because `/api/state` polls every 400ms and `getState()` runs five queries per poll, so one open tab is ~1.08M queries a day. Use `npm run dev:local` (Docker Postgres 17 behind a Neon HTTP proxy; `npm run db:local:up` first). `src/db/neon-local.ts` redirects the driver **by host**, so the same code path talks to Neon in production without a flag to forget. The driver, protocol and tagged-template semantics are identical — only the endpoint moves, deliberately, because the award and trade statements are single data-modifying CTEs and a `pg` shim would sit between them and the database in dev but not in prod.
 
 ## Commands
 
 **Live:** https://fantasyworld-auction-draft.vercel.app · **Live DB:** `neondb` · **Test DB:** `neondb_test`
 
+### Local development — do this, not `npm run dev`
+
 ```bash
-npm run dev              # local dev (live database)
+npm run db:local:up          # Docker: Postgres 17 + two Neon HTTP proxies (4444 live, 4445 test)
+npm run db:local:setup       # build the schema from src/db/schema.ts (drops and recreates)
+npm run db:local:seed -- <rankings.csv>
+npm run dev:local            # next dev against local Postgres
+
+npm run local -- <any command>   # run anything with the local DATABASE_URL/TEST_DATABASE_URL
+npm run local -- npm run db:verify
+npm run local -- npm run test:int
+npm run db:local:setup-test  # same, for neondb_test
+npm run db:local:down        # stop (keeps data) · db:local:reset throws the volume away
+```
+
+`npm run local` works by exporting the URLs before the inner command; `dotenv` does not
+override an already-exported variable, so every existing script goes local unchanged.
+
+```bash
+npm run dev              # ⚠️ local dev against the LIVE database — see the non-negotiable above
 npm run dev:test         # local dev against the TEST database, /test console enabled
 npm test                 # unit tests for the rules engine (vitest)
 npm run db:push          # migrations + re-applies the manager_totals view

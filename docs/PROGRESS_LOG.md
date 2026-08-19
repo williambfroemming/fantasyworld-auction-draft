@@ -1414,3 +1414,79 @@ person to rebuild the removed half.
   the answer is `injury_updated_at` being visible — do not let that "as of" disappear from the UI.
 
 **Next:** §8 is all that remains in the backlog.
+
+---
+
+## Step 30 — Local development stops costing the league its database
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `docker-compose.yml` (Postgres 17 + two Neon HTTP proxies), `src/db/neon-local.ts`,
+`scripts/local/bootstrap.ts`, `scripts/local/init-databases.sql`, and the `db:local:*` / `local`
+npm scripts. Plus a real fixture bug in `scripts/seed-test.ts`.
+
+**184 unit tests and all 78 integration tests passing — the integration suite now runs entirely
+against local Postgres**, which previously burned Neon quota on every run.
+
+### The problem was never the history import
+
+H2 could not open a connection at all: `HTTP 402`, data transfer quota exceeded, on *both*
+databases. The cause was `npm run dev` pointing at production. `/api/state` polls every 400ms and
+`getState()` runs five queries per poll, so a single dev tab is ~1.08M queries a day. Writing code
+took the live database down.
+
+### Redirecting the driver rather than replacing it
+
+`@neondatabase/serverless` speaks SQL-over-HTTP, not the Postgres wire protocol, so it cannot reach
+a local Postgres unaided. The two options were a `pg`-backed shim implementing the same
+tagged-template interface, or keeping the identical driver and moving only its endpoint.
+
+The shim was the wrong trade. This codebase's correctness *is* its SQL — awarding a lot and
+executing a trade are single data-modifying CTEs precisely because neon-http has no interactive
+transactions (§4). A shim would sit between those statements and the database in development and
+not in production, which is the one place a difference must never exist.
+
+So `src/db/neon-local.ts` sets `neonConfig.fetchEndpoint` and routes **per request, by host**: a
+local host goes to a proxy, anything else gets Neon's own endpoint unchanged. There is no
+environment flag, because a flag is a thing you can forget — the connection string decides.
+
+Verified before being trusted: parameter binding through the tagged template (including a hostile
+`O'Brien; DROP TABLE x--`), a data-modifying CTE, `sql.query()`'s dynamic form, and that `numeric`
+comes back as the string `"124.20"`.
+
+**Learned:**
+
+- **An accumulated test database hides fixture bugs.** `commish-service.itest.ts` reaches
+  `OFFSET 300 LIMIT 48` into the pool but `seed-test.ts` created 200 players. It only ever passed
+  because the shared Neon test database had rows left over from earlier runs. A database built from
+  the seed script alone failed immediately — and the failure reads as `undefined.id` deep in a
+  skip-run assertion, which looks like a `nominatorAt` bug rather than a missing fixture.
+- **`drizzle-kit push` cannot be used locally**: it reaches for the Neon driver over a **WebSocket**,
+  and the proxy exposes only the HTTP SQL endpoint (`docker inspect` confirms port 4444 alone), so it
+  hangs on "Pulling schema from database" rather than failing. `drizzle-kit generate` needs no
+  database at all, so the local bootstrap generates SQL offline from `schema.ts` and applies it
+  through the same HTTP client the app uses. Nothing restates a table definition.
+- **`dotenv` does not override an already-exported variable.** That one fact is what lets a single
+  `npm run local --` wrapper send every existing script at the local database with no edits to any
+  of them.
+
+**Watch out for:**
+
+- **Neon's HTTP endpoint takes one statement per call.** `DROP SCHEMA public CASCADE; CREATE SCHEMA
+  public;` comes back as a bare syntax error (42601), which reads like malformed SQL rather than an
+  unsupported shape.
+- **The generated `drizzle/` output is gitignored and regenerated every bootstrap.** A committed
+  baseline rots the moment the schema moves, and a stale one that still applies cleanly is worse
+  than none.
+- **`bootstrap.ts` drops and recreates the public schema**, so it refuses to run against any
+  non-local host rather than trusting the caller.
+- **The test URL's port 5433 is a routing label, not a listening Postgres.** Both databases live in
+  one container on 5432; the port in the URL only selects which proxy — the image targets one fixed
+  database per instance.
+- Local runs are slower than Neon (~220s for the integration suite) because every query is its own
+  HTTP round-trip. Individual tests reach 20s against a 30s timeout, so a test that grows may need
+  the timeout raised rather than being assumed broken.
+- Two pre-existing `react-hooks/set-state-in-effect` lint errors remain in `src/app/setup/page.tsx`
+  and `src/components/ThemeToggle.tsx`. They predate this work and are untouched.
+
+**Next:** H2 is unblocked and the history schema is in place locally. H3 imports the Sleeper era.
