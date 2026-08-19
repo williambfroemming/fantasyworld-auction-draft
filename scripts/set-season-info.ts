@@ -1,15 +1,24 @@
 /**
- * Record what a season paid out.
+ * Record the things about a season that exist in no API.
  *
- *   npm run season:prizes                                   # show every season
- *   npm run season:prizes -- 2025                           # show one
- *   npm run season:prizes -- 2025 --champion 2100 --runner-up 600 --third 300
- *   npm run season:prizes -- 2025 --champion none           # back to unknown
+ *   npm run season:info                                   # show every season
+ *   npm run season:info -- 2026                           # show one
+ *   npm run season:info -- 2026 --city "San Diego" --state CA
+ *   npm run season:info -- 2026 --champion 2100 --runner-up 600 --third 300
+ *   npm run season:info -- 2026 --champion none           # back to unknown
  *
- * Prize money is a league fact that exists in no API and changes from year to
- * year — the pot has grown from $0 in 2011 to $2,100 for a championship in 2024.
- * The workbook carried it up to 2024; from 2025 on it has to be entered, and this
- * is where.
+ * Two kinds of league fact live here, and neither is derivable:
+ *
+ *  - **Prize money**, which changes from year to year — the pot has grown from $0
+ *    in 2011 to $2,100 for a championship in 2024. The workbook carried it up to
+ *    2024; from 2025 on it has to be entered.
+ *  - **Where the draft was held.** The league has met in Deerfield, Madison,
+ *    Denver, Las Vegas, Nashville, Scottsdale and San Diego, and that is half the
+ *    fun of the archive. The workbook's `draft_locations` covered 2010-2025.
+ *
+ * The natural home for the location is the commissioner's setup screen, entered
+ * on the night alongside the draft order — this script is what fills the gap
+ * until then, and remains the way to correct a past year.
  *
  * ## Null is unknown, and that is a real state
  *
@@ -43,19 +52,37 @@ function flag(name: string): number | null | undefined {
   return n
 }
 
-const FIELDS: Array<[string, string]> = [
+const MONEY_FIELDS: Array<[string, string]> = [
   ['champion', 'champion_prize'],
   ['runner-up', 'runner_up_prize'],
   ['third', 'third_prize'],
 ]
 
+const TEXT_FIELDS: Array<[string, string]> = [
+  ['city', 'draft_city'],
+  ['state', 'draft_state'],
+  ['country', 'draft_country'],
+]
+
+/** `undefined` = leave alone · `null` = clear · string = set. */
+function textFlag(name: string): string | null | undefined {
+  const i = argv.indexOf(`--${name}`)
+  if (i < 0) return undefined
+  const raw = argv[i + 1]
+  if (raw === undefined) throw new Error(`--${name} needs a value, or "none"`)
+  if (raw === 'none' || raw === 'null') return null
+  return raw
+}
+
 const money = (v: unknown) => (v === null || v === undefined ? '—' : `$${v}`)
 
 async function show(only: number | null) {
   const rows = only
-    ? await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize
+    ? await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize,
+                       draft_city, draft_state
                   FROM seasons WHERE season = ${only}`
-    : await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize
+    : await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize,
+                       draft_city, draft_state
                   FROM seasons ORDER BY season`
   if (!rows.length) {
     console.log(`\nNo season ${only} on record.\n`)
@@ -69,22 +96,24 @@ async function show(only: number | null) {
       champion: money(r.champion_prize),
       'runner-up': money(r.runner_up_prize),
       third: money(r.third_prize),
+      drafted: r.draft_city ? `${r.draft_city}${r.draft_state ? `, ${r.draft_state}` : ''}` : '—',
     })),
   )
   console.log('  — means unknown, which is not the same as $0.\n')
 }
 
 async function main() {
-  const updates = FIELDS.map(([name, column]) => [column, flag(name)] as const).filter(
-    ([, v]) => v !== undefined,
-  )
+  const updates = [
+    ...MONEY_FIELDS.map(([name, column]) => [column, flag(name)] as const),
+    ...TEXT_FIELDS.map(([name, column]) => [column, textFlag(name)] as const),
+  ].filter(([, v]) => v !== undefined)
 
   if (!updates.length) {
     await show(season)
-    if (!season) console.log('  Set one with:  npm run season:prizes -- 2025 --champion 2100\n')
+    if (!season) console.log('  Set one with:  npm run season:info -- 2026 --city "San Diego" --state CA\n')
     return
   }
-  if (!season) throw new Error('name the season first:  npm run season:prizes -- 2025 --champion 2100')
+  if (!season) throw new Error('name the season first:  npm run season:info -- 2026 --city "San Diego"')
 
   const [exists] = await sql`SELECT season FROM seasons WHERE season = ${season}`
   if (!exists) throw new Error(`No season ${season} on record — import it before pricing it.`)
@@ -96,7 +125,11 @@ async function main() {
     ...updates.map(([, v]) => v),
   ])
 
-  console.log(`\n✓ ${season}: ${updates.map(([c, v]) => `${c} = ${money(v)}`).join(', ')}`)
+  console.log(
+    `\n✓ ${season}: ${updates
+      .map(([c, v]) => `${c} = ${typeof v === 'number' ? money(v) : (v ?? '—')}`)
+      .join(', ')}`,
+  )
   await show(season)
 }
 
