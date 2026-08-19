@@ -94,6 +94,35 @@ const CORRECTIONS = [
  * manager's first nomination — a real recorded fact, but not the drawn seat, and
  * the season note says so.
  */
+/**
+ * That season's draft board, where the sheet the room drafted on survives.
+ *
+ * Rank is normally unrecoverable for an archived season — the pool is replaced
+ * every August, so joining a 2024 pick to `players` reads today's board. But
+ * the league drafted off a sheet with the board pasted into it, and that sheet
+ * still exists, so 2024's ranks are a *recorded* fact rather than a
+ * reconstruction. Snapshotted onto `picks` for the same reason name and team
+ * are: it must survive the next pool import.
+ *
+ * Only seasons listed here get ranks. The rest keep NULL, which reads as "not
+ * scored" — never rank 0, which would read as the best player alive.
+ */
+const RECORDED_BOARDS: Record<number, string> = {
+  2024: 'data/history/pool_2024.csv',
+}
+
+/**
+ * One player, two names in one sheet.
+ *
+ * The 2024 board and pick log both say "Hollywood Brown"; the workbook that
+ * `picks` was imported from says "Marquise Brown". Same player, and the only
+ * name in 275 that differs — so it is an alias, not a match failure, and it
+ * is listed rather than fuzzy-matched so the departure stays reviewable.
+ */
+const BOARD_ALIASES: Record<string, string> = {
+  'hollywood brown': 'marquise brown',
+}
+
 const RECORDED_ORDERS: Record<number, string[]> = {
   2025: ['Daniel', 'Gabes', 'Mario', 'Bolek', 'Justin', 'Nate', 'Grossman', 'Bill', 'Jack', 'Bryan'],
 }
@@ -103,7 +132,12 @@ const RECORDED_ORDERS: Record<number, string[]> = {
 function csv(path: string): Array<Record<string, string>> {
   const full = join(ROOT, path)
   if (!existsSync(full)) throw new Error(`missing ${full}`)
-  const lines = readFileSync(full, 'utf8').trim().split('\n')
+  // \r is stripped per line, not just trimmed off the end of the file. A CRLF
+  // source made the LAST header cell "position\r", so every lookup of that
+  // column returned undefined and fell through to a default — which produced
+  // plausible-looking wrong data rather than an error. Any tool that writes
+  // CSV on Windows, and Python's csv.writer by default, emits CRLF.
+  const lines = readFileSync(full, 'utf8').trim().split('\n').map((l) => l.replace(/\r$/, ''))
   const header = lines[0].split(',')
   return lines.slice(1).map((line) => {
     const cells = line.split(',')
@@ -211,6 +245,36 @@ function sleeperRosters(season: number): Map<number, Set<string>> {
 }
 
 // ---------------------------------------------------------------------------
+
+/** Board names normalize the same way everywhere, aliases included. */
+function boardKey(name: string): string {
+  const k = name.toLowerCase().replace(/[^a-z ]/g, '').replace(/ (jr|sr|ii|iii|iv)$/, '').trim()
+  return BOARD_ALIASES[k] ?? k
+}
+
+/**
+ * Overall and positional rank per drafted player, keyed `season:name`.
+ *
+ * Positional rank is derived by ordering within a position rather than read
+ * from a column, because the sheet's board is a single ranked list. That is
+ * what a positional rank *is* for a one-column board, and it matters: the
+ * value view compares within a position and never across.
+ */
+function boardRanks(): Map<string, { rank: number; posRank: number }> {
+  const out = new Map<string, { rank: number; posRank: number }>()
+  for (const [season, path] of Object.entries(RECORDED_BOARDS)) {
+    const rows = csv(path)
+      .map((r) => ({ rank: Number(r.rank), name: r.name, position: normalizePosition(r.position || 'DEF').position }))
+      .sort((a, b) => a.rank - b.rank)
+    const perPosition = new Map<string, number>()
+    for (const r of rows) {
+      const next = (perPosition.get(r.position) ?? 0) + 1
+      perPosition.set(r.position, next)
+      out.set(`${season}:${boardKey(r.name)}`, { rank: r.rank, posRank: next })
+    }
+  }
+  return out
+}
 
 async function main() {
   const [{ current_database: dbName }] = await sql`SELECT current_database()`
@@ -357,6 +421,37 @@ async function main() {
   }
   console.log('  ✓ every roster matches Sleeper, player for player')
 
+  // --- 3b. cross-check 2024 against the sheet the room drafted on ----------
+  // 2024 is the one auction year Sleeper has no draft record for, so it was
+  // also the one year with nothing to check the workbook against. The league's
+  // own Google Sheet survives, and it checks something Sleeper never could:
+  // the PRICES. Sleeper's auction amounts are a formality — every pick $1.
+  //
+  // This is a cross-check, never a source. The workbook stays authoritative so
+  // there is one import path; a disagreement means one of them is wrong and
+  // that is a thing to look at, not to resolve automatically by preferring
+  // whichever was loaded second.
+  const sheetDiffs: string[] = []
+  for (const r of csv('data/history/auction_2024_sheet.csv')) {
+    const ours = picks.find((p) => p.season === 2024 && boardKey(p.name) === boardKey(r.player))
+    if (!ours) {
+      sheetDiffs.push(`pick ${r.pick}: sheet has "${r.player}" (${r.drafted_by} $${r.price}), we have no such pick`)
+      continue
+    }
+    if (ours.price !== Number(r.price)) {
+      sheetDiffs.push(`${r.player}: sheet $${r.price}, we have $${ours.price}`)
+    }
+    if (ours.managerId !== managerIdForName(r.drafted_by)) {
+      sheetDiffs.push(`${r.player}: sheet says ${r.drafted_by}, we have manager ${ours.managerId}`)
+    }
+  }
+  if (sheetDiffs.length) {
+    console.error(`\n✗ ${sheetDiffs.length} disagreements between the workbook and the 2024 sheet:`)
+    for (const d of sheetDiffs.slice(0, 20)) console.error(`   ${d}`)
+    process.exit(1)
+  }
+  console.log('  ✓ 2024 matches the league sheet on every player, price and buyer')
+
   // --- 4. summarise before writing -----------------------------------------
   const perSeason = SEASONS.map((season) => {
     const mine = picks.filter((p) => p.season === season)
@@ -412,18 +507,36 @@ async function main() {
   for (const season of SEASONS) {
     await sql.query('DELETE FROM picks WHERE season = $1', [season])
   }
+  // Ranks, for the seasons whose draft board survives. A partial board is
+  // refused rather than imported: `valueVsRoom` compares each pick against its
+  // rank neighbours, so ranking 140 of 160 players would silently compare
+  // against the wrong neighbours and read as a confident answer.
+  const ranks = boardRanks()
   const pv: unknown[] = []
   const pt = picks.map((p) => {
-    pv.push(p.season, p.pickNo, p.playerId, p.name, p.team, p.position, p.playerId, p.managerId, p.nominatorId, p.price)
+    const r = ranks.get(`${p.season}:${boardKey(p.name)}`) ?? null
+    pv.push(
+      p.season, p.pickNo, p.playerId, p.name, p.team, p.position, p.playerId,
+      p.managerId, p.nominatorId, p.price, r?.rank ?? null, r?.posRank ?? null,
+    )
     const n = pv.length
-    return `($${n - 9},$${n - 8},$${n - 7},$${n - 6},$${n - 5},$${n - 4},$${n - 3},$${n - 2},$${n - 1},$${n})`
+    return `($${n - 11},$${n - 10},$${n - 9},$${n - 8},$${n - 7},$${n - 6},$${n - 5},$${n - 4},$${n - 3},$${n - 2},$${n - 1},$${n})`
   })
-  // player_rank and player_pos_rank stay NULL: rank is unrecoverable once a
-  // season's pool is replaced, and NULL means "not scored" — never rank 0,
-  // which would read as the best player alive.
+  for (const season of Object.keys(RECORDED_BOARDS).map(Number)) {
+    const inSeason = picks.filter((p) => p.season === season)
+    const unranked = inSeason.filter((p) => !ranks.has(`${season}:${boardKey(p.name)}`))
+    if (unranked.length) {
+      console.error(`\n✗ ${season} has a recorded board, but ${unranked.length} picks are not on it:`)
+      for (const p of unranked.slice(0, 20)) console.error(`    pick ${p.pickNo}  ${p.name}`)
+      console.error('  Add an alias to BOARD_ALIASES, or remove the season from RECORDED_BOARDS.')
+      process.exit(1)
+    }
+    console.log(`  ✓ ${season}: all ${inSeason.length} picks carry a board rank`)
+  }
   await sql.query(
     `INSERT INTO picks (season, pick_no, player_id, player_name, player_team, player_position,
-                        player_sleeper_id, manager_id, nominator_id, price)
+                        player_sleeper_id, manager_id, nominator_id, price,
+                        player_rank, player_pos_rank)
      VALUES ${pt.join(',')}`,
     pv,
   )

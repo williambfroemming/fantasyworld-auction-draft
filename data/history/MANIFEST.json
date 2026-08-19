@@ -103,6 +103,30 @@
         "money_won"
       ],
       "sha256": "87f86a0769b4b520bb43683fda4fd4033a3aecd9ae87d015a014a8925c9e3301"
+    },
+    "pool_2024.csv": {
+      "sheet": "2024 draft board (Google Sheet 1sMIZd7uLBC2vTwU_rnn4e3pTNGeOW1A0ROB62hP1EhQ)",
+      "rows": 275,
+      "columns": [
+        "rank",
+        "name",
+        "team",
+        "position"
+      ],
+      "sha256": "844c87b5dc7a34b88cde7efa4c2a32dc0160e0ef93e512158844fa4ffe2aad07"
+    },
+    "auction_2024_sheet.csv": {
+      "sheet": "2024 draft log (Google Sheet 1sMIZd7uLBC2vTwU_rnn4e3pTNGeOW1A0ROB62hP1EhQ) \u2014 cross-check only, not a source",
+      "rows": 160,
+      "columns": [
+        "pick",
+        "nominator",
+        "player",
+        "drafted_by",
+        "price",
+        "position"
+      ],
+      "sha256": "93ef64fa4ba20aee7ddd9d3d1b088c4f2a83455d4b42e476bc90327ea42794a4"
     }
   }
 }

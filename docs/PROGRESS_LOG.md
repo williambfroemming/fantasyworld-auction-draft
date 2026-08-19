@@ -2330,3 +2330,55 @@ stay editable after the first pick.
 - 2025 has no prize data, so it has no buy-in. If it is priced later, the derivation picks it up on
   the next `history:import-workbook` run — the importer's upsert `COALESCE`s so a re-run adds
   without overwriting what the setup form may have set by hand.
+
+## The 2024 draft sheet closed the last blank
+
+2024 was the weakest year on record and the plan said so: the one auction with **no Sleeper draft
+record**, so the workbook's 160 picks had nothing to check them against, and — like every archived
+season — no board ranks, because the pool is replaced each August. `/stats` showed 2024 as unscored.
+
+The league's own 2024 Google Sheet turned out to survive, and it carried both.
+
+**The picks are exact.** Diffed player by player against what we imported: 160/160, **zero price
+differences, zero owner differences**. The single apparent mismatch was "Hollywood Brown" against
+the workbook's "Marquise Brown" — one player, two names, now an explicit alias rather than a fuzzy
+match. That check is committed as `auction_2024_sheet.csv` and runs on every import, so 2024 went
+from the least-verified year to the **best**-verified one: Sleeper could confirm rosters but never
+prices, because its auction amounts are a formality at $1 a pick.
+
+**The board is recoverable too**, which the plan had assumed it never would be. 275 ranked players,
+all 160 drafted ones on it, so `player_rank` and `player_pos_rank` are now snapshotted onto 2024's
+picks and the value view scores 154 of them — Dak at $21 against a room paying $33 for that tier,
+Josh Allen at $55 against $42. 2021–2023 and 2025 keep NULL and keep the empty state, correctly.
+
+The sheet's own pivot table says Mario drafted 12 players. The log says 16, all ten managers are at
+16, and nobody is over $200. Its pivot range stops at pick 156 and Mario bought four of the last
+four. That is the third summary table in this project to disagree with its own base data.
+
+**Learned:**
+
+- **`csv.writer` emits CRLF by default, and the parser split on `\n` only.** So the last header
+  cell was `position\r`, every lookup of that column returned undefined, and the code fell through
+  to its `|| 'DEF'` default. Every player landed in one bucket and positional rank came out equal
+  to overall rank — *plausible* wrong data, not an error. Caught only because I read the output
+  rather than the success line. The parser now strips `\r` per line.
+- **A default is where a silent failure goes to hide.** `r.position || 'DEF'` was defensive coding
+  that converted a structural break into believable numbers. An explicit throw on a missing column
+  would have failed in the first second.
+- **"Unrecoverable" was a statement about the sources we had.** Rank is unrecoverable from the
+  *pool*, which is true and still is. It was recoverable from the room's sheet, and nobody thought
+  to ask whether the sheet had the board pasted into it.
+- **The strongest cross-check is the one the other source can't do.** Sleeper verifies rosters;
+  only the sheet verifies money. Two sources agreeing on the same field is worth much less than a
+  second source covering a field the first was blind to.
+
+**Watch out for:**
+
+- `RECORDED_BOARDS` refuses a partial board — if a season is listed and any pick is off it, the
+  import halts. That is deliberate: `valueVsRoom` compares each pick against its rank neighbours,
+  so ranking 140 of 160 would compare against the wrong neighbours and still render confidently.
+- Positional rank is *derived* by ordering within position, because the sheet's board is one ranked
+  list. That is what a posRank is for a single-column board, but it is not read from a column, so
+  it cannot be cross-checked against anything.
+- If the 2021–2023 or 2025 sheets ever surface, they slot in the same way — add the path to
+  `RECORDED_BOARDS` and the log to the cross-check. Nothing else needs to change.
