@@ -62,6 +62,15 @@ export interface DraftDnaSeason {
   season: number
   spent: number
   picks: number
+  /**
+   * Dollars spent at each position. The stored truth; `positionShare` is
+   * derived from it.
+   *
+   * Carried rather than recovered from `share × spent` because that is
+   * floating-point arithmetic on a figure people read as money — a $47 back
+   * comes back $46.999999999999996 and renders as $47 only by luck of rounding.
+   */
+  positionSpend: Record<SpendColumn, number>
   /** Each position's share of what they spent. Sums to 1 (0 if they spent nothing). */
   positionShare: Record<SpendColumn, number>
   /** Share of their spend in their three priciest buys. High = stars and scrubs. */
@@ -82,8 +91,11 @@ export interface DraftDnaSeason {
 
 export interface DraftDnaCareer {
   seasons: number
+  /** Dollars at each position across every auction on record. */
+  positionSpend: Record<SpendColumn, number>
   /** Shares of career spend, not a mean of the yearly shares — a $50 year and a
-      $200 year should not weigh the same. */
+      $200 year should not weigh the same. Summing the dollars first gives that
+      weighting for free. */
   positionShare: Record<SpendColumn, number>
   /** Means over the seasons on record. */
   topThreeShare: number
@@ -195,6 +207,7 @@ export function draftDna(picks: DnaPick[], trades: StatsTrade[], managerId: numb
       season,
       spent,
       picks: mine.length,
+      positionSpend: byPosition,
       positionShare: sharesOf(byPosition, spent),
       topThreeShare: spent > 0 ? topThree / spent : 0,
       dollarPicks: mine.filter((p) => p.price <= 1).length,
@@ -205,11 +218,13 @@ export function draftDna(picks: DnaPick[], trades: StatsTrade[], managerId: numb
   }
 
   // ---- career ----
+  // Dollars summed, then shared out — which weights a $200 season above a $50
+  // one automatically. Averaging the yearly shares would treat them equally.
   const careerByPosition = zeroShares()
   let careerSpent = 0
   for (const s of seasons) {
     careerSpent += s.spent
-    for (const c of SPEND_COLUMNS) careerByPosition[c] += s.positionShare[c] * s.spent
+    for (const c of SPEND_COLUMNS) careerByPosition[c] += s.positionSpend[c]
   }
 
   const withHalfway = seasons.filter((s) => s.halfwayFraction !== null)
@@ -219,6 +234,7 @@ export function draftDna(picks: DnaPick[], trades: StatsTrade[], managerId: numb
     seasons,
     career: {
       seasons: seasons.length,
+      positionSpend: careerByPosition,
       positionShare: sharesOf(careerByPosition, careerSpent),
       topThreeShare: seasons.length
         ? seasons.reduce((s, x) => s + x.topThreeShare, 0) / seasons.length

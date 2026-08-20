@@ -130,6 +130,33 @@ describe('draftDna', () => {
     expect(career.seasons).toBe(1)
   })
 
+  it('carries exact dollars per position, not a share to be multiplied back', () => {
+    // The tooltip reads these as money. Recovering them from `share × spent`
+    // is floating-point arithmetic that lands on $46.999999999999996.
+    const picks = [
+      pick(2026, 1, 1, 'RB', 47),
+      pick(2026, 2, 1, 'QB', 106),
+      pick(2026, 3, 1, 'WR', 47),
+    ]
+    const s = draftDna(picks, [], 1).seasons[0]
+    expect(s.positionSpend.RB).toBe(47)
+    expect(s.positionSpend.QB).toBe(106)
+    expect(s.positionSpend.WR).toBe(47)
+    expect(s.positionSpend.TE).toBe(0)
+    expect(Object.values(s.positionSpend).reduce((a, b) => a + b, 0)).toBe(s.spent)
+  })
+
+  it('sums career dollars across seasons', () => {
+    const picks = [
+      pick(2025, 1, 1, 'RB', 30),
+      pick(2026, 1, 1, 'RB', 25),
+      pick(2026, 2, 1, 'QB', 60),
+    ]
+    const { career } = draftDna(picks, [], 1)
+    expect(career.positionSpend.RB).toBe(55)
+    expect(career.positionSpend.QB).toBe(60)
+  })
+
   it('weights career position share by dollars, not by season', () => {
     // A $10 season and a $190 season must not count equally.
     const picks = [

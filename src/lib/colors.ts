@@ -115,23 +115,75 @@ export function textOn(color: string): string {
 /**
  * The positional spend palette, used by every stacked spend bar.
  *
+ * One palette, two orderings — see below. A second copy of the hexes is how two
+ * views of the same split end up disagreeing about which colour a receiver is.
+ *
+ * Grey for OTHER on purpose: K and DEF are the residue, and a residual bucket
+ * reading as "not a real category" is the correct signal, not a palette failure.
+ */
+const SPEND_HEX = {
+  QB: '#fb7185',
+  RB: '#34d399',
+  WR: '#38bdf8',
+  TE: '#fbbf24',
+  OTHER: '#64748b',
+} as const
+
+export interface SpendSegment {
+  key: string
+  label: string
+  hex: string
+}
+
+const seg = (key: keyof typeof SPEND_HEX, label: string): SpendSegment => ({
+  key,
+  label,
+  hex: SPEND_HEX[key],
+})
+
+/**
+ * Interleaved order, for a bar with **no labels and no tooltips**.
+ *
  * ⚠️ Not in `SPEND_COLUMNS` order, deliberately. Rose (QB) against emerald (RB)
  * is ΔE 4.6 under deuteranopia — indistinguishable for the ~1 in 12 men with
- * it, and a bar has no room for the labels that make `PositionBadge` safe.
- * Interleaving them costs nothing and lifts the worst adjacent pair to 10.6.
- * Same trick, same reason as `SEAT_ORDER` above.
+ * it. Where the only cue is the colour itself, putting them side by side makes
+ * the bar unreadable for those readers; interleaving costs nothing and lifts
+ * the worst adjacent pair to 10.6. Same trick, same reason as `SEAT_ORDER`.
  *
- * Lives here rather than beside the first bar that needed it because there are
- * now two of them — the draft-night Budgets panel and Draft DNA on a member
- * page — and a second copy of a palette is how two views of the same split end
- * up disagreeing about which colour a receiver is.
+ * This is the draft-night Budgets bar: a 19rem sliver under a manager's name,
+ * read at a glance mid-auction, with nothing to hover and no legend.
  */
-export const SPEND_SEGMENTS: Array<{ key: string; label: string; hex: string }> = [
-  { key: 'WR', label: 'WR', hex: '#38bdf8' },
-  { key: 'QB', label: 'QB', hex: '#fb7185' },
-  { key: 'TE', label: 'TE', hex: '#fbbf24' },
-  { key: 'RB', label: 'RB', hex: '#34d399' },
-  // Grey on purpose: K and DEF are the residue, and a residual bucket reading as
-  // "not a real category" is the correct signal, not a palette failure.
-  { key: 'OTHER', label: 'K/DEF', hex: '#64748b' },
+export const SPEND_SEGMENTS: SpendSegment[] = [
+  seg('WR', 'WR'),
+  seg('QB', 'QB'),
+  seg('TE', 'TE'),
+  seg('RB', 'RB'),
+  seg('OTHER', 'K/DEF'),
+]
+
+/**
+ * Natural position order, for a bar that **carries its own labels**.
+ *
+ * The interleaving above buys colour separation and pays for it in a reading
+ * order nobody has in their head — people say "QB, RB, WR, TE", and a chart
+ * that answers in a different order makes every row a small puzzle. That trade
+ * is worth it only when colour is the *sole* cue.
+ *
+ * Draft DNA is not that case: it has a legend under the table and a tooltip on
+ * every segment naming the position and the dollars. Two non-colour cues carry
+ * the identification, so the ordering can serve reading instead.
+ *
+ * ⚠️ If you reuse this on a bar with neither a legend nor tooltips, use
+ * `SPEND_SEGMENTS` instead — the adjacency problem is real, it is just paid for
+ * elsewhere here.
+ */
+export const SPEND_SEGMENTS_BY_POSITION: SpendSegment[] = [
+  seg('QB', 'QB'),
+  seg('RB', 'RB'),
+  seg('WR', 'WR'),
+  seg('TE', 'TE'),
+  // Labelled K/DEF, not DEF: this league has never drafted a kicker (0 in 960
+  // picks), but the bucket is defined as "not QB/RB/WR/TE" and the label should
+  // not become a lie the first time somebody takes one.
+  seg('OTHER', 'K/DEF'),
 ]
