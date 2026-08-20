@@ -111,3 +111,27 @@ export function textOn(color: string): string {
   const luminance = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
   return luminance > 0.25 ? '#17150f' : '#f7f2e6'
 }
+
+/**
+ * The positional spend palette, used by every stacked spend bar.
+ *
+ * ⚠️ Not in `SPEND_COLUMNS` order, deliberately. Rose (QB) against emerald (RB)
+ * is ΔE 4.6 under deuteranopia — indistinguishable for the ~1 in 12 men with
+ * it, and a bar has no room for the labels that make `PositionBadge` safe.
+ * Interleaving them costs nothing and lifts the worst adjacent pair to 10.6.
+ * Same trick, same reason as `SEAT_ORDER` above.
+ *
+ * Lives here rather than beside the first bar that needed it because there are
+ * now two of them — the draft-night Budgets panel and Draft DNA on a member
+ * page — and a second copy of a palette is how two views of the same split end
+ * up disagreeing about which colour a receiver is.
+ */
+export const SPEND_SEGMENTS: Array<{ key: string; label: string; hex: string }> = [
+  { key: 'WR', label: 'WR', hex: '#38bdf8' },
+  { key: 'QB', label: 'QB', hex: '#fb7185' },
+  { key: 'TE', label: 'TE', hex: '#fbbf24' },
+  { key: 'RB', label: 'RB', hex: '#34d399' },
+  // Grey on purpose: K and DEF are the residue, and a residual bucket reading as
+  // "not a real category" is the correct signal, not a palette failure.
+  { key: 'OTHER', label: 'K/DEF', hex: '#64748b' },
+]

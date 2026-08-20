@@ -1,6 +1,7 @@
 import { SiteNav } from '@/components/SiteNav'
 import { LeagueSummaryTable } from '@/components/history/LeagueSummaryTable'
 import { EraBadge } from '@/components/history/EraBadge'
+import { GlossaryLink } from '@/components/GlossaryLink'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getLeagueSummary, listHistorySeasons } from '@/server/history-service'
 
@@ -41,8 +42,9 @@ export default async function HistoryPage() {
       <div className="mx-auto max-w-[92rem] px-4 py-6">
         <section>
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
-            <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
+            <h2 className="flex items-baseline gap-2 font-display text-sm font-bold uppercase tracking-[0.1em]">
               All-time table
+              <GlossaryLink anchor="league" label="the all-time table" />
             </h2>
             <p className="text-xs text-slate-400">
               Ranked by career regular-season win percentage.
@@ -52,63 +54,30 @@ export default async function HistoryPage() {
           <LeagueSummaryTable report={report} />
 
           {/*
-            The two-era note. The league's own spreadsheet puts these columns
-            side by side unlabelled, which is how its records sheet ended up
-            disagreeing with its front page about the all-time high score.
+            The three era badges stay — they are the label on which columns
+            cover which years, and the league's own spreadsheet puts those
+            columns side by side unlabelled, which is how its records sheet
+            ended up disagreeing with its front page about the all-time high
+            score. The four paragraphs that used to gloss them are in the
+            glossary under "Coverage tiers".
           */}
-          <div className="mt-4 space-y-1.5 border-t border-rule pt-3 text-xs leading-relaxed text-slate-400">
-            <p className="flex flex-wrap items-baseline gap-x-2">
+          <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-2 border-t border-rule pt-3 text-xs text-slate-400">
+            <span className="flex items-baseline gap-1.5">
               <EraBadge coverage={report.allTime} />
-              <span>
-                — record, points and money. Everything the league has a season-level record of.
-              </span>
-            </p>
-            <p className="flex flex-wrap items-baseline gap-x-2">
+              <span>record, points, money</span>
+            </span>
+            <span className="flex items-baseline gap-1.5">
               <EraBadge coverage={report.weekly} />
-              <span>
-                — anything needing week-by-week data: all-play, lineup efficiency, high and low
-                scorer weeks, playoff points. These cannot go back further, because the games
-                were not recorded that way.
-              </span>
-            </p>
-            <p className="flex flex-wrap items-baseline gap-x-2">
+              <span>all-play, lineup, high/low, playoff points</span>
+            </span>
+            <span className="flex items-baseline gap-1.5">
               <EraBadge coverage={report.titles} />
-              <span>
-                — championships only. Rings are counted from the start of the record, so the 🏆
-                column reaches further back than the record beside it
-                {report.legacyNote.seasons.length > 0 && (
-                  <>
-                    : {report.legacyNote.seasons.join(', ')} survive as a champion&rsquo;s name and
-                    nothing else, and contribute to no other column
-                  </>
-                )}
-                .
-              </span>
-            </p>
-            <p className="pt-1">
-              <span className="text-slate-300">—</span> means unknown, which is not the same as
-              zero. Third-place games count toward playoff records; the fifth-place game does not.
-            </p>
-          </div>
-        </section>
-
-        <section className="mt-10">
-          <div className="mb-3 flex items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
-            <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">Champions</h2>
-            <span className="font-mono text-xs text-slate-400 tabular-nums">
-              {seasons.length} seasons on record
+              <span>championships</span>
+            </span>
+            <span>
+              <span className="text-slate-300">—</span> is unknown, not zero
             </span>
           </div>
-          <ul className="grid gap-x-8 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-            {seasons.map((s) => (
-              <li key={s.season} className="leaders text-sm">
-                <span className="font-mono text-slate-400 tabular-nums">{s.season}</span>
-                <span className={s.champion ? 'font-semibold' : 'text-slate-500'}>
-                  {s.champion ?? 'not yet decided'}
-                </span>
-              </li>
-            ))}
-          </ul>
         </section>
       </div>
     </main>

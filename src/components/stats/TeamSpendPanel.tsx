@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { SPEND_COLUMNS, teamSpend, type StatsInput } from '@/lib/stats'
 import { textOn } from '@/lib/colors'
+import { GlossaryLink } from '../GlossaryLink'
 
 /**
  * Where each manager's $200 went, by position.
@@ -14,7 +15,6 @@ export function TeamSpendPanel({ input, className = '' }: { input: StatsInput; c
   const { rows, totals, peak } = useMemo(() => teamSpend(input), [input])
   const byId = useMemo(() => new Map(input.managers.map((m) => [m.id, m])), [input.managers])
   const traded = input.trades.length > 0
-  const anyDrift = rows.some((r) => r.drift !== 0)
 
   return (
     <div className={`flex min-h-0 flex-col rounded-xl border border-rule bg-slate-900/60 ${className}`}>
@@ -25,6 +25,7 @@ export function TeamSpendPanel({ input, className = '' }: { input: StatsInput; c
         <span className="text-[11px] text-slate-600">
           ${totals.spent} committed · ${totals.unspent} still on the table
         </span>
+        <GlossaryLink anchor="team-spend" label="spend by team" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
@@ -83,7 +84,10 @@ export function TeamSpendPanel({ input, className = '' }: { input: StatsInput; c
                         a commissioner correction. Shown so a row that doesn't
                         add up says why instead of just looking wrong. */}
                     {r.drift !== 0 && (
-                      <span className="ml-1 text-[10px] text-amber-400">
+                      <span
+                        className="ml-1 text-[10px] text-amber-400"
+                        title="Money moved by trade cash or a commissioner correction"
+                      >
                         {r.drift > 0 ? '+' : ''}
                         {-r.drift} adj
                       </span>
@@ -109,21 +113,17 @@ export function TeamSpendPanel({ input, className = '' }: { input: StatsInput; c
           </tbody>
         </table>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-slate-600">
-          Grouped by the player&apos;s real position, not the roster slot they are drawn in.
-          OTHER is kickers and defenses — kept here, unlike the market view, so every row adds
-          up to what the manager actually spent.
-          {traded && (
-            <>
-              {' '}
-              <span className="text-amber-400/80">
-                Players have changed hands: this follows the money, not the roster — a traded
-                player&apos;s salary stays charged to whoever bought them at auction.
-              </span>
-            </>
-          )}
-          {anyDrift && ' “adj” marks money moved by trade cash or a commissioner correction.'}
-        </p>
+        {/*
+          What the columns mean now lives in the glossary. This one line stays,
+          and only when it applies: with players traded, the table deliberately
+          disagrees with today's rosters, and a reader who does not know that
+          reads a correct table as a broken one.
+        */}
+        {traded && (
+          <p className="mt-3 text-[11px] text-amber-400/80">
+            Players have changed hands — this follows the money, not the roster.
+          </p>
+        )}
       </div>
     </div>
   )

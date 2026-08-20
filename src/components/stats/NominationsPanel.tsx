@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { nominationStats, type StatsInput } from '@/lib/stats'
 import { textOn } from '@/lib/colors'
+import { GlossaryLink } from '../GlossaryLink'
 
 /**
  * What each manager's nominations actually did.
@@ -38,9 +39,7 @@ export function NominationsPanel({
         <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           Nominations
         </h2>
-        <span className="text-[11px] text-slate-600">
-          who puts players up, and who ends up paying for them
-        </span>
+        <GlossaryLink anchor="nominations" label="nominations" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
@@ -98,23 +97,19 @@ export function NominationsPanel({
           </tbody>
         </table>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-slate-600">
-          Everyone gets roughly the same number of turns, so the count is context — the
-          interesting columns are the win rate and the money you sent to somebody else&apos;s
-          roster. A low win rate is not automatically bad: putting up players you do not want
-          is how you drain a rival&apos;s budget. Credit follows whoever bought the player at
-          auction, so a later trade cannot rewrite who won their own nomination.
-          {input.season === 2026 && (
-            <>
-              {' '}
-              <span className="text-amber-400/80">
-                2026 note: the final 8 picks were entered by hand after the draft stalled, with
-                the buyer recorded as their own nominator — so “won” is a touch high for
-                Daniel, Mario, Nate and Eric/Blakey.
-              </span>
-            </>
-          )}
-        </p>
+        {/*
+          The paragraph about what a low win rate means went to the glossary.
+          This did not: it is an erratum about these specific numbers in this
+          specific year, not a definition, and it belongs against the column it
+          qualifies rather than on a page about how metrics work.
+        */}
+        {input.season === 2026 && (
+          <p className="mt-3 text-[11px] leading-relaxed text-amber-400/80">
+            2026: the final 8 picks were entered by hand after the draft stalled, with the buyer
+            recorded as their own nominator — so &ldquo;won&rdquo; is a touch high for Daniel,
+            Mario, Nate and Eric/Blakey.
+          </p>
+        )}
       </div>
     </div>
   )

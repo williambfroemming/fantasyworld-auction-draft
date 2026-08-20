@@ -11,6 +11,7 @@ import {
 } from '@/lib/stats'
 import { valueVsResults, type ValuedResult } from '@/lib/draft-value'
 import { textOn } from '@/lib/colors'
+import { GlossaryLink } from '../GlossaryLink'
 import { PositionBadge } from '../LotPanel'
 
 function TeamCell({ manager }: { manager?: StatsManager }) {
@@ -173,9 +174,7 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
         <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
           Bargains &amp; overpays
         </h2>
-        <span className="text-[11px] text-slate-600">
-          every price against what this room paid for similar players
-        </span>
+        <GlossaryLink anchor="value" label="bargains and overpays" />
       </div>
       {children}
     </div>
@@ -184,17 +183,14 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
   if (!complete) {
     const filled = input.managers.reduce((s, m) => s + m.rostered, 0)
     const total = input.managers.length * input.rosterSize
-    // An explanatory empty state, not a hidden tab: a tab that vanishes reads
-    // as a bug, and the reason it is unavailable is the interesting part.
+    // An empty state, not a hidden tab: a tab that vanishes reads as a bug.
+    // Why it is unavailable — a live "you overpaid" readout is the anchoring
+    // the league removed tiers and auction values to avoid — is in the glossary
+    // now, one link away, rather than as a paragraph nobody reads twice.
     return shell(
       <div className="grid flex-1 place-items-center p-8 text-center">
         <div className="max-w-md">
           <p className="text-lg text-slate-300">Available when the draft is done.</p>
-          <p className="mt-2 text-sm text-slate-500">
-            Bargains and overpays are only meaningful against a finished market — and a live
-            &ldquo;you overpaid&rdquo; readout is the same anchoring the league removed tiers
-            and auction values to avoid.
-          </p>
           <p className="mt-3 text-xs uppercase tracking-widest text-slate-600">
             {filled} of {total} slots filled
           </p>
@@ -209,11 +205,6 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
     const most = Math.max(1, ...netByManager.map((b) => Math.abs(b.delta)))
     return shell(
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        <p className="mb-3 text-[11px] leading-relaxed text-slate-500">
-          What each pick cost against where the player actually finished that season, within their
-          own position. A $1 receiver who ends the year WR4 is a steal; a $47 back who ends it RB44
-          is not.
-        </p>
         <div className="grid gap-4 lg:grid-cols-2">
           <div>
             <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-emerald-400/80">
@@ -305,12 +296,6 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
       <div className="grid flex-1 place-items-center p-8 text-center">
         <div className="max-w-md">
           <p className="text-lg text-slate-300">Not scored for {input.season}.</p>
-          <p className="mt-2 text-sm text-slate-500">
-            Once the season is played, every pick is scored against where the player actually
-            finished. Until then it can only be compared to what the room paid for similarly ranked
-            players &mdash; and this season has no pool rankings on record, which stops being
-            recoverable the moment a pool is replaced each August.
-          </p>
           <p className="mt-3 text-xs uppercase tracking-widest text-slate-600">
             {unscored} pick{unscored === 1 ? '' : 's'} unranked
           </p>
@@ -388,16 +373,18 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
         </tbody>
       </table>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-slate-600">
-        The benchmark is <span className="text-slate-500">this room&apos;s own bidding</span>,
-        deliberately — no third-party auction values, which the league removed from the board
-        on purpose. Each price is compared to the median the room paid for the nearest-ranked
-        players <span className="text-slate-500">at the same position</span>; comparing across
-        positions would only rediscover that this is a superflex league. So it can tell you
-        who paid more than the room did for a comparable player — it cannot tell you the room
-        was right. If everyone overpaid for running backs, nothing here will say so.
-        {unscored > 0 && ` ${unscored} pick${unscored === 1 ? '' : 's'} had no rank on record and ${unscored === 1 ? 'is' : 'are'} not scored.`}
-      </p>
+      {/*
+        The count stays; the paragraph explaining what "the room" means moved to
+        the glossary, which the `?` in the header points at. It is a caveat that
+        changes how the numbers are read, and it was being restated under every
+        table that used it.
+      */}
+      {unscored > 0 && (
+        <p className="mt-3 text-[11px] text-slate-600">
+          {unscored} pick{unscored === 1 ? '' : 's'} had no rank on record and{' '}
+          {unscored === 1 ? 'is' : 'are'} not scored.
+        </p>
+      )}
     </div>,
   )
 }

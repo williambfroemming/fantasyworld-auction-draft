@@ -37,6 +37,8 @@ import {
   type HistoryPick,
   type LeagueSummaryReport,
 } from '@/lib/history'
+import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
+import type { StatsTrade } from '@/lib/stats'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v))
@@ -46,7 +48,7 @@ const numOrNull = (v: unknown): number | null =>
 export async function getHistoryInput(): Promise<HistoryInput> {
   const sql = getSql()
 
-  const [members, seasons, standings, matchups, lineups, picks] = await Promise.all([
+  const [members, seasons, standings, matchups, lineups, picks, trades] = await Promise.all([
     sql`SELECT id, name, display_name, color FROM managers ORDER BY id`,
     sql`SELECT season, data_tier, regular_season_weeks,
                champion_manager_id, runner_up_manager_id, third_manager_id,
@@ -63,8 +65,12 @@ export async function getHistoryInput(): Promise<HistoryInput> {
           FROM season_lineups ORDER BY season, week`,
     // Auction picks, for the draft half of a member page. Snapshot columns only
     // — never a join to `players`, which is re-imported every August.
-    sql`SELECT season, manager_id, player_name, player_position, price
+    sql`SELECT id, season, manager_id, player_name, player_position, price
           FROM picks ORDER BY season DESC, price DESC`,
+    // A handful of rows, and the only surviving record of who bought a traded
+    // player. Without it every pick above is attributed to its current owner.
+    sql`SELECT id, created_at, manager_a_id, manager_b_id, picks_a_to_b, picks_b_to_a
+          FROM trades ORDER BY created_at`,
   ])
 
   return {
@@ -124,11 +130,30 @@ export async function getHistoryInput(): Promise<HistoryInput> {
     ),
     picks: picks.map(
       (r): HistoryPick => ({
+        id: Number(r.id),
         season: Number(r.season),
         managerId: Number(r.manager_id),
         playerName: String(r.player_name),
         playerPosition: String(r.player_position),
         price: num(r.price),
+      }),
+    ),
+    trades: trades.map(
+      (r): StatsTrade => ({
+        id: Number(r.id),
+        createdAt: new Date(r.created_at as string).toISOString(),
+        managerAId: Number(r.manager_a_id),
+        managerBId: Number(r.manager_b_id),
+        players: [
+          ...((r.picks_a_to_b as number[]) ?? []).map((id) => ({
+            pickId: Number(id),
+            toManagerId: Number(r.manager_b_id),
+          })),
+          ...((r.picks_b_to_a as number[]) ?? []).map((id) => ({
+            pickId: Number(id),
+            toManagerId: Number(r.manager_a_id),
+          })),
+        ],
       }),
     ),
     lineups: lineups.map(
@@ -279,6 +304,73 @@ export async function getHeadToHead() {
 export async function getMemberProfile(managerId: number) {
   const input = await getHistoryInput()
   return { profile: memberProfile(input, managerId), members: input.members }
+}
+
+/**
+ * How one manager drafts, across every auction on record.
+ *
+ * A **dedicated pair of queries rather than an extension of
+ * `getHistoryInput()`**. That loader already feeds the all-time table, the
+ * record book and the head-to-head grid, and none of them should start paying
+ * for a points join to render a section they do not draw.
+ *
+ * ⚠️ The join to `player_seasons` is the one join to a pick that is safe. It is
+ * keyed by `(season, player_id)` and records what a player scored in *that*
+ * year, so re-importing next August's pool cannot change a 2021 row — unlike
+ * `players`, which is replaced wholesale and would show a future team on a past
+ * board. The key is `picks.player_sleeper_id`, the only player identity that
+ * survives a season; it is nullable on purpose, and a null simply means that
+ * pick goes unscored.
+ *
+ * ⚠️ `total_points` is `numeric`, which Neon returns **as a string**. Summing
+ * those concatenates instead of adding, so it goes through `Number()` here at
+ * the boundary rather than anywhere downstream.
+ */
+export async function getDraftDna(managerId: number): Promise<DraftDna> {
+  const sql = getSql()
+
+  const [pickRows, tradeRows] = await Promise.all([
+    sql`SELECT pk.id, pk.season, pk.pick_no, pk.manager_id, pk.price,
+               pk.player_name, pk.player_position, ps.total_points
+          FROM picks pk
+          LEFT JOIN player_seasons ps
+            ON ps.season = pk.season AND ps.player_id = pk.player_sleeper_id
+         ORDER BY pk.season DESC, pk.pick_no`,
+    // Only the two columns the rewind needs. Player names on a trade are for
+    // the trade log; this is arithmetic.
+    sql`SELECT id, created_at, manager_a_id, manager_b_id, picks_a_to_b, picks_b_to_a
+          FROM trades ORDER BY created_at`,
+  ])
+
+  const picks: DnaPick[] = pickRows.map((r) => ({
+    id: Number(r.id),
+    season: Number(r.season),
+    pickNo: Number(r.pick_no),
+    managerId: Number(r.manager_id),
+    name: String(r.player_name),
+    position: String(r.player_position),
+    price: num(r.price),
+    points: numOrNull(r.total_points),
+  }))
+
+  const trades: StatsTrade[] = tradeRows.map((r) => ({
+    id: Number(r.id),
+    createdAt: new Date(r.created_at as string).toISOString(),
+    managerAId: Number(r.manager_a_id),
+    managerBId: Number(r.manager_b_id),
+    players: [
+      ...((r.picks_a_to_b as number[]) ?? []).map((id) => ({
+        pickId: Number(id),
+        toManagerId: Number(r.manager_b_id),
+      })),
+      ...((r.picks_b_to_a as number[]) ?? []).map((id) => ({
+        pickId: Number(id),
+        toManagerId: Number(r.manager_a_id),
+      })),
+    ],
+  }))
+
+  return draftDna(picks, trades, managerId)
 }
 
 export async function listMembers() {

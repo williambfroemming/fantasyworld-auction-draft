@@ -543,9 +543,9 @@ describe('memberProfile', () => {
     matchups: week(2021, 1, [40, 30, 20, 10]),
     lineups: [],
     picks: [
-      { season: 2021, managerId: 1, playerName: 'Big Buy', playerPosition: 'RB', price: 60 },
-      { season: 2021, managerId: 1, playerName: 'Cheap Guy', playerPosition: 'WR', price: 2 },
-      { season: 2021, managerId: 2, playerName: 'Someone Else', playerPosition: 'QB', price: 30 },
+      { id: 1, season: 2021, managerId: 1, playerName: 'Big Buy', playerPosition: 'RB', price: 60 },
+      { id: 2, season: 2021, managerId: 1, playerName: 'Cheap Guy', playerPosition: 'WR', price: 2 },
+      { id: 3, season: 2021, managerId: 2, playerName: 'Someone Else', playerPosition: 'QB', price: 30 },
     ],
   }
 
@@ -566,6 +566,32 @@ describe('memberProfile', () => {
     const s = memberProfile(input, 1)!.seasons.find((x) => x.season === 2021)!
     expect(s.draftSpend).toBe(62)
     expect(s.biggestBuy).toMatchObject({ playerName: 'Big Buy', price: 60 })
+  })
+
+  it('charges a traded player to whoever bought them, not whoever owns them', () => {
+    // 'Big Buy' now shows manager 2 as the owner, having been traded there.
+    // The $60 must stay on manager 1's 2021 auction: a trade moves the player,
+    // never the salary.
+    const traded: HistoryInput = {
+      ...input,
+      picks: input.picks!.map((p) => (p.id === 1 ? { ...p, managerId: 2 } : p)),
+      trades: [
+        {
+          id: 1,
+          createdAt: '2021-11-01T00:00:00.000Z',
+          managerAId: 1,
+          managerBId: 2,
+          players: [{ pickId: 1, toManagerId: 2 }],
+        },
+      ],
+    }
+
+    const buyer = memberProfile(traded, 1)!.seasons.find((x) => x.season === 2021)!
+    const owner = memberProfile(traded, 2)!.seasons.find((x) => x.season === 2021)!
+
+    expect(buyer.draftSpend).toBe(62)
+    expect(buyer.biggestBuy).toMatchObject({ playerName: 'Big Buy', price: 60 })
+    expect(owner.draftSpend).toBe(30)
   })
 
   it('reports an unknown draft spend as null, never zero', () => {

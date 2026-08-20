@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { EraBadge } from '@/components/history/EraBadge'
+import { GlossaryLink } from '@/components/GlossaryLink'
 import { SiteNav } from '@/components/SiteNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { managerColor } from '@/lib/colors'
@@ -43,9 +44,12 @@ export default async function HeadToHeadPage() {
 
       <div className="mx-auto max-w-[86rem] px-4 py-6">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
-          <p className="text-xs text-slate-400">
-            Read across: each row is that manager&rsquo;s record <em>against</em> the manager in the
-            column. Regular season only.
+          {/* "Read across: each row is that manager's record against the
+              manager in the column" is now a glossary entry. The scope is not
+              — a grid that silently drops playoff meetings has to say so. */}
+          <p className="flex items-baseline gap-2 text-xs text-slate-400">
+            Regular season only.
+            <GlossaryLink anchor="h2h-scope" label="head to head" />
           </p>
           <p className="flex items-center gap-2 text-[0.68rem] text-slate-500">
             <span

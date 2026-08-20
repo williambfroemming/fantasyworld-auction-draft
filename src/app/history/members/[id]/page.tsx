@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import { EraBadge } from '@/components/history/EraBadge'
 import { SiteNav } from '@/components/SiteNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { DraftDnaPanel } from '@/components/history/DraftDnaPanel'
 import { managerColor } from '@/lib/colors'
-import { getMemberProfile, getMostStarted } from '@/server/history-service'
+import { getDraftDna, getMemberProfile, getMostStarted } from '@/server/history-service'
 
 /**
  * One member's career.
@@ -42,9 +43,10 @@ function ordinal(n: number): string {
 export default async function MemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const managerId = Number(id)
-  const [{ profile, members }, favorites] = await Promise.all([
+  const [{ profile, members }, favorites, dna] = await Promise.all([
     getMemberProfile(managerId),
     getMostStarted(managerId, 10),
+    getDraftDna(managerId),
   ])
   if (!profile) notFound()
 
@@ -232,6 +234,21 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
             </section>
           </div>
         </div>
+
+        {/*
+          Directly under the season table, and reading the same picks through
+          the same attribution — a Spent column here that disagreed with the
+          Spent column above it would discredit both.
+        */}
+        <section className="mt-10 min-w-0">
+          <h2 className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5 font-display text-sm font-bold uppercase tracking-[0.1em]">
+            Draft DNA
+            <span className="font-sans text-[0.68rem] font-normal normal-case tracking-normal text-slate-500">
+              How they spend
+            </span>
+          </h2>
+          <DraftDnaPanel dna={dna} />
+        </section>
 
         {/*
           Ranked by weeks STARTED, not weeks rostered and not money spent.

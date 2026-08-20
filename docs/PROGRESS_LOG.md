@@ -2540,3 +2540,67 @@ of ~1.8M for a four-hour draft with ten clients.
   already true of the old fingerprint; it is now true in two places.
 - On the change path a poll costs one query *more* than before (version, then full state). That is
   the right trade — changes happen ~160 times a draft, 204s happen tens of thousands of times.
+
+---
+
+## The glossary, and the prose that stopped needing to exist
+
+Four asks that turned out to be one: the app showed numbers it never defined, and compensated by
+explaining itself in paragraphs next to each one. `/stats` carried ~20 blocks of methodology copy,
+including a 100-word note under the Value tab, and League Summary opened with four paragraphs
+glossing three era badges.
+
+`src/lib/glossary.ts` is now the single place a calculation is written down — 30 entries as **data**,
+not prose, each with an `id`, a one-line formula, at most one caveat, and the function that computes
+it. `/glossary` renders them in three groups; a single `?` in each panel header links to the right
+anchor. That bought the deletions: every methodology footnote on `/stats`, `/board`'s market note,
+h2h's "read across", and the era legend on `/history`.
+
+Two panels needed renaming rather than cutting. Pace's "Who is ahead of pace" only worked because a
+definition sat beside it — "ahead" is ambiguous between *spent more* and *has more left* — so it is
+now titled **Money per remaining slot** and needs no gloss. "Market pace / average price per N
+picks" collapsed into one heading.
+
+Champions came off League Summary: the 🏆 column counts rings and `/history/records` names every
+season's champion, so it was the third telling.
+
+`/stats` went to two header rows. Row one is the site nav, identical to every history page; row two
+is the page — title, view tabs, season. `view` and `season` moved into the query string, and
+`SeasonPicker` became a `<select>`.
+
+**Draft DNA** is the new thing: one manager, every auction, as position mix, top-3 share, $1 picks,
+halfway pick and places gained. Every measure is one `/stats` already computes for a single season,
+applied per season and lined up — a member page that disagreed with `/stats` about 2024 would
+discredit both.
+
+**Learned:**
+
+- **A caveat repeated under four tables is a missing page, not thorough writing.** The same sentence
+  about attribution appeared under Teams, Nominations, Value and the member page. Once it had one
+  home, each of those four became a `?`.
+- **Not all short text is the same kind of text.** The cut sorted cleanly into three piles:
+  definitions (→ glossary), errata (stay, next to the number they qualify — the 2026 hand-entered
+  nominations note), and legends for marks you cannot read otherwise (stay — "½ = half their money
+  spent" labels a glyph on a chart). Only the first pile was actually the problem.
+- **Putting the season in the URL found a bug that had been shipped for months.** `/history/drafts`
+  has always linked to `/stats?season=2024`; `useSeasonView` never read the parameter, so every one
+  of those buttons landed on the live season and looked like it had worked.
+- **`memberProfile` was reading `picks.manager_id` for a money question.** It survived because
+  nothing sat next to it to disagree with. Draft DNA does, on the same screen, which is what
+  surfaced it — `HistoryPick.managerId` now carries the warning and `HistoryInput` takes the trade
+  log.
+
+**Watch out for:**
+
+- **`useSearchParams` needs a `<Suspense>` boundary or `next build` fails, and `next dev` will not
+  tell you.** Routes render on demand in dev, so `/stats` and `/board` both worked locally with no
+  boundary at all. `npm run build` is the only thing that catches it.
+- **The glossary anchors are a contract.** `GlossaryLink anchor="vs-room"` is a plain string; rename
+  an entry `id` and the link still renders, still navigates, and silently lands at the top of the
+  page. `entry.source` names the function each entry documents so a grep from the code finds its
+  definition — it is deliberately not drawn, only a `title`.
+- **`npm run build` hits the live database and it is over its data-transfer quota.** Prerendering
+  `/history/drafts` 402'd. `npm run local -- npm run build` is the working incantation, and it
+  belongs in muscle memory next to `dev:local`.
+- **`—` means unknown, and Draft DNA nearly broke that in two places.** A career row with no Spent
+  and a season with no $1 picks both drew an em dash for values that are perfectly well known.

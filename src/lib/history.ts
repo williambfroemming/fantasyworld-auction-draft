@@ -26,6 +26,7 @@
  * `Coverage` it was computed over, so a panel physically cannot render a number
  * without having the years it covers to hand.
  */
+import { draftersByPick, type StatsTrade } from './stats'
 
 // ---------------------------------------------------------------------------
 // Input — structurally satisfied by the DB reader and by a test fixture alike
@@ -106,6 +107,12 @@ export interface HistoryInput {
    * render the all-time table would be waste.
    */
   picks?: HistoryPick[]
+  /**
+   * Every trade on record, so a pick can be attributed to its buyer rather
+   * than its current owner. Optional alongside `picks`, and an absent log is
+   * treated as "nothing has moved" rather than an error.
+   */
+  trades?: StatsTrade[]
 }
 
 // ---------------------------------------------------------------------------
@@ -1011,7 +1018,18 @@ export function headToHead(matchups: HistoryMatchup[], seasons: HistorySeason[])
 
 /** A pick, for the draft half of a member page. Optional in {@link HistoryInput}. */
 export interface HistoryPick {
+  id: number
   season: number
+  /**
+   * CURRENT owner — a trade moves it.
+   *
+   * ⚠️ Do **not** read this to answer a money question. A traded player's salary
+   * stays with whoever bought them at auction, so filtering on this column
+   * charges someone else's $47 to whoever ended up with the player. Pass
+   * `HistoryInput.trades` and go through `draftersByPick`, as `memberProfile`
+   * does. This was wrong on the member page's spend column until it was noticed
+   * disagreeing with Draft DNA directly beneath it.
+   */
   managerId: number
   playerName: string
   playerPosition: string
@@ -1070,12 +1088,33 @@ export function memberProfile(input: HistoryInput, managerId: number): MemberPro
   const bySeason = new Map(input.seasons.map((s) => [s.season, s]))
   const picks = input.picks ?? []
 
+  // Attributed to whoever bought the player, not whoever owns them now — the
+  // rule every money view in the app runs under. Reading `pick.managerId`
+  // directly made this page's spend column disagree with the Draft DNA table
+  // sitting under it, which is the failure that makes people distrust both.
+  const drafter = draftersByPick(
+    picks.map((p) => ({
+      id: p.id,
+      pickNo: 0,
+      managerId: p.managerId,
+      nominatorId: 0,
+      price: p.price,
+      position: p.playerPosition,
+      name: p.playerName,
+      rank: null,
+      posRank: null,
+    })),
+    input.trades ?? [],
+  )
+
   const seasons: MemberSeasonRow[] = input.standings
     .filter((s) => s.managerId === managerId)
     .sort((a, b) => b.season - a.season)
     .map((s) => {
       const meta = bySeason.get(s.season)
-      const mine = picks.filter((p) => p.season === s.season && p.managerId === managerId)
+      const mine = picks.filter(
+        (p) => p.season === s.season && (drafter.get(p.id) ?? p.managerId) === managerId,
+      )
       const biggest = mine.length
         ? mine.reduce((a, b) => (b.price > a.price ? b : a))
         : null

@@ -71,6 +71,7 @@ const SECTIONS: SectionDef[] = [
     items: [
       { href: '/history/drafts', label: 'Past Auctions', hint: 'Every draft on record' },
       { href: '/stats', label: 'Spend & Value', hint: 'Where the money went' },
+      { href: '/glossary', label: 'Glossary', hint: 'How every number is worked out' },
     ],
   },
   {
@@ -84,6 +85,10 @@ const SECTIONS: SectionDef[] = [
       { href: '/history/records', label: 'Records', hint: 'Highs, lows and streaks' },
       { href: '/history/members', label: 'Members', hint: 'One career at a time' },
       { href: '/history/h2h', label: 'Head to Head', hint: 'Everyone against everyone' },
+      // Listed under both history sections on purpose: it defines the auction
+      // metrics and the league ones, and a third top-level section for one page
+      // would undo the reason the top level is three stable words.
+      { href: '/glossary', label: 'Glossary', hint: 'How every number is worked out' },
     ],
   },
 ]

@@ -289,6 +289,8 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 
 - [x] **28.** **Phase 2 H2 — the history schema** (§12) — seven tables (`seasons`, `season_standings`, `season_matchups`, `season_lineups`, `player_weeks`, `player_seasons`, `legacy_champions`) via a hand-written idempotent migration. `seasons.data_tier` makes the two-era rule structural rather than a UI convention. The migration snapshots `manager_totals` before and after and refuses to finish if a single number moved, because history must never reach a live budget.
 
+- [x] **29.** **The glossary, and the prose that stopped needing to exist** — every calculation in the app written down once in `src/lib/glossary.ts` and rendered at `/glossary`, with a single `?` per panel linking to it. Roughly twenty blocks of methodology prose deleted from the analysis screens in exchange. Champions dropped from League Summary as a third telling of the same fact. `/stats` split into two header rows with the season as a dropdown, and `view`/`season` moved into the query string — which fixed the Past Auctions links that had been silently landing on the live season. **Draft DNA** on the member page: position mix, top-3 share, $1 picks, halfway pick and places gained, per auction. `memberProfile` was attributing draft spend to the current owner rather than the buyer, and now goes through `draftersByPick` like everything else that touches money.
+
 ### Timeline
 
 | When | Steps | State at end |

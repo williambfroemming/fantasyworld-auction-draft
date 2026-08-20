@@ -2,7 +2,7 @@
 
 import { SiteNav } from '@/components/SiteNav'
 import { useSession } from '@/hooks/useSession'
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { LeagueBoard } from '@/components/LeagueBoard'
 import { MarketPanel } from '@/components/MarketPanel'
 import { SeasonPicker } from '@/components/SeasonPicker'
@@ -23,6 +23,18 @@ import { ThemeToggle } from '@/components/ThemeToggle'
  * read-only archive: same grid, no nominate, no award, and it stops polling.
  */
 export default function BoardPage() {
+  // `useSeasonView` reads `?season=` through `useSearchParams`, which needs a
+  // Suspense boundary or Next 16 fails the build. `next dev` will not tell you.
+  return (
+    <Suspense
+      fallback={<main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>}
+    >
+      <BoardView />
+    </Suspense>
+  )
+}
+
+function BoardView() {
   const { state, board } = useDraft()
   const { managerId } = useSession()
   const { seasons, viewing, setViewing, isArchive, archive, archiveError } = useSeasonView()

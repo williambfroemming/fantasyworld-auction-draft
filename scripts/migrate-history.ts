@@ -211,6 +211,20 @@ async function main() {
     'ALTER TABLE seasons ADD COLUMN IF NOT EXISTS buy_in integer',
   )
 
+  // The stored draft recap, added when `scripts/history/draft-recap.ts` shipped.
+  //
+  // ⚠️ These were missing from this migration for one release, which nobody
+  // noticed locally: `db:local:setup` builds from `src/db/schema.ts` and always
+  // had them, so only a database migrated by *this* script was short three
+  // columns — which is every real deployment and no development one. If you add
+  // a column to `seasons` in schema.ts, it belongs here too.
+  await step(
+    'add the seasons.draft_recap columns',
+    `ALTER TABLE seasons ADD COLUMN IF NOT EXISTS draft_recap       text,
+                         ADD COLUMN IF NOT EXISTS draft_recap_model text,
+                         ADD COLUMN IF NOT EXISTS draft_recap_at    timestamptz`,
+  )
+
   console.log('')
   for (const [name, ddl] of INDEXES) await step(`index  ${name}`, ddl)
 
