@@ -120,6 +120,66 @@ export interface DraftState {
 // State
 // ---------------------------------------------------------------------------
 
+/**
+ * The polling fingerprint on its own, in a single query.
+ *
+ * `/api/state` answers the overwhelming majority of polls with a 204, and every
+ * one of those used to cost five queries: the fingerprint is computed *from* the
+ * state, so `getState()` had to build the entire state — managers, the open lot,
+ * recent picks — before it could discover nothing had changed and discard all of
+ * it. The heaviest of the five is the `manager_totals` join, an aggregate over
+ * `picks` and `budget_adjustments` that the 204 path never reads.
+ *
+ * At draft-night cadence that is ~12.5 queries/second across ten clients. It is
+ * also what makes a forgotten dev tab dangerous: four days of one exhausted the
+ * project's data-transfer quota and 500'd the live board. See
+ * `src/db/neon-local.ts` for the other half of that fix.
+ *
+ * So the unchanged path now reads only what the fingerprint is made of: five
+ * scalars, one round trip, no aggregate view.
+ *
+ * ## This must produce exactly what `getState()` produces
+ *
+ * Two functions computing one fingerprint is the hazard here. If they ever
+ * disagree the failure is silent and total — clients either poll forever without
+ * ever seeing a change, or refetch the whole board on every tick. They are kept
+ * honest structurally: both build `VersionParts` and hand it to the same
+ * `fingerprint()`, so only the SQL differs, and `state-version.itest.ts` asserts
+ * the two agree across nominate, award, undo and trade.
+ *
+ * The season filters are load-bearing for the usual reason (AGENTS.md): an
+ * unscoped `picks` count folds every past draft into the number, and a
+ * fingerprint that counts last year's rows stops moving when this year's change.
+ */
+export async function getVersion(): Promise<string | null> {
+  const sql = getSql()
+
+  // The subqueries correlate on `d.season` rather than a separately-read year,
+  // so the season filter cannot drift from the row it belongs to.
+  const rows = await sql`
+    SELECT d.season, d.rev, d.status,
+           (SELECT l.id FROM lots l
+             WHERE l.status = 'open' AND l.season = d.season
+             LIMIT 1) AS lot_id,
+           (SELECT count(*)::int FROM picks WHERE season = d.season) AS pick_count
+      FROM draft d
+     WHERE d.id = 1`
+
+  // Null rather than a throw: an uninitialised draft is `getState()`'s error to
+  // report, with its "run `npm run db:seed`" hint. The caller falls through to it
+  // rather than this path inventing a second, worse version of that message.
+  const d = rows[0]
+  if (!d) return null
+
+  return fingerprint({
+    season: d.season as number,
+    rev: d.rev as number,
+    lotId: (d.lot_id as number | null) ?? null,
+    pickCount: d.pick_count as number,
+    draftStatus: d.status as string,
+  })
+}
+
 export async function getState(): Promise<DraftState> {
   const sql = getSql()
 

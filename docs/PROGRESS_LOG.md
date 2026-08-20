@@ -2482,3 +2482,61 @@ The room view is not deleted. It is the fallback for a season that has been draf
   When it is archived, results appear automatically once the season is imported.
 - Both measures now live behind one tab. If a third ever appears, the branch order in `ValuePanel`
   is the precedence rule and should be stated there rather than inferred.
+
+---
+
+## The poll that cost five queries to say "nothing happened"
+
+`/api/state` answers most polls with a 204, and every one of those used to cost five queries. The
+fingerprint is computed *from* the state, so `getState()` built the whole thing — managers, the open
+lot, recent picks — before it could discover nothing had changed and throw all of it away. The
+heaviest of the five is the `manager_totals` join, an aggregate over `picks` and
+`budget_adjustments` that the 204 path never reads.
+
+`getVersion()` now reads only what the fingerprint is made of: five scalars, one query, no aggregate
+view. `/api/state` calls it first and returns 204 without ever touching `getState()`. A client with
+no `v` is a first load and skips straight to the full read, because it needs the board anyway.
+
+Measured locally, 20 requests each way, background subtracted:
+
+| Path | Transactions/request |
+|---|---|
+| 204, after | 10.9 |
+| Full state build (what the 204 path used to cost) | 59.9 |
+
+**5.5×**, matching the 5→1 query count. The absolute numbers are inflated by the local proxy opening
+a connection per query; the ratio is the real figure.
+
+This is the other half of the `neon-local.ts` fix. That one stopped development billing to the live
+database; this one makes draft night itself roughly a fifth of what it was — ~360k queries instead
+of ~1.8M for a four-hour draft with ten clients.
+
+**Learned:**
+
+- **Cost lived in the shape of the code, not the traffic.** The 400ms cadence was never the problem
+  and was the wrong thing to negotiate with — the backoff added earlier treated a symptom. Four
+  wasted queries per request was the problem, and it would have followed the app to any host. Worth
+  remembering the next time the answer looks like "change providers" or "upgrade the plan."
+- **Deriving a cache key from the thing it guards defeats the guard.** Computing the fingerprint
+  from the state meant the expensive work happened before the cheap check could short-circuit it.
+  The fix was not to store the fingerprint — `version.ts` explains why a stored counter is wrong
+  here — but to compute the *same* value from a much smaller read.
+- **A hosted quota is a circuit breaker.** Exhausting Neon 500'd the board, which was loud and free.
+  The same leak on metered infrastructure with no free tier would have been an invoice and no
+  signal at all.
+
+**Watch out for:**
+
+- **Two functions now compute one fingerprint, and disagreement is silent and total.** If
+  `getVersion()` moves when `getState()` does not, every client refetches the board on every tick;
+  if it is stable when `getState()` moves, clients 204 forever on a dead board. Both build
+  `VersionParts` and share `fingerprint()` so only the SQL can drift, and
+  `state-version.itest.ts` asserts they agree across nominate, award, undo, trade and pause.
+- **The season filter in `getVersion()` is invisible to most tests.** An unscoped `picks` count
+  still agrees with `getState()` on a single-season database, so every other test passes with the
+  bug present. Only the prior-season-pick test separates them — it was verified to fail when the
+  filter is removed (`2026:0:0:1:live` vs `2026:0:0:0:live`). Do not delete it as redundant.
+- The `rev` component is what makes a trade visible, since a trade changes no pick count. That was
+  already true of the old fingerprint; it is now true in two places.
+- On the change path a poll costs one query *more* than before (version, then full state). That is
+  the right trade — changes happen ~160 times a draft, 204s happen tens of thousands of times.
