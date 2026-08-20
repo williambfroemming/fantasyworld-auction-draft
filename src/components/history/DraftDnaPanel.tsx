@@ -151,7 +151,11 @@ function Row({ row, spent }: { row: DraftDnaSeason | DraftDnaCareer; spent?: num
  * than anyone holds a cursor over a 6px sliver — the dollars would effectively
  * not be there. A `group-hover` span shows instantly, can be styled to match
  * the page, and still needs no JavaScript, so this stays a Server Component.
- * `title` is kept alongside it for touch and for anyone tabbing through.
+ *
+ * ⚠️ And it is CSS *instead of* `title`, not as well as. Keeping both meant the
+ * browser drew its own native tooltip on top of ours a second into the hover —
+ * two overlapping boxes saying the same thing. The accessible name lives on the
+ * segment as `role="img"` + `aria-label`, which renders nothing.
  *
  * ⚠️ It hangs **below** the bar, not above. The table sits in an
  * `overflow-x-auto` wrapper so a narrow screen can scroll it sideways, and CSS
@@ -181,12 +185,18 @@ function SplitBar({
         return (
           <span
             key={seg.key}
+            // ⚠️ No `title`. A title attribute alongside the styled tooltip
+            // renders BOTH — the browser draws its native one on top of ours
+            // about a second in, so hovering produced two overlapping boxes
+            // saying the same thing. `role="img"` plus `aria-label` gives the
+            // segment one accessible name and draws nothing.
+            role="img"
+            aria-label={`${seg.label} $${dollars}, ${Math.round(pct)}% of $${total}`}
             className="group relative h-full first:rounded-l-full last:rounded-r-full"
             style={{ width: `${pct}%`, backgroundColor: seg.hex }}
-            title={`${seg.label} $${dollars} — ${Math.round(pct)}%`}
           >
             <span
-              role="tooltip"
+              aria-hidden
               className="pointer-events-none invisible absolute top-full left-1/2 z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded border border-rule-strong bg-slate-950 px-1.5 py-1 font-mono text-[0.65rem] tabular-nums text-slate-100 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100"
             >
               <span style={{ color: seg.hex }}>{seg.label}</span> ${dollars} ·{' '}
