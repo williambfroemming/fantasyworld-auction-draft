@@ -1122,3 +1122,1485 @@ three resolve correctly in the built CSS.
 - **Still unverified on a phone.** Both themes are confirmed only on a desktop browser.
 
 **Next:** BACKLOG §9 P2 — `voidLot`/`undoPick` decrementing the nomination index by exactly 1.
+
+---
+
+## Step 26 — Player news, in three tiers
+**Date:** 2026-08-17  **Status:** done
+
+**Built:** injury columns on `players` + `readInjury`/`injurySeverity` in `sleeper.ts`;
+`scripts/refresh-news.ts`; `src/lib/news.ts` + 23 unit tests; `src/server/news-service.ts`;
+`/api/news`; `InjuryBadge` and `PlayerDrawer`. Backlog §1.
+
+**176 unit tests, 78 integration tests passing**, build and lint clean, verified end-to-end against
+a running server.
+
+### The finding that reshaped the whole feature
+
+§1 was written assuming news meant picking a provider and paying for it. It does not. **Sleeper's
+player dump — the same ~14MB file the pool is already seeded from — carries `injury_status`,
+`injury_body_part`, `injury_notes`, `practice_participation` and `news_updated`.** 618 players
+across the NFL, 84 within our 503-player pool.
+
+So the question §1 actually exists to answer — "is this guy hurt?", the one people were alt-tabbing
+to Rotowire for mid-auction — is answerable **with no runtime dependency at all**. It is a stored
+column. On draft night it is already in Postgres and no provider being down can take it away.
+
+That split the feature into tiers, and the ordering matters:
+
+| Tier | Source | Runtime dependency |
+|---|---|---|
+| 1 — is he hurt | Sleeper dump, stored column | **none** |
+| 2 — headlines | ESPN, one request | optional, degrades to empty |
+| 3 — market buzz | Sleeper trending | optional |
+
+**The most important question is the one with no network on its path.** That is the opposite of how
+the section was originally scoped, and it is a much better shape.
+
+### Verifying instead of recalling, without a search engine
+
+§1 said to decide by verifying. I probed the actual endpoints:
+
+- ESPN `/news?limit=100` **caps at 50 articles** but tags **129 distinct athletes** in one request.
+  So one league-wide fetch serves a 500-player pool — which satisfies §1's "never fetch a provider
+  from a request path" for free, rather than needing a pre-fetch job over the pool.
+- ESPN's **per-athlete** news endpoint returns **0 articles**. Had I assumed it worked, the design
+  would have been per-player fetches — exactly the thing §1 bans.
+- Sleeper `trending/add` works and is keyed by `player_id`, which §2's `sleeper_id` now joins to
+  directly.
+
+### Everything a provider touches is quarantined
+
+`news.ts` is pure and network-free; `news-service.ts` is the only file that fetches. Every request
+is individually caught with a 4s timeout, and **a failed refresh keeps the previous snapshot**
+rather than blanking a panel that was fine a moment ago. `/api/news` always returns 200 — a dead
+provider is "no news about this guy", not an error state in the UI.
+
+Backlog §1's rule 1 is now enforced **structurally rather than by discipline**: `news.test.ts` reads
+`draft-service.ts` and fails if it ever imports the news service or grows a `fetch(`.
+
+### The click collision was already solved
+
+§1 worried at length about the pool's row-click meaning "nominate". §4 had already answered it: the
+star is a **sibling button** that stays live while the row is disabled. The ⓘ button is a second
+sibling, and it opens one drawer with several entry points rather than several components.
+
+**Learned:**
+
+- **Read the dependency you already have before shopping for a new one.** The answer to the headline
+  question was inside a file this app has downloaded at every setup since step 2.
+- **Probe the endpoint you intend to build on.** The per-athlete ESPN endpoint returning 0 would
+  have been discovered late and expensively; it took one curl to find.
+- **Next 16's `react-hooks/set-state-in-effect` bites the "reset then fetch" pattern.** Clearing
+  state at the top of an effect is a cascade. Tagging the result with the player it belongs to makes
+  "loading" *derived* instead — and as a bonus makes it impossible to flash player A's headlines
+  under player B's name.
+
+**Watch out for:**
+
+- **Null injury means UNKNOWN, not healthy**, everywhere. `InjuryBadge` renders nothing rather than
+  a green tick, and the drawer says "no injury on file — not a clean bill of health". A pool that
+  has never been refreshed is null on every row.
+- **`npm run news:refresh` requires `sleeper_id`.** It joins on the identity from step 25 and exits
+  non-zero with instructions if *nothing* matched, because the silent version of that failure is
+  every player reading as healthy.
+- The refresh writes **five columns and nothing else** — never ranks, names or teams. It must not
+  quietly reorder the draft board on the morning of the draft because Sleeper disagrees about who is
+  better.
+- Clearing matters as much as setting: a player who was Questionable on Tuesday and fine on Sunday
+  must lose the badge, or the board fills with injuries that resolved weeks ago and nobody trusts it.
+
+**Next:** §8 is all that remains — mobile, push-to-Sleeper, accessibility.
+
+---
+
+## Step 27 — Phase 2 H1: the sources, pinned and proven
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/history/xlsm-to-csv.py` + `data/history/*.csv` (8 files, 14,317 rows);
+`scripts/history/pull-sleeper.ts` + `data/sleeper/2020..2025/*.json` (2.0MB, 6 seasons);
+`src/lib/history-identity.ts` + 25 unit tests. No schema, no UI. Phase 2 §12.
+
+**201 unit tests passing**, lint and typecheck clean.
+
+This is the acquisition layer for league history: sixteen seasons back to 2011, champions named
+back to 2006. Nothing here writes to a database — it lands committed, hashed artifacts so every
+importer that follows is reproducible, offline, and diffable in review.
+
+### Sleeper is the source of record from 2020, and that decision paid for itself
+
+The workbook's weekly sheets were themselves pulled from the Sleeper API and then hand-maintained.
+Going back to the origin rather than importing a copy killed three problems outright:
+
+- `player_details_by_team` sums **6.4 points below** the real team score in 681 of 690 member-weeks.
+  Not missing kickers — this league doesn't roster any — but an approximate scoring model, the gap
+  correlating **0.54 with team-defense points**. Real `players_points` reconcile exactly.
+- `lineup_efficiency_weekly.actual_points` sits on that same approximate scale, so efficiency could
+  only ever be `actual/optimal`, never comparable across eras.
+- `regular_season` and `matchup_data` disagree on PF/PA in **15 of 50** member-seasons (0.5–3.5 pts).
+  Both are internally coherent; Sleeper settles it, and the workbook rows become the cross-check.
+
+### Three namespaces, none of which share an id space
+
+The app says `Gabes`/`Bolek`/`Grossman`; the workbook says `Brian`/`Jon`/`Eric + Mark`; Sleeper says
+`bgabrielsen`/`OGJonnyB`/`gizzle4`. And the workbook's `member_id` is **not** `managers.id` — Bill is
+workbook 1 and manager 4. Every pairing was *derived*, not guessed:
+
+- Nicknames: joined `auction_drafts` to `Drafts/AllTimeDraftData.xlsx` on (year, player). 40+
+  concordant picks per seat, zero conflicts.
+- Sleeper ids: matched each owner's 2022 drafted roster against the workbook's `drafted_by`. Every
+  owner scored **16/16 against exactly one member, with the runner-up at zero**.
+- `markcubs` turned out to be a Sleeper **co-owner** of gizzle4's roster from 2023 — the "Mark" of
+  "Eric + Mark". One seat, two humans, two user_ids.
+
+### What the cross-check against Sleeper found in the auction record
+
+Comparing drafted rosters year by year: **2023 is perfect, zero differences.** 2022 differs by
+exactly one player. 2021 differs by three, all of which are the *same player renamed* (Robby Anderson
+→ Robbie Chosen, Will/William Fuller, Washington Football Team → Commanders). And in 2022 the
+workbook has George Pickens **twice** (pick 138 `"George Pickens"` $1, pick 160 `"george pickens"`
+$3, both to Nate) while Sleeper has him once — which is why Nate read 17 players/$203 and resolves to
+exactly 16/$200. The one genuinely missing pick, Bill's 16th, is **Tyler Boyd**.
+
+**Learned:**
+
+- **A second source is worth more than a careful reading of the first.** Three years of hand-checking
+  the workbook would not have found the Pickens duplicate; one roster diff did, and it also recovered
+  a missing pick and independently confirmed the whole identity map.
+- **Ask what a field is worth before importing it.** Sleeper's auction *amounts* are a formality —
+  2022, 2023 and 2025 each record 160 picks totalling exactly $160, every pick $1, because the room
+  drafted on a Google Sheet and entered results afterwards to set rosters. The same endpoint whose
+  prices are worthless has *rosters* that are authoritative.
+- **Recomputing a spreadsheet is how you audit it.** All-play, win %, high/low weeks and the $10/week
+  side bet reproduce the dashboard exactly — which is what makes the one disagreement meaningful:
+  Eric + Mark show 0 high-scorer weeks and $0 because a lookup keys on `Eric` against data spelling
+  it `Eric + Mark`. True answer: 4 high, 2 low, **+$20**.
+
+**Watch out for:**
+
+- **Never select the Sleeper league by name.** The account holds an unrelated 18-team *Guillotine
+  League* in 2024 and 2025, and the real 2025 league is **misnamed "Fantasy 101 XIX"** — 2024's name.
+  `verifyLeagueChain()` walks `previous_league_id` instead, and the ids are pinned.
+- **Roster shape changed in 2022.** 2020–2021 start 9; 2022+ start 10, adding `SUPER_FLEX`. Any
+  optimal-lineup calculation must read *that season's* `roster_positions` — assuming superflex
+  throughout silently misreports four seasons, and assuming it never applies misreports the other two.
+- **`data/` must stay out of the test and compile globs.** Checked: `vitest.config.ts` includes only
+  `src/**/*.test.ts` and tsconfig only picks up `.ts`. 2.8MB of CSV and JSON is fine committed and
+  very much not fine parsed on every test run.
+- **Every identity lookup throws, deliberately.** An unmapped name is not a row to skip — it means a
+  source holds someone the league has no record of. The league has had the same ten members since
+  2011, so a miss is a bug in the map, not an eleventh manager.
+- **The identity test reads the real committed data**, so a source that gains an unmapped spelling
+  fails the build rather than being discovered three importers later.
+
+**Next:** H2 — the history schema (`seasons`, `season_standings`, `season_matchups`,
+`season_lineups`, `player_weeks`, `player_seasons`, `legacy_champions`) via a hand-written
+idempotent migration.
+
+---
+
+## Step 28 — The poll loop learns to be quiet
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** visibility pause, finished-draft backoff and a re-entrancy guard in `src/hooks/useDraft.ts`.
+
+**Found while Phase 2 H2 could not open a database connection at all**: Neon was returning
+`HTTP 402 — data transfer quota exceeded` on both `neondb` and `neondb_test`. The cause was not the
+history import. It was this app, idling.
+
+`POLL_MS` is 400 and the loop had no idea whether anyone was looking. `getState()` runs **five
+queries on every poll**, including the 204 "nothing changed" path, because the version is computed
+from the state rather than stored — so there is no cheap path, only a cheap *response*. One browser
+tab left open is **~216,000 requests and ~1.08M queries a day**. The draft was 2026-08-14; this was
+found on the 18th.
+
+The loop is now fast when it matters and quiet when it does not:
+
+| Condition | Cadence |
+|---|---|
+| Tab hidden | **no requests at all**, waking every 5s only to re-check visibility |
+| `status === 'done'` | 30s |
+| setup / live / paused, visible | 400ms — unchanged |
+
+**Learned:**
+
+- **An uncached endpoint is not the same as an endpoint that must be polled forever.** `/api/state`
+  is still `force-dynamic` + `no-store`, and that rule was never the problem. The client's
+  willingness to ask 2.5 times a second, for four days, with nobody watching, was.
+- **A 204 is cheap for the client and not for the database.** The response is empty; the work behind
+  it is five queries including a view with correlated subqueries over `picks`. "Cheap path" in the
+  route comment describes the payload, not the cost.
+- **The app was built for one night and then kept running.** Ten laptops for three hours is 25 req/s
+  for an evening. The same code left idle is the same rate until someone closes a tab.
+
+**Watch out for:**
+
+- **A finished draft must keep polling, slowly — never stop.** `undoPick` flips `status` back to
+  `'live'`, and a client that had stopped would sit on a finished board with no way back.
+- **`visibilitychange` can start a second timer chain.** If the event lands while a poll is in
+  flight, the resumed chain and the original both call `setTimeout`, and the tab polls at double
+  rate for the rest of its life — the exact opposite of the fix. A `ticking` guard makes two chains
+  impossible.
+- **The hidden branch still reschedules.** A tab that only stopped on the event would stay dark
+  forever if the event were missed; it wakes every 5s to check, which costs no network.
+- `refresh()` re-arms the loop after polling, so undoing on a finished draft returns the acting
+  client to draft cadence immediately instead of leaving it on the 30s timer it was already sitting on.
+
+**Next:** H2 remains blocked until the Neon quota clears.
+
+
+---
+
+## Step 29 — The news feed comes back out
+**Date:** 2026-08-18  **Status:** done
+
+**Removed:** `src/lib/news.ts`, `src/lib/news.test.ts`, `src/server/news-service.ts`,
+`/api/news`, `src/components/PlayerDrawer.tsx`, and the ⓘ button on pool rows.
+**Kept:** everything in tier 1 — the injury columns, `npm run news:refresh`, and `InjuryBadge`.
+
+**184 unit tests passing**, build and lint clean.
+
+### Built one day, removed the next, on purpose
+
+Step 26 shipped a working ESPN + Sleeper-trending aggregator, verified end to end. The user looked
+at it and cut it:
+
+> "I like the questionable tags but maybe we get rid of the news. People can go to Sleeper and look
+> things up on their own, and in our app it won't be current at all times."
+
+That is the right call and the reasoning generalises, so it is worth writing down rather than just
+deleting the files:
+
+- **A feed is only as fresh as its last refresh, and it does not look stale.** A panel of headlines
+  renders identically whether it is four minutes or four weeks old. That invites trust at exactly
+  the moment it should not be given — somebody about to commit $60. Injury *status* survives the
+  same objection because it is one field with an explicit "as of", not a wall of prose.
+- **Don't rebuild what a better tool already does.** Sleeper is one tab away, always current, and
+  already where these managers look. The app's edge is the auction.
+- **It was the only third party on a request path.** Removing it deleted a whole class of failure,
+  and the surviving rules got *simpler* rather than more carefully guarded.
+
+The distinction that survived is a good one to keep: **a small factual field attached to a price you
+are about to pay earns its place; a general feed does not.**
+
+### What was kept from the removal
+
+The structural test moved rather than died. `news.test.ts` asserted that `draft-service.ts` never
+calls `fetch(`; that rule is older and broader than the news feature — `/api/state` is polled by
+every client several times a second — so it now lives in `sleeper.test.ts`, with a second assertion
+that `draft-service` does not import the Sleeper client either.
+
+`BACKLOG.md` §1 went from ✅ to 🟡 and records **both halves**: what shipped, and why the feed was
+cut, with the commit to recover it from. A section that just said "done" would invite the next
+person to rebuild the removed half.
+
+**Learned:**
+
+- **Shipping something is a legitimate way to find out you do not want it.** The aggregator took a
+  few hours and the decision to cut it took one look at the running app. That is a cheaper path to
+  the right answer than a longer argument beforehand would have been.
+- **Record removals as decisions, not as absence.** An empty space in a codebase reads as an
+  oversight; `AGENTS.md` now carries "there is no live news feed, and that is a decision rather than
+  a gap" precisely so the next agent does not helpfully fill it in.
+
+**Watch out for:**
+
+- `git rm` leaves the directory behind, and an open editor buffer **rewrote `route.ts` back to
+  disk** after the delete — the build kept listing `/api/news` long after it should have been gone.
+  Check `find`, not `ls`, and clear `.next` before trusting a route listing.
+- The injury data is still a **snapshot**. The user's objection to stale news applies to it too, and
+  the answer is `injury_updated_at` being visible — do not let that "as of" disappear from the UI.
+
+**Next:** §8 is all that remains in the backlog.
+
+---
+
+## Step 30 — Local development stops costing the league its database
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `docker-compose.yml` (Postgres 17 + two Neon HTTP proxies), `src/db/neon-local.ts`,
+`scripts/local/bootstrap.ts`, `scripts/local/init-databases.sql`, and the `db:local:*` / `local`
+npm scripts. Plus a real fixture bug in `scripts/seed-test.ts`.
+
+**184 unit tests and all 78 integration tests passing — the integration suite now runs entirely
+against local Postgres**, which previously burned Neon quota on every run.
+
+### The problem was never the history import
+
+H2 could not open a connection at all: `HTTP 402`, data transfer quota exceeded, on *both*
+databases. The cause was `npm run dev` pointing at production. `/api/state` polls every 400ms and
+`getState()` runs five queries per poll, so a single dev tab is ~1.08M queries a day. Writing code
+took the live database down.
+
+### Redirecting the driver rather than replacing it
+
+`@neondatabase/serverless` speaks SQL-over-HTTP, not the Postgres wire protocol, so it cannot reach
+a local Postgres unaided. The two options were a `pg`-backed shim implementing the same
+tagged-template interface, or keeping the identical driver and moving only its endpoint.
+
+The shim was the wrong trade. This codebase's correctness *is* its SQL — awarding a lot and
+executing a trade are single data-modifying CTEs precisely because neon-http has no interactive
+transactions (§4). A shim would sit between those statements and the database in development and
+not in production, which is the one place a difference must never exist.
+
+So `src/db/neon-local.ts` sets `neonConfig.fetchEndpoint` and routes **per request, by host**: a
+local host goes to a proxy, anything else gets Neon's own endpoint unchanged. There is no
+environment flag, because a flag is a thing you can forget — the connection string decides.
+
+Verified before being trusted: parameter binding through the tagged template (including a hostile
+`O'Brien; DROP TABLE x--`), a data-modifying CTE, `sql.query()`'s dynamic form, and that `numeric`
+comes back as the string `"124.20"`.
+
+**Learned:**
+
+- **An accumulated test database hides fixture bugs.** `commish-service.itest.ts` reaches
+  `OFFSET 300 LIMIT 48` into the pool but `seed-test.ts` created 200 players. It only ever passed
+  because the shared Neon test database had rows left over from earlier runs. A database built from
+  the seed script alone failed immediately — and the failure reads as `undefined.id` deep in a
+  skip-run assertion, which looks like a `nominatorAt` bug rather than a missing fixture.
+- **`drizzle-kit push` cannot be used locally**: it reaches for the Neon driver over a **WebSocket**,
+  and the proxy exposes only the HTTP SQL endpoint (`docker inspect` confirms port 4444 alone), so it
+  hangs on "Pulling schema from database" rather than failing. `drizzle-kit generate` needs no
+  database at all, so the local bootstrap generates SQL offline from `schema.ts` and applies it
+  through the same HTTP client the app uses. Nothing restates a table definition.
+- **`dotenv` does not override an already-exported variable.** That one fact is what lets a single
+  `npm run local --` wrapper send every existing script at the local database with no edits to any
+  of them.
+
+**Watch out for:**
+
+- **Neon's HTTP endpoint takes one statement per call.** `DROP SCHEMA public CASCADE; CREATE SCHEMA
+  public;` comes back as a bare syntax error (42601), which reads like malformed SQL rather than an
+  unsupported shape.
+- **The generated `drizzle/` output is gitignored and regenerated every bootstrap.** A committed
+  baseline rots the moment the schema moves, and a stale one that still applies cleanly is worse
+  than none.
+- **`bootstrap.ts` drops and recreates the public schema**, so it refuses to run against any
+  non-local host rather than trusting the caller.
+- **The test URL's port 5433 is a routing label, not a listening Postgres.** Both databases live in
+  one container on 5432; the port in the URL only selects which proxy — the image targets one fixed
+  database per instance.
+- Local runs are slower than Neon (~220s for the integration suite) because every query is its own
+  HTTP round-trip. Individual tests reach 20s against a 30s timeout, so a test that grows may need
+  the timeout raised rather than being assumed broken.
+- Two pre-existing `react-hooks/set-state-in-effect` lint errors remain in `src/app/setup/page.tsx`
+  and `src/components/ThemeToggle.tsx`. They predate this work and are untouched.
+
+**Next:** H2 is unblocked and the history schema is in place locally. H3 imports the Sleeper era.
+
+---
+
+## Step 31 — Phase 2 H2: the history schema
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** seven tables in `src/db/schema.ts` — `seasons`, `season_standings`, `season_matchups`,
+`season_lineups`, `player_weeks`, `player_seasons`, `legacy_champions` — plus
+`scripts/migrate-history.ts` (`npm run db:migrate-history`), appended to the `db:test-migrate` chain.
+
+**Run twice against local Postgres; idempotent both times. `npm run db:verify` green, 184 unit and
+78 integration tests passing.** Not yet run against Neon — that waits on the quota.
+
+### The tables do not mirror the sheets
+
+Excel forced shapes Postgres does not. Six principles, each answering something the workbook does
+differently, are written up in `PROJECT_PLAN.md` §12; the two that shaped the most:
+
+**One fact, one table.** The workbook has three sheets saying "a game happened" — `matchup_data`,
+`playoff_matchup_data`, `playoffs_legacy`. `season_matchups` is one table with `is_playoff`, because
+every record question spans both ("the all-time high score" is not a regular-season question) and
+splitting them puts a `UNION` in every query.
+
+**One row per game *side*, not per game.** Two rows per game looks redundant until you notice every
+consumer wants "for each manager, for each week": all-play, streaks, high/low scorer weeks,
+per-manager points, consistency, the head-to-head grid. One row per game would put a `UNION ALL` in
+all of them. The cost is ~700 rows.
+
+### `season_lineups` stays separate from `season_matchups` despite an identical grain
+
+In the workbook those two numbers were on **different scales** and disagreed by an average of 6.4
+points. Sourcing both from Sleeper fixes the scale, but the separation is still right: putting
+`actual_points` on the same row as `points` creates two columns that both look like "what they
+scored", and a join is a cheap price for never letting them touch by accident.
+
+### `data_tier` makes the era rule structural
+
+`'legacy' | 'standings' | 'weekly'` on `seasons` is what stops the two eras being mixed by
+convention. The workbook mixes them silently and contradicts itself as a result: its hidden records
+sheet claims an all-time high of 203.9 (Nate, 2014) while its dashboard says 234.96 (Daniel, 2023),
+and both are "right" for the era each was computed over.
+
+**Learned:**
+
+- **`numeric` is worth the string it returns.** Neon hands back `"124.20"`, and `'124.20' + '110.00'`
+  is `'124.20110.00'` — a sum that renders, sorts, and is wrong. It is still the right type: Postgres
+  sums points-for exactly, where 140 doubles land on 1497.9999999999998, and this data exists to be
+  quoted back at people who know the real number. Every points column goes through `Number()` at the
+  service boundary.
+- **The assertion worth more than the rest is the one about what did *not* change.** The migration
+  snapshots all ten rows of `manager_totals` before any DDL and refuses to finish if a single number
+  moved. History can never reach a live budget — the view is `CROSS JOIN draft` filtered to
+  `d.season` — and this proves it rather than asserting it in a comment.
+- **DDL and data belong in different scripts.** This has to run against `neondb_test`, which has none
+  of the committed source files, so it creates seven tables and seeds exactly one row: the `seasons`
+  entry for the current draft, which is described by `draft` and nothing else.
+
+**Watch out for:**
+
+- **Null prize money means unknown, not zero.** It is a real $0 for 2011–2013 and genuinely unknown
+  for 2006–2010, where the source records a literal `-`. Collapsing them makes a "Bag Secured" total
+  quietly authoritative about five years it knows nothing about.
+- **Third place is recorded, never derived.** The bracket is six teams over three rounds, so there is
+  no third-place game — deriving it from the matchups produces a confident, wrong name.
+- **`legacy_champions` is deliberately not linked to `managers`.** Those five years predate the
+  membership record; the names are recognisable but asserting the 2006 "Daniel" is today's Daniel is
+  a guess dressed as a fact.
+- The migration must never re-emit `manager_totals`. A migration that hardcodes a view definition
+  becomes a loaded gun the moment the view changes — `migrate-called-auction.ts` is the cautionary
+  tale, and it now refuses to run at all.
+
+**Next:** H3 — import the Sleeper era (2020–2025), ending with the reconciliation table against the
+workbook's own standings.
+
+---
+
+## Step 32 — Phase 2 H3: the Sleeper era lands
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/import-sleeper-history.ts` (`npm run history:import-sleeper`), on top of the
+pure transform layer from step 31.
+
+**Imported 2020–2025:** 60 standings rows, 914 matchups, 1,010 lineups, 16,888 player-weeks,
+1,693 player-seasons. `manager_totals` unchanged. 229 unit tests passing.
+
+### Three independent checks, all green
+
+1. **Reconciliation against the workbook, 2020–2024.** Every win-loss record, every
+   regular-season place and every points-for total agrees across all fifty member-seasons. The
+   place check is the interesting one: Sleeper stores a record but not a rank, so `place` is
+   computed (wins, then points for) — and matching the workbook's recorded `reg_season_place`
+   fifty times over turns "the usual tiebreak" into a verified one.
+2. **Starter points reproduce Sleeper's weekly team totals to the cent**, 60/60 manager-seasons.
+3. **All-play recomputed from the database reproduces the workbook's dashboard exactly** — Bolek
+   368-252-1, Bryan 235-386, and the eight in between. That is the whole chain validated end to
+   end: API → committed JSON → transform → Postgres → SQL aggregate.
+
+### Points come from the games, not from Sleeper's season total
+
+A roster's stored `fpts` is not always the sum of that roster's weekly results — five rosters in
+2020 and three in 2021 drift by 0.5 to 3.0 points. `season_standings.points_for` is therefore the
+sum of the weekly rows. A season total that does not equal the games it is made of cannot be
+reconciled on a page that shows both, and every derived metric reads from those same rows.
+
+**Learned:**
+
+- **The reconciliation is the deliverable, not the import.** Loading 16,888 rows is easy; knowing
+  they are right is the work. Three checks against two independent sources is what makes it
+  possible to say the numbers are correct rather than merely present.
+- **Batch, or the HTTP driver will punish you.** One statement per call means 16,888 player-weeks
+  is 16,888 round trips. Multi-row `INSERT` in chunks of 400 turns the whole import into ~60.
+- **A computed rank needs a witness.** `place` looked like a detail until it turned out the
+  workbook had recorded it independently for fifty member-seasons, which is the only reason the
+  tiebreak rule can be stated as fact.
+
+**Watch out for:**
+
+- **The playoff weeks contain consolation games.** Only the winners bracket is imported; weeks 15–17
+  also hold games between eliminated teams, which the league has never counted. The bracket's seven
+  games are all kept, including the fifth-place game — the workbook recorded only five, dropping the
+  fifth- and third-place games while still naming a third-place finisher.
+- **2020 is shaped differently.** Thirteen regular-season weeks with playoffs in 14–16, against
+  fourteen and 15–17 for every later season. Nothing may assume a fixed week count.
+- **Per-season deletes, never a bare `DELETE FROM`.** A re-run clears only the seasons it is
+  importing, so a partial re-import cannot silently drop the rest of the league's history.
+
+**Next:** H4 — the pre-Sleeper era (2006–2019) from the workbook: standings, podium, prize money
+and draft locations.
+
+---
+
+## Step 33 — Consolation games are kept, and counted separately
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `season_matchups.playoff_placement`, set from the bracket's own placement tag.
+
+The first cut of H3 treated all seven winners-bracket games as equal playoff games. The league does
+not: third place pays, and nobody tries in the fifth-place game. Counting a game people were not
+playing seriously toward "all-time high score" or a playoff record makes both worse.
+
+So the rows are all kept and the *meaning* is stored alongside them. `playoff_placement` is null on
+the championship path (quarter-final, semi-final, final) and otherwise names the place contested —
+`3` or `5`. Stats default to `playoff_placement IS NULL OR playoff_placement <= 3`; nothing is
+thrown away, and anyone who wants the consolation bracket can have it.
+
+Per season: 5 championship-path games, 1 third-place, 1 fifth-place.
+
+**Learned:**
+
+- **"Which games count" is a league rule, not a data question.** Sleeper marks the placement games
+  and stops there; whether a fifth-place game belongs in a record book is something only the league
+  can answer. Storing the tag rather than filtering on import means the answer can change later
+  without re-importing anything.
+
+**Watch out for:**
+
+- **The final carries `p: 1` but is not a placement game.** Treating any `p` as consolation would
+  drop the championship itself out of every playoff record.
+- The losers bracket is pulled and committed but **not imported at all**. If it is ever wanted, it
+  is already on disk.
+
+**Next:** H4 — the pre-Sleeper era.
+
+---
+
+## Step 34 — Phase 2 H4: the pre-Sleeper era
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/import-workbook-history.ts` (`npm run history:import-workbook`).
+
+**The league's full record is now in Postgres — 2006 to 2025.** 20 seasons, 150 standings rows,
+5 legacy champions. `manager_totals` unchanged.
+
+| Tier | Years | What exists |
+|---|---|---|
+| legacy | 2006–2010 | a champion's name, nothing else |
+| standings | 2011–2019 | member-season record, points, place, playoff W/L, podium, money |
+| weekly | 2020–2025 | everything, from Sleeper |
+
+**Verified:** championships and prize money per manager reproduce the workbook's dashboard exactly
+for all ten managers through 2024 — Daniel 2/$4,000, Bryan 3/$3,275, Bolek 2/$2,575, down to Jack
+1/$1,025.
+
+### Filling gaps without overwriting better data
+
+This runs after the Sleeper import and must not undo it. The podium for 2020+ was derived from
+Sleeper's bracket and independently agrees with this workbook on all fifteen placings, so those
+columns fill with `COALESCE(existing, incoming)` rather than being replaced. Prize money goes the
+other way — it exists nowhere but here, so the workbook always wins. `data_tier` never downgrades a
+season Sleeper already described.
+
+**Learned:**
+
+- **Import order is a design decision, not an accident.** Two sources overlap on 2020–2024, and
+  which one wins per column is a per-column answer: bracket for the podium, workbook for the money,
+  Sleeper for everything weekly. Encoding that in the conflict clause makes re-running either
+  importer in any order safe.
+- **The sheet numbers its members *and* names them**, so the importer cross-checks the two on every
+  row rather than trusting `member_id`. Bill is workbook 1 and manager 4; an off-by-one there
+  produces a perfectly plausible wrong answer, like Bryan's championships showing under Mario.
+
+**Watch out for:**
+
+- **`money_won` of `'-'` is unknown, not zero.** 2006–2010 record a literal dash, while 2011–2013
+  record a real $0. Collapsing them makes a "Bag Secured" total quietly authoritative about five
+  years it knows nothing about — so those are null, and any sum over them must report its coverage.
+- **`legacy_champions` is deliberately unlinked from `managers`.** The names are recognisable, but
+  asserting the 2006 "Daniel" is today's Daniel is a guess dressed as a fact.
+- **Games per season are derived from the records, and asserted constant within a year.** Nothing
+  assumes 13 or 14; a season where managers disagree about how many games they played stops the run.
+- 2025 has no prize money on record — the workbook stops at 2024. Null, not zero.
+
+**Next:** H5 — `src/lib/history.ts` and the League Summary. Everything it needs is now in the
+database.
+
+---
+
+## Step 35 — Phase 2 H5: the League Summary
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `src/lib/history.ts` + 25 unit tests, `src/server/history-service.ts`,
+`src/components/history/{EraBadge,LeagueSummaryTable}.tsx`, and `/history`.
+
+**254 unit tests passing.** Verified in a browser against the real imported data.
+
+### The two-era rule is enforced by the types
+
+Every summary row splits into `allTime` and `weekly`, and `weekly` is **nullable**. An all-play
+record cannot be added into a career win total by accident because they are not in the same object,
+and every report carries the `Coverage` it was computed over. `EraBadge` takes a `Coverage` rather
+than a string, so a column of six-season figures physically cannot be rendered under a
+fifteen-season heading.
+
+This is guarding against a real failure, not a hypothetical one: the league's own dashboard puts
+those columns side by side unlabelled, and its hidden records sheet disagrees with its front page
+about the all-time high score because the two were computed over different eras.
+
+### A Server Component, deliberately
+
+History does not change, so `/history` renders on the server with `revalidate = 3600`. No route, no
+poll, no client fetch, and nothing reachable from the 400ms path that drives draft night. The table
+ships no JavaScript at all.
+
+**Learned:**
+
+- **A season row exists before the season does.** 2026 has a `seasons` row, a tier and a draft
+  location the moment the draft happens — so a coverage span built from rows alone read
+  "2011–2026" for a table whose last result is 2025. `coverageFor` now takes the seasons that
+  actually contributed rows to the metric being labelled. Caught by looking at the rendered page,
+  not by a test; the test came after.
+- **Null propagates all the way to the screen or it is not worth having.** The Net column reads `—`
+  for every manager right now, because no season has a high/low rate recorded. That is the correct
+  answer and it is visibly different from `$0` — which is exactly the bug the workbook has, where a
+  failed lookup renders as a manager who broke even.
+
+**Watch out for:**
+
+- **`numeric` arrives as a string.** `history-service.ts` is the one place that converts, and
+  nothing downstream should ever see a stringified number. `'124.20' + '110.00'` is `'124.20110.00'`.
+- **The era divider is load-bearing layout**, not decoration. It is the only thing separating a
+  fifteen-season career record from a six-season all-play record.
+- The high/low payout is unset for every season, so the side-bet column is all `—`. Set it with
+  `npm run season:prizes -- <year> --high 10 --low 10` once the league confirms the rate per era.
+
+**Next:** H6 — the record book and the Season in Review card.
+
+---
+
+## Step 36 — The side bet loses its money, and keeps its point
+
+**Date:** 2026-08-18  **Status:** done
+
+**Removed:** `highLowNet` from the summary, the Net column from the table, `--high`/`--low` from
+`season:prizes`, and the `high_score_payout` / `low_score_penalty` columns from `seasons`.
+**Kept:** how often each manager was the league's high or low scorer.
+
+The count is the interesting number and it cannot be wrong. The dollar figure needed a per-season
+rate that mostly is not on record, which meant an entire column of `—` and a schema field nobody
+could fill. Dropped rather than left dangling: a half-wired feature is worse than no feature,
+because the next reader cannot tell which it is.
+
+Third place stays part of the playoff record — confirmed with the league rather than assumed. Only
+the fifth-place game is excluded.
+
+**Learned:**
+
+- **Removing a metric is easier than justifying one.** The rule that null must never render as zero
+  was correct and the column still had to go, because "correct but permanently blank" is not a
+  column. The rule earned its keep anyway — it is what made the blankness visible instead of
+  silently reading `$0`, which is exactly the bug the workbook has.
+
+**Watch out for:**
+
+- The columns are dropped in `migrate-history.ts` with `DROP COLUMN IF EXISTS`, so the migration
+  stays idempotent and safe to re-run on a database that never had them.
+
+**Next:** H6 — the record book.
+
+---
+
+## Step 37 — Two sections, not one pile of pages
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `src/components/SiteNav.tsx` and `src/hooks/useSession.ts`; every page's ad-hoc
+back-links replaced with a section nav.
+
+```
+FANTASYWORLD  |  [Draft] [History]
+  Draft   → Draft · Board · Stats · Trades · Setup (commissioner only)
+  History → Summary
+```
+
+The wordmark carries the league's name; the auction draft is one thing FantasyWorld does and the
+history is another, so the name sits above both rather than being one of them.
+
+### Why the app has two halves
+
+These are two products sharing a database. The draft pages are a live tool — ten people, one room,
+three hours a year, polling every 400ms with money on the line. The history pages are a reference
+read at leisure, rendered on the server once an hour. Different cadence, different posture,
+different failure modes. A flat nav that mixes them invites somebody to treat one like the other.
+
+It also fixed something shipped an hour earlier: `/history` had a **"← Board"** button, which
+quietly claimed history was a sub-page of the draft.
+
+`/` stays the join screen. It is the link everyone opens on draft night and `DRAFT_NIGHT.md`
+depends on it; putting a hub in front of claiming a seat costs a click on the one night that is
+time-critical.
+
+**Learned:**
+
+- **A nav is an assertion about what exists.** The history section was written with five items and
+  trimmed to one, because four of them were pages yet to be built. A nav pointing at a 404 makes a
+  section look broken rather than unfinished; entries get added as pages land.
+- **The back-link you write on a new page encodes where you think it belongs.** Writing "← Board"
+  on `/history` was the tell that the information architecture had not been decided.
+
+**Watch out for:**
+
+- **`isCommish` here only decides whether a link is drawn.** Every commissioner action re-reads
+  `is_commish` from the database against the session id. Hiding a link is presentation; it is not
+  and must never become a trust boundary.
+- **`useSession` returns `undefined` while asking and `null` for nobody.** Collapsing those to
+  `null` would flash the commissioner's Setup link off on every load for the one person who wants it.
+- `/draft` and `/trades` keep their own inline session lookups, because theirs also redirect an
+  unsigned visitor to the join screen — a page-level decision a shared hook should not impose.
+
+**Next:** H6 — the record book, which adds the second History entry to the nav.
+
+---
+
+## Step 38 — Phase 2 H6: the record book
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `records()`, `seasonInReview()` and `longestStreaks()` in `src/lib/history.ts` (+17
+tests), `RecordLine` and `SeasonReviewCard`, and `/history/records`.
+
+**271 unit tests passing.** Verified in a browser against the real imported data.
+
+### Three groups, because they do not cover the same years
+
+Single-game records reach back to 2020, when week-by-week results start. Season and career records
+reach to 2011. Each group carries its own `EraBadge`, and the two weekly-era records that sit in the
+season column (the streaks) carry theirs individually rather than inheriting the column's.
+
+### What it reproduces, and the three places the workbook is wrong
+
+Matches the dashboard exactly: 234.96 (Daniel, wk12 2023), 37.12 (Bryan, wk5 2021), the 132.74
+blowout, the 0.10 narrowest win, 1051.92 fewest points, 1995.22 most points against, and both
+streaks (7 wins, 8 losses).
+
+The workbook's **hidden `All-time Records` sheet** disagrees with its own standings sheet on three
+records, and it is wrong every time:
+
+| Hidden sheet | The standings data |
+|---|---|
+| High score 203.9 — Nate, 2014 | 234.96 — Daniel, wk12 2023 |
+| Best season 12-1 — Mario, 2013 | Mario went 10-3 in 2013; the real best is 12-2 |
+| Worst season 1-12 — Justin, 2012 | Justin went 2-11; the real worst is Daniel, 2016 |
+
+`xlsm-to-csv.py` already refuses to convert that sheet. This is why.
+
+One genuine difference from the dashboard, and it is the league's own decision: the highest playoff
+score is now **192.44 (Daniel, wk17 2023)** rather than 181.16, because that game was the
+third-place game — which the league says counts, and the workbook excluded.
+
+**Learned:**
+
+- **A margin is not a rate.** Best and worst record were first ranked by wins minus losses, which
+  quietly favours the longer seasons: the league played 13 games through 2020 and 14 from 2021, so
+  12-3 (.800) would have beaten 11-2 (.846) on margin alone. Ranked by percentage now, with a test
+  built from exactly that pair.
+- **The number is not always the record.** "Best regular-season record" is `12-2`, not `12`, so
+  `RecordEntry` grew a `display` string that overrides the formatted value. A formatter that only
+  sees a number cannot know this.
+- **Margins are taken from the winner's side only.** Reading them from both sides would make every
+  blowout simultaneously the narrowest loss.
+
+**Watch out for:**
+
+- **Streaks do not cross a season boundary.** Eight months and a fresh draft sit between the last
+  game of one year and the first of the next; a streak spanning them describes two different teams.
+- **A standings-era season's review card says so**, rather than showing empty rows. "Not recorded
+  that way" and "we lost it" are different claims and must not look the same.
+- Ties keep the earliest holder so a record has one name. The workbook lists two for the 7-win
+  streak (Jon and Justin); this shows Justin.
+- The "draft steal" is deliberately absent until the auction import lands.
+
+**Next:** H7 — `getArchivedSeason` reads `seasons`, which fixes a live bug.
+
+---
+
+## Step 39 — Phase 2 H7: an archived season renders with its own settings
+
+**Date:** 2026-08-18  **Status:** done
+
+**Fixed:** `getArchivedSeason` read `roster_size` and `starting_budget` straight from `draft`, so
+every archived year rendered with **today's** settings. `ArchiveSeason` gains `isFinal` and `notes`;
+`draftComplete` honours `isFinal`.
+
+**274 unit and 80 integration tests passing**, `db:verify` green.
+
+This was invisible while the app knew one season and became wrong the moment it knew several. A rule
+change today — a bigger roster, a different budget — silently rewrote every board the league had
+ever played, and every budget derived from it. It now reads the season's own row and falls back to
+the current draft only when that season has none, which keeps a pre-`seasons` year readable rather
+than refusing to render a season that was really played.
+
+### `draftComplete` needed the same treatment
+
+It asks "is every roster full?", which is the right question about a draft in progress and the wrong
+one about a season that ended years ago. 2022's record is one pick short and always will be — the
+pick is missing from the source and cannot be recovered — so that season was reported as still
+drafting, forever. A finished season now says so directly and that wins; the live draft, which has
+no such flag, still uses roster counts.
+
+**Learned:**
+
+- **"Derived, never stored" has a boundary, and it is the season.** Budgets are still derived from
+  picks and adjustments — but the *rules* they are derived under belong to the season that was
+  played, not to the row describing what the league is doing now.
+- **A fallback is a feature when the alternative is a blank page.** No `seasons` row means today's
+  settings are the best answer available, which beats refusing to render a season that happened.
+
+**Watch out for:**
+
+- **Do not clamp a negative archived budget to zero.** Some manager-seasons genuinely do not
+  balance (2023 has managers at $205 and $194 against a $200 budget, from auction-dollar trades),
+  and tidying that away is the stored-budget lie this app exists to remove. `notes` is where the
+  explanation goes.
+- Two integration tests now pin this: changing `draft.roster_size` must not move an archived
+  season's numbers, and a season with no row must still render.
+
+**Next:** H8 — the 2021–2024 auction drafts into `picks`.
+
+---
+
+## Step 40 — Phase 2 H8: the auction years
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/import-history-picks.ts` (`npm run history:picks`), the `AND p.active` pool
+filter, a Value-panel empty state, an archive notes banner, and pool checks in `verify.ts` scoped
+to draftable players.
+
+**640 picks across 2021–2024 in `picks`.** 274 unit and 81 integration tests passing,
+`db:verify` green, `manager_totals` unchanged.
+
+The payoff step: `/board`'s year picker, all five `/stats` panels and `/api/export` now work on
+four more seasons with no new view code, because they were already season-agnostic.
+
+### Two corrections, both found by a second source
+
+Sleeper's auction *amounts* for this league are a formality — every pick $1 — but its record of
+**which players** each manager took is real, and diffing it against the workbook found:
+
+- **2022 pick 160 dropped.** George Pickens appears twice under two spellings; Sleeper has him
+  once. Removing it puts Nate at 16 players / $200 instead of 17 / $203.
+- **2022 Tyler Boyd added at $1.** Bill's sixteenth pick is missing from the workbook. The price is
+  arithmetic rather than judgement: $199 across the other fifteen, a $200 budget and a $1 minimum
+  leave no other value. The pick *number* is a placeholder and says so.
+
+Both live in one `HISTORY_PICK_CORRECTIONS` list with a reason and a date, and both are surfaced in
+`seasons.notes` and drawn on the archived board. After them, **every roster matches Sleeper player
+for player** for 2021–2023. 2024 has no Sleeper draft, so it is the one year with no second source.
+
+### 2023 still does not balance, and that is the point
+
+Bryan $205, Brian $202, Nate $201 against a $200 budget — auction dollars were traded, and the
+league confirmed it. The archive shows the negative budgets **unclamped**, with the reason printed
+beside them. Tidying that away would be the stored-budget lie this app exists to remove.
+
+**Learned:**
+
+- **A second source is worth more than a careful reading of the first.** No amount of staring at the
+  workbook would have found the duplicate; one roster diff found it, recovered a missing pick, and
+  then certified all 640.
+- **`verify.ts` was right to fail and its question was wrong.** "Every player has a board rank" broke
+  on 287 historical players who have no rank by design. Scoped to `active`, it is again asking the
+  thing it means: is the *draft board* ready.
+
+**Watch out for:**
+
+- **No backticks inside a SQL template literal.** Writing an explanatory comment containing
+  `players` terminated the tagged template, and the error surfaced as three unrelated TypeScript
+  parse errors twenty lines away. AGENTS.md says this; it is still easy to do.
+- **`active` is the only thing keeping retired players off a live board.** `scripts/seed.ts`
+  deliberately protects any player a pick references from the annual wipe, so there is no second
+  line of defence. An integration test now pins it.
+- **`player_rank` is NULL for all 640 and always will be.** Rank stops being recoverable the moment
+  a season's pool is replaced. The Value panel says so rather than rendering two empty tables.
+- Draft order for these seasons is each manager's **first nomination**, not the drawn seat — the
+  drawn order was never recorded, and the note on the board says exactly that.
+
+**Next:** H9 — the 2025 auction from the Google Sheet.
+
+---
+
+## Step 41 — Phase 2 H9: the 2025 auction
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `data/history/auction_2025.csv` from the league's Google Sheet, 2025 folded into
+`import-history-picks.ts`, a `ROSTER_EXCEPTIONS` list, `RECORDED_ORDERS`, and automatic
+over-budget notes on every season.
+
+**800 picks across 2021–2025.** Every season the league has ever auctioned is now in `picks`.
+274 unit tests, `db:verify` green, `manager_totals` unchanged.
+
+### The sheet disagrees with itself, and that is the whole origin story
+
+The 2025 sheet's **pick log** and its **budget summary** both account for exactly $1,979 and split
+it differently across four managers: Bolek is $187 in the log and $201 in the summary, with Bill,
+Bryan and Mario making up the difference. Six managers match to the dollar.
+
+The log wins. It is 160 explicit rows, each naming a player and a price, and **all 160 of its
+player-to-manager assignments match Sleeper's draft exactly**. The summary is a derived total that
+drifted — which is precisely the failure this app was built to remove, and the famous **−$1** that
+`PROJECT_PLAN` §1 cites turns out to live in that summary rather than in any pick.
+
+### Two draft-time sources beat two post-hoc ones
+
+Pick 106 reads Jayden Reed in the sheet's log **and** in its player pool; Sleeper's draft and the
+sheet's roster board both say Dylan Sampson. The first two are draft-time artifacts; the second two
+could equally reflect an early-season waiver swap, since 2025's results were typed into Sleeper
+after the fact. Reed stays, in a `ROSTER_EXCEPTIONS` list with the reasoning, and the season note
+says so on the board.
+
+**Learned:**
+
+- **Transcription is not a source; a check is.** The first pass at this CSV was written out by hand
+  and four managers' budgets did not reconcile. Diffing against Sleeper proved the *assignments*
+  were right, which localised the problem to prices — and re-reading the sheet showed the prices
+  were right too, and the sheet's own summary was wrong. Without a numeric check the error would
+  have been silently inverted.
+- **A per-row record beats a summary of it, every time.** Both are "the sheet", and only one can be
+  audited line by line.
+
+**Watch out for:**
+
+- **2025 has a real drawn draft order** — it is on the sheet's first tab — so it is recorded rather
+  than reconstructed. The workbook years still fall back to first nomination and say so.
+- Every season now auto-generates an over-budget note when a manager finishes above $200, so the
+  explanation travels with the data rather than living in a commit message.
+- 2025's over-budget managers are Bill (−$1) and Bryan (−$8), which are **not** the ones the sheet's
+  summary flagged. Same cause, different arithmetic.
+
+**Next:** H10 — member pages and the head-to-head grid.
+
+---
+
+## Step 42 — Three sections, on hover
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `SiteNav` rebuilt as three hover menus, `/history/drafts` (Past Auctions), and the
+redundant page title removed from `/draft`.
+
+```
+FANTASYWORLD   Draft ▾   Draft History ▾   League History ▾
+```
+
+### Two sections were one too few
+
+The first cut had Draft and History, and everything draft-shaped piled into one flat row. That
+conflated two genuinely different questions — *what is happening in this auction* and *what
+happened in past auctions* — which share pages but not intent. A row of eight equal-weight links
+made the reader do that sorting themselves.
+
+`/history/drafts` gives the middle section a home: every auction on record, its most expensive pick,
+who finished over budget, the notes, and buttons through to that year's board, spend view and CSV.
+The year picker on `/board` could already do this, but only for somebody who knew the picker existed.
+
+### The menus are CSS-only, deliberately
+
+`group-hover` plus `group-focus-within`, so `SiteNav` stays hook-free and renders unchanged inside
+the client draft pages and the server-rendered history pages alike. It also keeps the menus working
+while JavaScript is still loading, which on draft night is worth having. `invisible` rather than
+`hidden` keeps every link in the tab order, so the menus open on keyboard focus too.
+
+**Learned:**
+
+- **A flat nav grows one item per feature and never shrinks.** Nesting keeps the top level at three
+  stable words, so the shape of the app is legible before you read any of it.
+- **Two titles is one title too many.** `/draft` carried an "Auction Draft" heading beside the
+  wordmark and the section nav, all three saying the same thing.
+
+**Watch out for:**
+
+- Hover menus assume a pointer. Mobile is explicitly out of scope (`UAT.md`), but if that changes
+  this is the first thing to revisit.
+- The section a page belongs to is passed in, not inferred from the path — `/stats` sits under
+  Draft History while `/board` sits under Draft, and no amount of path-matching would guess that.
+
+**Next:** H10 — member pages and the head-to-head grid.
+
+---
+
+## Step 43 — Phase 2 H10: members, head to head, favourites
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `headToHead()` and `memberProfile()` in `src/lib/history.ts` (+13 tests),
+`getFavoritePlayers`/`getMostCarried` in the service, `/history/members`,
+`/history/members/[id]`, `/history/h2h`, and a sortable all-time table.
+
+**287 unit tests passing.** Phase 2's ten build steps are complete.
+
+### Favourite players — the feature the data was already carrying
+
+`picks` knows what somebody paid; `player_weeks` knows how long they carried them. Joined per
+manager, that answers "who does this person actually like" — and the two halves disagree usefully.
+Bill's most expensive player and his most-carried are both Ja'Marr Chase, but Keenan Allen and
+Christian Kirk show up near the top of the weeks list having **never been drafted at all**.
+
+Ranked by weeks rather than money, on the league's instruction: a $54 buy dropped by week four says
+less than a waiver pickup kept for four seasons. A **FULL JOIN**, because drafting and rostering are
+independent — a waiver pickup has weeks and no price, a 2026 pick has a price and no weeks.
+
+### Seed and Finish are two different columns now
+
+The first cut put an unlabelled medal beside a column headed "Place", which read as a contradiction:
+a trophy next to 4th. It is not — Bill was the 4 seed in 2016 and won it. Two columns, each saying
+which question it answers.
+
+### The all-time table sorts
+
+Every column, because the interesting question changes by reader. `LeagueSummaryTable` becomes the
+one client component in `/history`; everything else stays a Server Component shipping no JavaScript.
+
+**Learned:**
+
+- **A null must not be sortable as a zero.** Nulls here mean "no record for this era", so they sort
+  last in *both* directions — floating a manager with no weekly data to the top of "worst lineup
+  efficiency" would be a confident wrong answer.
+- **`memberProfile` reuses `leagueSummary` rather than recomputing.** A member page and the all-time
+  table disagreeing by a game is the kind of thing that makes people stop trusting both, and a test
+  asserts they are identical.
+- **A grid child defaults to `min-width: auto`.** The wide season table forced the whole row wider
+  than its container and pushed the right column's values off the screen edge; `min-w-0` on the grid
+  and both children fixes it. Caught by looking at a screenshot, not by a test.
+
+**Watch out for:**
+
+- **Head-to-head is regular season only**, deliberately. Playoff meetings are rare and unevenly
+  distributed, so including them would say more about seeding than about the matchup — and it keeps
+  the grid comparable to the league's own Everyone-vs-Everyone sheet.
+- Cell tint tracks win rate but **colour is never the only encoding**: every cell prints its record.
+- An unknown draft spend renders as `—`, never `$0`. A season whose auction is not on record is not
+  a season somebody drafted nobody.
+
+**Next:** Phase 2's build steps are done. Remaining: run the migrations and imports against Neon
+once the quota clears, and a UAT pass over the new pages.
+
+---
+
+## Step 44 — A weekly refresh, and the waiver wire's greatest hits
+
+**Date:** 2026-08-18  **Status:** done
+
+**Built:** `scripts/history/refresh-season.ts` (`npm run history:refresh`),
+`.github/workflows/weekly-history.yml`, `getBestPickups()`, and best-pickup lines on every season
+card. Plus two bugs the live season exposed.
+
+**291 unit tests passing.**
+
+### The season in progress is a different kind of data
+
+Everything before this assumed a finished season. Pointing the importer at a live one surfaced two
+faults within minutes, both of the same shape — **a row existing is not the same as something having
+happened**:
+
+- **Sleeper returns the whole schedule from day one.** A league in week 1 answers with fourteen
+  weeks of matchups, every one 0–0 with lineups already set. Imported, they became the lowest score
+  on record, the narrowest win, and a ten-way tie in every all-play week. `hasBeenPlayed()` now
+  skips a week until somebody has scored.
+- **A standings row appears on the first refresh** with an 0-0 record and zero points, which won
+  "fewest points in a season" outright and stretched every era badge to 2026. `playedStandings()`
+  drops seasons nobody has played from the season-level records and from coverage.
+
+`is_final` also follows Sleeper's own `status` now rather than being asserted true, so a live season
+reads as live.
+
+### Best pickups, split by owner
+
+Most points started by a player **nobody in the league rostered in week 1** — a player dropped by one
+team and claimed by another is a trade of sorts; a player nobody owned is a find.
+
+Ranked on the player's whole season and then **split across everyone who held them**, because whoever
+found somebody and whoever cashed in are rarely the same person: 2023's best pickup is C.J. Stroud at
+228, of which Eric/Blakey realised 75 over four starts before Bill took 153 over seven. Crediting one
+manager erased half the story, and ranking each share separately buried the player entirely — Stroud
+placed behind Jerome Ford until the halves were added together.
+
+**Learned:**
+
+- **Live data is its own test case.** Six settled seasons imported cleanly and told us nothing about
+  what a season in progress looks like. Two bugs, both found by running the thing once against a
+  league that had not kicked off.
+- **Rank on the whole, display the parts.** Ranking on an owner's share hides traded players; showing
+  only the total hides who actually found them.
+
+**Watch out for:**
+
+- **Wednesday, not Tuesday.** The NFL week ends Monday night and stat corrections settle through
+  Tuesday; pulling earlier imports scores that are still moving.
+- **The workflow needs a `DATABASE_URL` repository secret** and fails loudly on step one without it,
+  rather than importing nothing and reporting success.
+- **It refreshes one season, not all of them.** Re-pulling six settled seasons weekly would churn six
+  seasons of committed files and would let a Sleeper revision quietly rewrite settled history.
+- `CURRENT_SLEEPER_SEASON` is the one place a literal current year lives, and it moves every August
+  alongside `npm run season:new`.
+
+---
+
+## Step 45 — Every ring counts, and the grid becomes readable
+
+**Date:** 2026-08-18  **Status:** done
+
+**Changed:** 2006–2010 champions now resolve to managers, the head-to-head grid moves to one
+diverging scale, legacy season cards drop their empty rows, and the trophy display stops
+multiplying.
+
+**291 unit tests passing.**
+
+### Championships reach back to 2006
+
+The earlier position — that linking a pre-membership-record name to today's manager was "a guess
+dressed as a fact" — was overruled by the league, correctly. Rings are counted from the start of the
+record, the way every other sport does it, and the league knows whether the 2006 Daniel is this
+Daniel. Bryan goes to **5**, Daniel to **4**, Justin to **2**.
+
+It does create a real era mismatch, so the trophy column carries its own `Coverage`: titles span
+2006–2025 while the record beside them spans 2011–2025. That is exactly what `EraBadge` is for.
+
+### The head-to-head grid was unreadable, and it was my fault
+
+Cells were tinted with the row manager's own colour and the text colour was computed from that tint
+— which in the light theme put pale text on a pale background across half the grid. Ten competing
+hues also meant nothing stood out.
+
+One diverging scale now: green above .500, red below, intensity tracking distance from even, and
+**the text colour left alone** so contrast is whatever the theme already guarantees. It cannot
+regress to light-on-light, because nothing overrides the foreground any more.
+
+**Learned:**
+
+- **Computing a foreground from a computed background is where contrast bugs live.** Leaving the
+  text alone and tinting only behind it is both simpler and safe in every theme by construction.
+- **Absence rendered as content reads as breakage.** A legacy card showing Runner-up, Third and
+  Regular season as three em-dashes made a complete record look like a broken one. Showing only what
+  exists says more.
+- **`🏆🏆🏆 ×4` reads as twelve.** Repetition and multiplication in the same glyph run multiply in the
+  reader's head. Past three it is one trophy and a count.
+
+**Watch out for:**
+
+- Linking legacy champions is the **one** place the app asserts a pre-record name is today's person.
+  The resolver still throws on anything unrecognised, so a new name there stops the import rather
+  than inventing an eleventh member.
+- The trophy column's span is wider than the table's. If a column is ever added that also reaches
+  past 2011, it needs its own badge too.
+
+## Buy-in, and what it took to make "winnings" a real number
+
+The league's prize table records what the podium *won*. It says nothing about what anyone *paid*,
+so the Net column read −$350 for all ten managers: 2026's entry fee against fifteen years of prizes.
+
+Then the rule turned out to be recoverable. **Third gets their money back, second gets double, first
+takes the rest** — ten managers, a `10×` pot, payouts of `7× / 2× / 1×`. The third-place prize is
+the buy-in. It holds for all fourteen priced seasons with every pot balancing to the dollar, so
+`seasons.buy_in` is derived at import instead of being typed in by hand.
+
+Derived *and* asserted: the importer throws if a runner-up isn't `2×` third, or a champion isn't
+`7×`. A changed payout structure should stop an import and get recorded, not quietly become a wrong
+buy-in that skews every career figure downstream.
+
+Net winnings became a real spread as a result — Daniel +$1,550 and Bryan +$825 at one end, Jack
+−$1,425 at the other — and then validated itself: **every net figure sums to exactly −$3,500**,
+which is 2026's ten $350 buy-ins paid in and not yet awarded. That was not something I built a check
+for; it fell out of the data and is now the check.
+
+The same commit moves draft location and buy-in out of a script and into `/setup`, which is where
+they were asked for. They live on `seasons`, not `draft`, and unlike budget and roster size they
+stay editable after the first pick.
+
+**Learned:**
+
+- **A derived field with an assertion beats a typed one with a comment.** Fourteen hand-entered
+  buy-ins are fourteen chances to fat-finger a digit, and nothing would have caught it. One rule,
+  checked on every row, catches both a typo *and* the day the league changes the rule.
+- **A zero-sum domain gives you a free integration test.** Nothing in the code knows the league is
+  zero-sum, so "the nets sum to minus the undecided pot" exercises the prize import, the buy-in
+  derivation, the podium mapping and the profile aggregation in a single number. Look for the
+  conservation law before writing assertions by hand.
+- **"Unknown" has to survive the whole round trip.** `null` buy-in → empty box in the form → `null`
+  back to the database. A single `?? 0` anywhere in that chain would turn "we haven't agreed on it"
+  into "it was free", and the resulting net would look plausible enough that nobody would question
+  it.
+- **Not every setting deserves the mid-draft lock.** `setLeagueSettings` refuses to run once picks
+  exist, and copying that guard onto season info would have been the reflex. But the buy-in is
+  usually settled *after* the room has paid up, and nothing about it can move a max bid.
+
+**Watch out for:**
+
+- The rule is asserted only for seasons that *have* a third-place prize. A season priced from one
+  end (champion only) derives no buy-in at all and stays `null`, which is correct but easy to read
+  as a bug when the Net column skips it.
+- `/api/season-info` is a second read path for league facts. It must stay off the polling
+  fingerprint in `src/lib/version.ts` — its whole reason to exist is that it isn't on it.
+- 2025 has no prize data, so it has no buy-in. If it is priced later, the derivation picks it up on
+  the next `history:import-workbook` run — the importer's upsert `COALESCE`s so a re-run adds
+  without overwriting what the setup form may have set by hand.
+
+## The 2024 draft sheet closed the last blank
+
+2024 was the weakest year on record and the plan said so: the one auction with **no Sleeper draft
+record**, so the workbook's 160 picks had nothing to check them against, and — like every archived
+season — no board ranks, because the pool is replaced each August. `/stats` showed 2024 as unscored.
+
+The league's own 2024 Google Sheet turned out to survive, and it carried both.
+
+**The picks are exact.** Diffed player by player against what we imported: 160/160, **zero price
+differences, zero owner differences**. The single apparent mismatch was "Hollywood Brown" against
+the workbook's "Marquise Brown" — one player, two names, now an explicit alias rather than a fuzzy
+match. That check is committed as `auction_2024_sheet.csv` and runs on every import, so 2024 went
+from the least-verified year to the **best**-verified one: Sleeper could confirm rosters but never
+prices, because its auction amounts are a formality at $1 a pick.
+
+**The board is recoverable too**, which the plan had assumed it never would be. 275 ranked players,
+all 160 drafted ones on it, so `player_rank` and `player_pos_rank` are now snapshotted onto 2024's
+picks and the value view scores 154 of them — Dak at $21 against a room paying $33 for that tier,
+Josh Allen at $55 against $42. 2021–2023 and 2025 keep NULL and keep the empty state, correctly.
+
+The sheet's own pivot table says Mario drafted 12 players. The log says 16, all ten managers are at
+16, and nobody is over $200. Its pivot range stops at pick 156 and Mario bought four of the last
+four. That is the third summary table in this project to disagree with its own base data.
+
+**Learned:**
+
+- **`csv.writer` emits CRLF by default, and the parser split on `\n` only.** So the last header
+  cell was `position\r`, every lookup of that column returned undefined, and the code fell through
+  to its `|| 'DEF'` default. Every player landed in one bucket and positional rank came out equal
+  to overall rank — *plausible* wrong data, not an error. Caught only because I read the output
+  rather than the success line. The parser now strips `\r` per line.
+- **A default is where a silent failure goes to hide.** `r.position || 'DEF'` was defensive coding
+  that converted a structural break into believable numbers. An explicit throw on a missing column
+  would have failed in the first second.
+- **"Unrecoverable" was a statement about the sources we had.** Rank is unrecoverable from the
+  *pool*, which is true and still is. It was recoverable from the room's sheet, and nobody thought
+  to ask whether the sheet had the board pasted into it.
+- **The strongest cross-check is the one the other source can't do.** Sleeper verifies rosters;
+  only the sheet verifies money. Two sources agreeing on the same field is worth much less than a
+  second source covering a field the first was blind to.
+
+**Watch out for:**
+
+- `RECORDED_BOARDS` refuses a partial board — if a season is listed and any pick is off it, the
+  import halts. That is deliberate: `valueVsRoom` compares each pick against its rank neighbours,
+  so ranking 140 of 160 would compare against the wrong neighbours and still render confidently.
+- Positional rank is *derived* by ordering within position, because the sheet's board is one ranked
+  list. That is what a posRank is for a single-column board, but it is not read from a column, so
+  it cannot be cross-checked against anything.
+- If the 2021–2023 or 2025 sheets ever surface, they slot in the same way — add the path to
+  `RECORDED_BOARDS` and the log to the cross-check. Nothing else needs to change.
+
+## Draft recaps, and a value measure that knows how the season went
+
+`/history/drafts` read like an errata sheet: five cards, each headed by a price and then three or
+four footnotes about duplicate picks and budgets that don't balance. Correct, and nobody's idea of
+a good time. It now leads with a paragraph about what actually happened in the room, and the
+provenance sits behind a **Data notes** disclosure — demoted, never dropped. "Departures from a
+source are never silent" is still the rule; it just isn't the headline.
+
+**Recaps are generated once and stored**, on `seasons.draft_recap`. A finished draft never changes,
+so generating on render would pay for and wait on an identical paragraph forever — and it would put
+a third party in the request path of an app whose first rule is that nothing on a request path makes
+an outbound call. `scripts/history/draft-recap.ts` computes a fact pack from the database and asks
+a model only to choose what to tell and how; `--facts` prints exactly what it was given, and the
+prompt forbids any figure not in the pack.
+
+**The value question was the real find.** Bargains and overpays came from `valueVsRoom`, which
+compares a price against what the room paid for similarly-ranked players *that night*. It answers
+"did you pay over the odds" and is silent on whether the player was any good — which is the only
+thing computable during a draft, and the wrong question on a history page years later. So
+`valueVsResults` joins each pick to the season it bought and compares **where the price slotted a
+player against where they actually finished**, within their own position:
+
+- Justin, 2024: $1 on Brian Thomas → WR4. $1 on Jaxon Smith-Njigba → WR7.
+- Jack, 2021: $2 on Ja'Marr Chase → WR4. Jack, 2024: $47 on McCaffrey → RB44.
+- Daniel, 2023: $1 on Raheem Mostert → RB2.
+
+**Learned:**
+
+- **Points per dollar is a broken metric and it looks fine.** The minimum bid is $1, so any $1
+  player who scores well posts a number nothing else can approach; every "best value" list built
+  that way is just $1 picks sorted by points. Rank-against-rank is scale-free and reads the way
+  people actually talk — "a dollar flier who finished WR4".
+- **Two questions were wearing one name.** "Value" on draft night and "value" in hindsight are
+  genuinely different measures, and only one of them can be computed at each moment. Naming them
+  apart (`valueVsRoom` / `valueVsResults`) was most of the fix.
+- **A model that is handed numbers cannot get them wrong.** Everything quotable is computed and
+  passed in; the model picks and phrases. That is the difference between a generated paragraph and
+  a paragraph you have to fact-check.
+- **The backtick rule is not just about SQL.** A prompt written as a template literal broke the
+  same way the SQL ones do — an inline `value` in backticks terminated the string and surfaced as
+  two unrelated parse errors. Second time this project has lost time to it.
+
+**Watch out for:**
+
+- `valueVsResults` needs a **finished** season. 2026 has no season row yet and correctly reports
+  null; a recap generated mid-season must not claim a verdict, and the prompt says so.
+- **Null points mean unknown, never zero.** A player with no Sleeper season row would otherwise
+  rank as the league's worst bust on no evidence. There is a test for it, and a second one asserting
+  unmeasured players still occupy their price rank — dropping them would quietly promote everyone
+  below.
+- Recaps live in `data/history/draft-recaps.json` as well as Postgres, and `--seed` loads them. A
+  database rebuild does not lose the text, and a re-generation is reviewable in a diff.
+- The recaps currently on record were written in-session from the committed fact packs, because no
+  `ANTHROPIC_API_KEY` was available. Setting one and re-running replaces them.
+
+## The value tab now answers the question people actually ask
+
+Follow-on from the recaps. `/stats` → Bargains & overpays showed one of two things for a past
+draft: **nothing** ("not scored for 2021 — no pool rankings on record") for four of the five
+seasons, or the **room** calculation for 2024, which compares a price to what the room paid for
+similarly-ranked players *that night* and says nothing about whether the player was any good.
+
+Both are now replaced, wherever the season has been played, by `valueVsResults` — price rank
+against finish rank, within position. Every past draft has a real answer:
+
+| | Steal | Bust |
+|---|---|---|
+| 2021 | Jack, $2 Ja'Marr Chase → WR4 | Bill, $38 Calvin Ridley → WR50 |
+| 2022 | Bolek, $1 Tyler Lockett → WR16 | Bryan, $52 Jonathan Taylor → RB28 |
+| 2023 | Daniel, $1 Raheem Mostert → RB2 | Nate, $42 Nick Chubb → RB45 |
+| 2024 | Justin, $1 Jaxon Smith-Njigba → WR7 | Jack, $47 McCaffrey → RB44 |
+| 2025 | Jack, $3 Travis Etienne → RB10 | Bolek, $26 Tyreek Hill → WR44 |
+
+The room view is not deleted. It is the fallback for a season that has been drafted but not played
+— which is exactly 2026 today — because on draft night it is the only thing that exists.
+
+**Learned:**
+
+- **An empty state can hide a solved problem.** "Not scored for 2021" was accurate about ranks and
+  read as a dead end, so nobody asked whether a *different* measure was available. The data for the
+  better answer had been sitting in `player_seasons` since the Sleeper import.
+- **The archive's no-join rule is about the pool, not about joins.** `picks` must never join
+  `players` because the pool is replaced each August and a 2021 pick would show a 2026 team. Joining
+  `player_seasons` is safe for the opposite reason: it is keyed by (season, player_id) and is
+  history — re-importing a pool cannot change a 2021 row. Worth stating explicitly at the query,
+  because it looks like a violation at a glance.
+- **Credit follows the drafter, not the roster.** A steal is a claim about what somebody *paid*, so
+  it goes through `draftersByPick` like every other money view. Without it, trading a $1 breakout
+  away would hand the credit to whoever received them.
+
+**Watch out for:**
+
+- The live board deliberately has no `points` on its picks, so `/stats` on an in-progress draft can
+  only reach the room view. That is the intent — mid-season points are not a verdict, and nothing
+  on the polling path should be fetching them.
+- 2026 has no `seasons`-backed archive row at all while it is current, so it takes the live path.
+  When it is archived, results appear automatically once the season is imported.
+- Both measures now live behind one tab. If a third ever appears, the branch order in `ValuePanel`
+  is the precedence rule and should be stated there rather than inferred.
+
+---
+
+## The poll that cost five queries to say "nothing happened"
+
+`/api/state` answers most polls with a 204, and every one of those used to cost five queries. The
+fingerprint is computed *from* the state, so `getState()` built the whole thing — managers, the open
+lot, recent picks — before it could discover nothing had changed and throw all of it away. The
+heaviest of the five is the `manager_totals` join, an aggregate over `picks` and
+`budget_adjustments` that the 204 path never reads.
+
+`getVersion()` now reads only what the fingerprint is made of: five scalars, one query, no aggregate
+view. `/api/state` calls it first and returns 204 without ever touching `getState()`. A client with
+no `v` is a first load and skips straight to the full read, because it needs the board anyway.
+
+Measured locally, 20 requests each way, background subtracted:
+
+| Path | Transactions/request |
+|---|---|
+| 204, after | 10.9 |
+| Full state build (what the 204 path used to cost) | 59.9 |
+
+**5.5×**, matching the 5→1 query count. The absolute numbers are inflated by the local proxy opening
+a connection per query; the ratio is the real figure.
+
+This is the other half of the `neon-local.ts` fix. That one stopped development billing to the live
+database; this one makes draft night itself roughly a fifth of what it was — ~360k queries instead
+of ~1.8M for a four-hour draft with ten clients.
+
+**Learned:**
+
+- **Cost lived in the shape of the code, not the traffic.** The 400ms cadence was never the problem
+  and was the wrong thing to negotiate with — the backoff added earlier treated a symptom. Four
+  wasted queries per request was the problem, and it would have followed the app to any host. Worth
+  remembering the next time the answer looks like "change providers" or "upgrade the plan."
+- **Deriving a cache key from the thing it guards defeats the guard.** Computing the fingerprint
+  from the state meant the expensive work happened before the cheap check could short-circuit it.
+  The fix was not to store the fingerprint — `version.ts` explains why a stored counter is wrong
+  here — but to compute the *same* value from a much smaller read.
+- **A hosted quota is a circuit breaker.** Exhausting Neon 500'd the board, which was loud and free.
+  The same leak on metered infrastructure with no free tier would have been an invoice and no
+  signal at all.
+
+**Watch out for:**
+
+- **Two functions now compute one fingerprint, and disagreement is silent and total.** If
+  `getVersion()` moves when `getState()` does not, every client refetches the board on every tick;
+  if it is stable when `getState()` moves, clients 204 forever on a dead board. Both build
+  `VersionParts` and share `fingerprint()` so only the SQL can drift, and
+  `state-version.itest.ts` asserts they agree across nominate, award, undo, trade and pause.
+- **The season filter in `getVersion()` is invisible to most tests.** An unscoped `picks` count
+  still agrees with `getState()` on a single-season database, so every other test passes with the
+  bug present. Only the prior-season-pick test separates them — it was verified to fail when the
+  filter is removed (`2026:0:0:1:live` vs `2026:0:0:0:live`). Do not delete it as redundant.
+- The `rev` component is what makes a trade visible, since a trade changes no pick count. That was
+  already true of the old fingerprint; it is now true in two places.
+- On the change path a poll costs one query *more* than before (version, then full state). That is
+  the right trade — changes happen ~160 times a draft, 204s happen tens of thousands of times.
+
+---
+
+## The glossary, and the prose that stopped needing to exist
+
+Four asks that turned out to be one: the app showed numbers it never defined, and compensated by
+explaining itself in paragraphs next to each one. `/stats` carried ~20 blocks of methodology copy,
+including a 100-word note under the Value tab, and League Summary opened with four paragraphs
+glossing three era badges.
+
+`src/lib/glossary.ts` is now the single place a calculation is written down — 30 entries as **data**,
+not prose, each with an `id`, a one-line formula, at most one caveat, and the function that computes
+it. `/glossary` renders them in three groups; a single `?` in each panel header links to the right
+anchor. That bought the deletions: every methodology footnote on `/stats`, `/board`'s market note,
+h2h's "read across", and the era legend on `/history`.
+
+Two panels needed renaming rather than cutting. Pace's "Who is ahead of pace" only worked because a
+definition sat beside it — "ahead" is ambiguous between *spent more* and *has more left* — so it is
+now titled **Money per remaining slot** and needs no gloss. "Market pace / average price per N
+picks" collapsed into one heading.
+
+Champions came off League Summary: the 🏆 column counts rings and `/history/records` names every
+season's champion, so it was the third telling.
+
+`/stats` went to two header rows. Row one is the site nav, identical to every history page; row two
+is the page — title, view tabs, season. `view` and `season` moved into the query string, and
+`SeasonPicker` became a `<select>`.
+
+**Draft DNA** is the new thing: one manager, every auction, as position mix, top-3 share, $1 picks,
+halfway pick and places gained. Every measure is one `/stats` already computes for a single season,
+applied per season and lined up — a member page that disagreed with `/stats` about 2024 would
+discredit both.
+
+**Learned:**
+
+- **A caveat repeated under four tables is a missing page, not thorough writing.** The same sentence
+  about attribution appeared under Teams, Nominations, Value and the member page. Once it had one
+  home, each of those four became a `?`.
+- **Not all short text is the same kind of text.** The cut sorted cleanly into three piles:
+  definitions (→ glossary), errata (stay, next to the number they qualify — the 2026 hand-entered
+  nominations note), and legends for marks you cannot read otherwise (stay — "½ = half their money
+  spent" labels a glyph on a chart). Only the first pile was actually the problem.
+- **Putting the season in the URL found a bug that had been shipped for months.** `/history/drafts`
+  has always linked to `/stats?season=2024`; `useSeasonView` never read the parameter, so every one
+  of those buttons landed on the live season and looked like it had worked.
+- **`memberProfile` was reading `picks.manager_id` for a money question.** It survived because
+  nothing sat next to it to disagree with. Draft DNA does, on the same screen, which is what
+  surfaced it — `HistoryPick.managerId` now carries the warning and `HistoryInput` takes the trade
+  log.
+
+**Watch out for:**
+
+- **`useSearchParams` needs a `<Suspense>` boundary or `next build` fails, and `next dev` will not
+  tell you.** Routes render on demand in dev, so `/stats` and `/board` both worked locally with no
+  boundary at all. `npm run build` is the only thing that catches it.
+- **The glossary anchors are a contract.** `GlossaryLink anchor="vs-room"` is a plain string; rename
+  an entry `id` and the link still renders, still navigates, and silently lands at the top of the
+  page. `entry.source` names the function each entry documents so a grep from the code finds its
+  definition — it is deliberately not drawn, only a `title`.
+- **`npm run build` hits the live database and it is over its data-transfer quota.** Prerendering
+  `/history/drafts` 402'd. `npm run local -- npm run build` is the working incantation, and it
+  belongs in muscle memory next to `dev:local`.
+- **`—` means unknown, and Draft DNA nearly broke that in two places.** A career row with no Spent
+  and a season with no $1 picks both drew an em dash for values that are perfectly well known.

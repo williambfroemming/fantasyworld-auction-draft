@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { MARKET_POSITIONS, positionMarket } from '@/lib/draft'
 import type { BoardCell } from './LeagueBoard'
+import { GlossaryLink } from './GlossaryLink'
 
 /**
  * What the money has actually been going to, by position.
@@ -50,6 +51,7 @@ export function MarketPanel({
         <span className="text-[11px] text-slate-600">
           {totalDrafted} players · ${totalSpent} — QB/RB/WR/TE only
         </span>
+        <GlossaryLink anchor="market-median" label="market by position" />
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto p-3">
@@ -104,12 +106,6 @@ export function MarketPanel({
             ))}
           </tbody>
         </table>
-
-        <p className="mt-3 text-[11px] leading-relaxed text-slate-600">
-          Grouped by the player&apos;s real position, not the roster slot they are drawn in — a WR in
-          your FLEX is still a WR. Kickers and defenses are excluded: they go for a dollar or two and
-          would drag every figure here toward the floor.
-        </p>
       </div>
     </div>
   )

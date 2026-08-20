@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import type { BoardPlayer } from '@/hooks/useDraft'
 import type { QueuedPlayer } from '@/server/queue-service'
 import { PositionBadge } from './LotPanel'
+import { InjuryBadge } from './InjuryBadge'
 
 const FILTERS = ['ALL', 'QB', 'RB', 'WR', 'TE', 'DEF', 'K'] as const
 type Filter = (typeof FILTERS)[number] | 'QUEUE'
@@ -71,6 +72,7 @@ export function PlayerPool({
         rank: entry.rank,
         posRank: null,
         byeWeek: entry.byeWeek,
+        injury: entry.injury,
         gone: entry.drafted,
       }))
     }
@@ -272,6 +274,7 @@ export function PlayerPool({
                 >
                   {p.name}
                 </span>
+                <InjuryBadge injury={p.injury} />
                 <span className="shrink-0 text-xs text-slate-500">
                   {p.team ?? 'FA'}
                   {p.byeWeek ? ` ·${p.byeWeek}` : ''}

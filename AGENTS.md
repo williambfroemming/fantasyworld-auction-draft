@@ -57,19 +57,41 @@ These look like mistakes and are not. Read `docs/PROJECT_PLAN.md` §4 before cha
 - **`nominatorAt` has no index cap.** It returns null only when every roster is full. The old `n * rosterSize + n` bound stalled the live 2026 draft with 32 picks left, because a skipped seat consumes an index with no pick behind it. Scan a `2n` window, never `n`.
 - **Positional stats group on `players.position`, never the display slot.** A WR shown in FLEX is still a WR, and `positionMarket` excludes K and DEF on purpose (but `SPEND_COLUMNS` keeps them in an OTHER bucket, because a budget row that doesn't total what someone spent is a lie).
 - **`nomination_index` is a cursor, not a seat.** `nominatorAt` scans *forward* from it, so the seat it lands on can be several indices later when full rosters are skipped — which means arithmetic on the cursor (`- 1` to undo, `+ 1` to skip) does not do what it reads like. Void and undo restore `lots.nomination_index`; skip advances past `onTheClock.index`. Three functions had this bug; a single nominate-then-void passes either way, so test across a skip run.
+- **"Is this guy hurt" is a stored column, not a fetch.** `players.injury_status` and friends come from the same 5MB Sleeper dump the pool already uses, refreshed out-of-band by `npm run news:refresh` — so on draft night the answer is in Postgres and no provider being down can take it away. It is a **snapshot**: `injury_updated_at` is what lets the UI say "as of" rather than imply live. **A null status means UNKNOWN, never healthy**: a pool that has never been refreshed has null on every row, and painting those as fit is a confident wrong answer about the exact thing being asked. `InjuryBadge` renders nothing rather than a green tick.
+- **There is no live news feed, and that is a decision rather than a gap.** One was built and removed the same day: a headline panel is only as fresh as the last refresh, Sleeper already does it better and is a tab away, and an app that shows stale news invites people to trust it at the exact moment they should not. Injury *status* is different — small, factual, and attached to a price you are about to pay. If you are about to add a feed back, read `docs/BACKLOG.md` §1 first.
+- **Nothing on the polling path makes an outbound call.** `/api/state` is polled by every client several times a second, so a third party in front of it could stall an award. `sleeper.test.ts` has structural tests asserting `draft-service.ts` neither calls `fetch(` nor imports the Sleeper client. Availability reaches the open lot as a stored column on a join that already existed.
 - **`sleeper_id` is the only player key that survives a season.** `players.id` is a CSV slug or a Sleeper id and the pool is re-imported yearly, so it dies every August; `resolveSleeperIds` pins a stable one at import and `awardLot` snapshots it onto the pick. It is **nullable on purpose** — the matcher refuses to guess between two same-named players, because a wrong match silently moves one player's price history onto another. Treat null as "unknown", never as an error, and never put it on the draft path.
 - **`picks` snapshots `player_rank` as well as name/team/position.** Rank is otherwise recoverable only by joining `players`, and that join dies the moment the next season's CSV replaces the pool. Read it from `pk.`, never the joined `p.` — one source of truth, so live and archive cannot disagree.
 - **Money questions attribute to the drafter, via `draftersByPick()`.** A trade moves `picks.manager_id` but not the salary, and `budget_adjustments` can't recover the original buyer because a trade folds salary and cash into one row. The trade log is the only surviving source.
 - **The value view compares within a position, never across.** A cross-position comparison doesn't measure value, it just rediscovers that this is a superflex league — every top "overpay" comes out a QB. There's a unit test that fails if this is "simplified".
 - **Roster is 16 slots.** `maxBid = budget − (16 − rostered − 1)` → $185 at the start. Getting this wrong skews every bid all draft.
 - **No backticks inside the SQL template literals.** They terminate the tagged template and the error surfaces as an unrelated esbuild parse failure.
+- **Never develop against the Neon database.** `npm run dev` against Neon exhausted the project's data-transfer quota in four days and took the *live* database down — because `/api/state` polls every 400ms and `getState()` runs five queries per poll, so one open tab is ~1.08M queries a day. Use `npm run dev:local` (Docker Postgres 17 behind a Neon HTTP proxy; `npm run db:local:up` first). `src/db/neon-local.ts` redirects the driver **by host**, so the same code path talks to Neon in production without a flag to forget. The driver, protocol and tagged-template semantics are identical — only the endpoint moves, deliberately, because the award and trade statements are single data-modifying CTEs and a `pg` shim would sit between them and the database in dev but not in prod.
 
 ## Commands
 
 **Live:** https://fantasyworld-auction-draft.vercel.app · **Live DB:** `neondb` · **Test DB:** `neondb_test`
 
+### Local development — do this, not `npm run dev`
+
 ```bash
-npm run dev              # local dev (live database)
+npm run db:local:up          # Docker: Postgres 17 + two Neon HTTP proxies (4444 live, 4445 test)
+npm run db:local:setup       # build the schema from src/db/schema.ts (drops and recreates)
+npm run db:local:seed -- <rankings.csv>
+npm run dev:local            # next dev against local Postgres
+
+npm run local -- <any command>   # run anything with the local DATABASE_URL/TEST_DATABASE_URL
+npm run local -- npm run db:verify
+npm run local -- npm run test:int
+npm run db:local:setup-test  # same, for neondb_test
+npm run db:local:down        # stop (keeps data) · db:local:reset throws the volume away
+```
+
+`npm run local` works by exporting the URLs before the inner command; `dotenv` does not
+override an already-exported variable, so every existing script goes local unchanged.
+
+```bash
+npm run dev              # ⚠️ local dev against the LIVE database — see the non-negotiable above
 npm run dev:test         # local dev against the TEST database, /test console enabled
 npm test                 # unit tests for the rules engine (vitest)
 npm run db:push          # migrations + re-applies the manager_totals view
@@ -90,7 +112,11 @@ npm run db:migrate-lot-index      # adds lots.nomination_index (no backfill -- s
 npm run db:migrate-identity       # players.sleeper_id + picks.player_sleeper_id, resolved
                                   # against Sleeper. RE-RUN AFTER EVERY POOL IMPORT
 npm run db:migrate-identity -- --offline   # columns only, no network
+npm run news:refresh              # player availability from Sleeper. RUN THE WEEK OF THE DRAFT
 npm run pins -- --clear
+npm run season:info                   # prize money and draft location, per season
+npm run season:info -- 2026 --city "San Diego" --state CA
+npm run season:info -- 2026 --champion 2100 --runner-up 600 --third 300
 ```
 
 > `drizzle-kit push` silently DROPS the `manager_totals` view, which 500s

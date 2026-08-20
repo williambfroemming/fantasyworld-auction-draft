@@ -54,6 +54,31 @@ export interface StateLot {
   playerPosition: string
   playerByeWeek: number | null
   nominatorId: number
+  /**
+   * Availability for the player on the block (docs/BACKLOG.md §1).
+   *
+   * ⚠️ This looks like it breaks §1's "news never touches `/api/state`" and does
+   * not. That rule exists to keep a **third-party fetch** off the path every
+   * client polls — someone else's uptime must never sit in front of an award.
+   * This is a stored column, refreshed out-of-band by `npm run news:refresh`,
+   * read from a join on `players` that this query already performs for the name
+   * and bye week. No new query, no new dependency, nothing that can time out.
+   *
+   * It has to come through here because the open lot is deliberately *excluded*
+   * from `/api/board`'s pool, so the one player whose health matters most —
+   * the one money is about to be committed to — is the one the pool payload
+   * cannot carry.
+   *
+   * Not in the fingerprint, so a refresh mid-draft will not wake every client.
+   * That is correct: this is refreshed before draft night, not during it.
+   */
+  playerInjury: {
+    status: string
+    bodyPart: string | null
+    notes: string | null
+    practice: string | null
+    updatedAt: string | null
+  } | null
 }
 
 export interface DraftState {
@@ -95,6 +120,66 @@ export interface DraftState {
 // State
 // ---------------------------------------------------------------------------
 
+/**
+ * The polling fingerprint on its own, in a single query.
+ *
+ * `/api/state` answers the overwhelming majority of polls with a 204, and every
+ * one of those used to cost five queries: the fingerprint is computed *from* the
+ * state, so `getState()` had to build the entire state — managers, the open lot,
+ * recent picks — before it could discover nothing had changed and discard all of
+ * it. The heaviest of the five is the `manager_totals` join, an aggregate over
+ * `picks` and `budget_adjustments` that the 204 path never reads.
+ *
+ * At draft-night cadence that is ~12.5 queries/second across ten clients. It is
+ * also what makes a forgotten dev tab dangerous: four days of one exhausted the
+ * project's data-transfer quota and 500'd the live board. See
+ * `src/db/neon-local.ts` for the other half of that fix.
+ *
+ * So the unchanged path now reads only what the fingerprint is made of: five
+ * scalars, one round trip, no aggregate view.
+ *
+ * ## This must produce exactly what `getState()` produces
+ *
+ * Two functions computing one fingerprint is the hazard here. If they ever
+ * disagree the failure is silent and total — clients either poll forever without
+ * ever seeing a change, or refetch the whole board on every tick. They are kept
+ * honest structurally: both build `VersionParts` and hand it to the same
+ * `fingerprint()`, so only the SQL differs, and `state-version.itest.ts` asserts
+ * the two agree across nominate, award, undo and trade.
+ *
+ * The season filters are load-bearing for the usual reason (AGENTS.md): an
+ * unscoped `picks` count folds every past draft into the number, and a
+ * fingerprint that counts last year's rows stops moving when this year's change.
+ */
+export async function getVersion(): Promise<string | null> {
+  const sql = getSql()
+
+  // The subqueries correlate on `d.season` rather than a separately-read year,
+  // so the season filter cannot drift from the row it belongs to.
+  const rows = await sql`
+    SELECT d.season, d.rev, d.status,
+           (SELECT l.id FROM lots l
+             WHERE l.status = 'open' AND l.season = d.season
+             LIMIT 1) AS lot_id,
+           (SELECT count(*)::int FROM picks WHERE season = d.season) AS pick_count
+      FROM draft d
+     WHERE d.id = 1`
+
+  // Null rather than a throw: an uninitialised draft is `getState()`'s error to
+  // report, with its "run `npm run db:seed`" hint. The caller falls through to it
+  // rather than this path inventing a second, worse version of that message.
+  const d = rows[0]
+  if (!d) return null
+
+  return fingerprint({
+    season: d.season as number,
+    rev: d.rev as number,
+    lotId: (d.lot_id as number | null) ?? null,
+    pickCount: d.pick_count as number,
+    draftStatus: d.status as string,
+  })
+}
+
 export async function getState(): Promise<DraftState> {
   const sql = getSql()
 
@@ -114,7 +199,9 @@ export async function getState(): Promise<DraftState> {
     // team and bye week.
     sql`SELECT l.id, l.player_id, l.nominator_id,
                p.name AS player_name, p.team AS player_team,
-               p.position AS player_position, p.bye_week AS player_bye_week
+               p.position AS player_position, p.bye_week AS player_bye_week,
+               p.injury_status, p.injury_body_part, p.injury_notes,
+               p.practice_participation, p.injury_updated_at
         FROM lots l JOIN players p ON p.id = l.player_id
         WHERE l.status = 'open' AND l.season = ${season} LIMIT 1`,
     // Read from the pick's own snapshot, not a join — same rows the archive
@@ -153,6 +240,15 @@ export async function getState(): Promise<DraftState> {
         playerPosition: l.player_position,
         playerByeWeek: l.player_bye_week,
         nominatorId: l.nominator_id,
+        playerInjury: l.injury_status
+          ? {
+              status: l.injury_status as string,
+              bodyPart: (l.injury_body_part as string | null) ?? null,
+              notes: (l.injury_notes as string | null) ?? null,
+              practice: (l.practice_participation as string | null) ?? null,
+              updatedAt: l.injury_updated_at ? String(l.injury_updated_at) : null,
+            }
+          : null,
       }
     : null
 

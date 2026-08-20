@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
+import { SiteNav } from '@/components/SiteNav'
 import { useRouter } from 'next/navigation'
 import { LotPanel, PositionBadge } from '@/components/LotPanel'
 import { NominationOrder } from '@/components/NominationOrder'
@@ -104,25 +104,9 @@ export default function DraftPage() {
     >
       {/* Header */}
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-3">
-        <h1 className="text-lg font-bold tracking-tight">Auction Draft</h1>
-        <Link
-          href="/board"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
-        >
-          League board →
-        </Link>
-        <Link
-          href="/trades"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
-        >
-          Trades →
-        </Link>
-        <Link
-          href="/stats"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
-        >
-          Stats →
-        </Link>
+        {/* The wordmark and the section nav already say where you are; a
+            second title beside them was just noise. */}
+        <SiteNav section="draft" current="/draft" isCommish={myManager?.isCommish} />
 
         {state.draft.status === 'paused' && (
           <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300">

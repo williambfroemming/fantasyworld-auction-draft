@@ -527,3 +527,31 @@ describe('valueVsRoom', () => {
     expect(valueVsRoom(input({ picks })).scored).toHaveLength(0)
   })
 })
+
+describe('draftComplete honours a season that says it is finished', () => {
+  const base: StatsInput = {
+    season: 2022,
+    rosterSize: 16,
+    startingBudget: 200,
+    managers: [
+      { id: 1, displayName: 'A', color: '#000', draftSlot: 0, budget: 0, rostered: 16 },
+      // One pick short, permanently: it is missing from the source record.
+      { id: 2, displayName: 'B', color: '#000', draftSlot: 1, budget: 1, rostered: 15 },
+    ],
+    picks: [],
+    trades: [],
+  }
+
+  it('would call a short season unfinished on roster counts alone', () => {
+    expect(draftComplete(base)).toBe(false)
+  })
+
+  it('accepts the season’s own word that it is done', () => {
+    expect(draftComplete({ ...base, isFinal: true })).toBe(true)
+  })
+
+  it('still uses roster counts for a live draft, which has no flag', () => {
+    const full = { ...base, managers: base.managers.map((m) => ({ ...m, rostered: 16 })) }
+    expect(draftComplete(full)).toBe(true)
+  })
+})

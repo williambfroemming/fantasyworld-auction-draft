@@ -327,6 +327,76 @@ export async function setLeagueSettings(
   return { ok: true, data: null }
 }
 
+/**
+ * Where the draft was held and what it cost to enter.
+ *
+ * These live on `seasons`, not `draft`, because they are facts about a *year*
+ * rather than settings the auction engine reads — nothing here can change a
+ * budget, a max bid or a pick. That is also why, unlike `setLeagueSettings`,
+ * they stay editable after the first pick: the room usually only agrees on the
+ * final buy-in once everyone has actually paid, and somebody always wants to
+ * add the city months later. Locking them at pick one would mean editing the
+ * database by hand to record where the league sat.
+ *
+ * The buy-in is what makes career winnings a real number rather than a gross
+ * prize total. `null` is unknown and is preserved as unknown — a season nobody
+ * has priced must not read as a free one.
+ */
+export async function setSeasonInfo(info: {
+  city: string | null
+  state: string | null
+  buyIn: number | null
+}): Promise<ActionResult<null>> {
+  if (info.buyIn !== null && (info.buyIn < 0 || info.buyIn > 100_000)) {
+    return { ok: false, reason: 'Buy-in out of range' }
+  }
+
+  const sql = getSql()
+  const season = await currentSeason()
+  const city = info.city?.trim() || null
+  const stateName = info.state?.trim() || null
+
+  // A `seasons` row may not exist yet for a year that has only just started,
+  // so this upserts rather than updating. Country is fixed rather than asked
+  // for: it is one field nobody would ever fill in, and the history import
+  // already writes 'USA' for every season on record.
+  await sql`
+    INSERT INTO seasons (season, draft_city, draft_state, draft_country, buy_in, data_tier)
+    VALUES (${season}, ${city}, ${stateName}, ${city ? 'USA' : null}, ${info.buyIn}, 'weekly')
+    ON CONFLICT (season) DO UPDATE SET
+      draft_city    = excluded.draft_city,
+      draft_state   = excluded.draft_state,
+      draft_country = COALESCE(excluded.draft_country, seasons.draft_country),
+      buy_in        = excluded.buy_in`
+
+  await bumpRev()
+  return { ok: true, data: null }
+}
+
+/**
+ * What is currently recorded for this season, to seed the setup form.
+ *
+ * Deliberately its own read rather than a field on `/api/state`: it changes
+ * about once a year, and the polling payload is the one thing in this app that
+ * every client refetches every 400ms all draft night.
+ */
+export async function getSeasonInfo(): Promise<{
+  season: number
+  city: string | null
+  state: string | null
+  buyIn: number | null
+}> {
+  const season = await currentSeason()
+  const [row] = await getSql()`
+    SELECT draft_city, draft_state, buy_in FROM seasons WHERE season = ${season}`
+  return {
+    season,
+    city: row?.draft_city ?? null,
+    state: row?.draft_state ?? null,
+    buyIn: row?.buy_in === null || row?.buy_in === undefined ? null : Number(row.buy_in),
+  }
+}
+
 /** Rename a manager / change what the board calls them. */
 export async function renameManager(
   managerId: number,

@@ -28,6 +28,13 @@ const Body = z.discriminatedUnion('action', [
     rosterSize: z.number().int(),
   }),
   z.object({
+    action: z.literal('setSeasonInfo'),
+    city: z.string().max(60).nullable(),
+    state: z.string().max(40).nullable(),
+    // Null is "not priced yet", and must survive a round trip as null.
+    buyIn: z.number().int().nullable(),
+  }),
+  z.object({
     action: z.literal('renameManager'),
     managerId: z.number().int(),
     displayName: z.string().max(40),
@@ -68,6 +75,7 @@ export async function POST(req: Request) {
       case 'swapSeats': return commish.swapSeats(b.aId, b.bId)
       case 'clearPin': return commish.clearPin(b.managerId)
       case 'setLeagueSettings': return commish.setLeagueSettings(b.startingBudget, b.rosterSize)
+      case 'setSeasonInfo': return commish.setSeasonInfo({ city: b.city, state: b.state, buyIn: b.buyIn })
       case 'renameManager': return commish.renameManager(b.managerId, b.displayName)
       case 'resetDraft': return commish.resetDraft()
     }

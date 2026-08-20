@@ -40,6 +40,12 @@ export interface StatsPick {
   /** Pool rank frozen at award time. Null = not scored. */
   rank: number | null
   posRank: number | null
+  /**
+   * Fantasy points this player scored that season, where the season has been
+   * played. Absent on the live board by design — mid-season points are not a
+   * verdict on a draft, and nothing on the polling path fetches them.
+   */
+  points?: number | null
 }
 
 export interface StatsTrade {
@@ -54,6 +60,13 @@ export interface StatsInput {
   season: number
   rosterSize: number
   startingBudget: number
+  /**
+   * The season's record is complete, stated rather than inferred.
+   *
+   * Optional because the live draft has no such flag — it is still happening.
+   * See `draftComplete`.
+   */
+  isFinal?: boolean
   managers: StatsManager[]
   picks: StatsPick[]
   trades: StatsTrade[]
@@ -427,11 +440,19 @@ export function nominationStats(input: StatsInput): NominationRow[] {
 /**
  * Is the draft finished?
  *
- * The same definition `nominatorAt` uses — is anybody unfilled? — rather than
- * `draft.status === 'done'`, because the status flag is set by hand and can lag,
- * and an archived season has no live status at all.
+ * For a live draft the test is the same one `nominatorAt` uses — is anybody
+ * unfilled? — rather than `draft.status === 'done'`, because the status flag is
+ * set by hand and can lag.
+ *
+ * ⚠️ A finished season says so directly, and that has to win. "Is every roster
+ * full?" is a fine question about a draft in progress and the wrong question
+ * about a season that ended years ago: 2022's record is one pick short and
+ * always will be, because the pick is missing from the source and cannot be
+ * recovered. Without `isFinal` that season is reported as still drafting,
+ * forever, which gates the Value view and shows a live panel on a dead year.
  */
 export function draftComplete(input: StatsInput): boolean {
+  if (input.isFinal === true) return true
   return (
     input.managers.length > 0 && input.managers.every((m) => m.rostered >= input.rosterSize)
   )

@@ -42,6 +42,12 @@ export interface ArchiveManager {
 
 export interface ArchivePick {
   id: number
+  /**
+   * Fantasy points this player scored that season, from `player_seasons`.
+   * Null means unknown — the season is not played yet, or the player has no
+   * row — and must never be read as zero.
+   */
+  points?: number | null
   pickNo: number
   managerId: number
   nominatorId: number
@@ -77,6 +83,20 @@ export interface ArchiveSeason {
   season: number
   rosterSize: number
   startingBudget: number
+  /**
+   * The season's record is complete.
+   *
+   * Read this rather than inferring completeness from roster counts. 2022 has a
+   * pick missing from the record that cannot be recovered, so "is every roster
+   * full?" says that season is still in progress, forever.
+   */
+  isFinal: boolean
+  /**
+   * Anything a reader of this season needs told — an unbalanced budget, a pick
+   * that is missing from the source. Rendered on the board rather than left for
+   * somebody to rediscover.
+   */
+  notes: string[]
   managers: ArchiveManager[]
   rosters: ArchivePick[]
   trades: TradeSummary[]
@@ -115,7 +135,22 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
   const sql = getSql()
   if (!Number.isInteger(season)) return null
 
-  const [settings] = await sql`SELECT roster_size, starting_budget FROM draft WHERE id = 1`
+  // ⚠️ The season's OWN settings, falling back to the current draft's only when
+  // that season has none on record.
+  //
+  // This used to read `draft` unconditionally, which rendered every archived
+  // year with today's roster size and budget. That was invisible while the app
+  // knew one season and became wrong the moment it knew several: 2022's rosters
+  // are not all 16 (one manager's sixteenth pick is missing from the record),
+  // and a future rule change would silently rewrite every past board.
+  const [settings] = await sql`
+    SELECT COALESCE(s.roster_size, d.roster_size)         AS roster_size,
+           COALESCE(s.starting_budget, d.starting_budget) AS starting_budget,
+           COALESCE(s.is_final, false)                    AS is_final,
+           COALESCE(s.notes, '{}')                        AS notes
+      FROM draft d
+      LEFT JOIN seasons s ON s.season = ${season}
+     WHERE d.id = 1`
 
   const [orderRows, pickRows, adjRows] = await Promise.all([
     sql`SELECT so.manager_id, so.draft_slot, so.display_name, so.color
@@ -124,10 +159,19 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
     // Every column here is `pk.` — the rule at the top of this file still
     // holds, there is no join to `players`. player_rank is the pick's own
     // snapshot, written at award time exactly like player_name.
+    // The one permitted join, and the reason it is permitted: `player_seasons`
+    // is keyed by (season, player_id) and records what a player scored in THAT
+    // year. It is history, not the pool — re-importing next August's rankings
+    // cannot change a 2021 row, which is exactly what makes a `players` join
+    // unsafe and this one fine. It is what lets /stats say a $1 pick finished
+    // WR4 years later.
     sql`SELECT pk.id, pk.pick_no, pk.manager_id, pk.nominator_id, pk.price, pk.slot_override,
                pk.player_name, pk.player_team, pk.player_position,
-               pk.player_rank, pk.player_pos_rank
-        FROM picks pk WHERE pk.season = ${season} ORDER BY pk.pick_no`,
+               pk.player_rank, pk.player_pos_rank, ps.total_points
+        FROM picks pk
+        LEFT JOIN player_seasons ps
+          ON ps.season = pk.season AND ps.player_id = pk.player_sleeper_id
+        WHERE pk.season = ${season} ORDER BY pk.pick_no`,
     sql`SELECT manager_id, COALESCE(SUM(amount), 0)::int AS total
         FROM budget_adjustments WHERE season = ${season} GROUP BY manager_id`,
   ])
@@ -166,6 +210,8 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
     season,
     rosterSize: Number(settings.roster_size),
     startingBudget,
+    isFinal: Boolean(settings.is_final),
+    notes: (settings.notes as string[] | null) ?? [],
     managers,
     rosters: pickRows.map((p) => ({
       id: Number(p.id),
@@ -179,6 +225,8 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
       position: p.player_position,
       rank: p.player_rank === null ? null : Number(p.player_rank),
       posRank: p.player_pos_rank === null ? null : Number(p.player_pos_rank),
+      // Null is unknown, never zero — see `ResultPick.points` in draft-value.ts.
+      points: p.total_points === null || p.total_points === undefined ? null : Number(p.total_points),
       byeWeek: null,
     })),
     trades: await listTrades(season, 100),

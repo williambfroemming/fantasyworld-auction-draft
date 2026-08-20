@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { validateAward } from '@/lib/draft'
+import { InjuryBadge } from './InjuryBadge'
 import { sounds } from '@/lib/sounds'
 import type { DraftState, StateManager } from '@/server/draft-service'
 
@@ -216,6 +217,9 @@ export function LotPanel({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <PositionBadge position={lot.playerPosition} />
+            {/* On the block is where health matters most — this is the moment
+                money gets committed. Full text, not the abbreviation. */}
+            <InjuryBadge injury={lot.playerInjury} size="lg" />
             <span className="text-sm text-slate-400">
               {lot.playerTeam ?? 'FA'}
               {lot.playerByeWeek ? ` · bye ${lot.playerByeWeek}` : ''}

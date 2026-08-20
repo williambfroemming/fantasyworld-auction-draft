@@ -22,6 +22,16 @@ export interface SleeperPlayer {
   active?: boolean
   status?: string | null
   search_rank?: number | null
+  // Injury + news fields. These ride along in the same 5MB dump the pool comes
+  // from, which is why "is this guy hurt" costs no extra dependency at all.
+  injury_status?: string | null
+  injury_body_part?: string | null
+  injury_notes?: string | null
+  injury_start_date?: string | null
+  practice_participation?: string | null
+  practice_description?: string | null
+  /** Epoch millis of the last news item Sleeper saw for this player. */
+  news_updated?: number | null
 }
 
 export interface PoolPlayer {
@@ -35,6 +45,34 @@ export interface PoolPlayer {
   posRank?: number | null
   byeWeek?: number | null
   active: boolean
+  /**
+   * Injury and availability, straight from the Sleeper dump (docs/BACKLOG.md §1).
+   *
+   * Optional because a CSV-seeded pool has none of it — a rankings export
+   * carries rank, team and bye, and nothing about health. Absent means
+   * "unknown", never "healthy": rendering a missing status as fit would be a
+   * confident wrong answer about the one thing people are asking.
+   */
+  injury?: PlayerInjury | null
+}
+
+/**
+ * What Sleeper knows about a player's availability.
+ *
+ * Deliberately a bag of facts, not a verdict. `PROJECT_PLAN.md` §4 keeps tiers
+ * and auction values off the board because they are one source's opinion, and
+ * the same line applies here: "Questionable, knee" is a fact and belongs on
+ * screen; "avoid" or "he'll be fine" is an opinion and does not.
+ */
+export interface PlayerInjury {
+  /** Questionable · Doubtful · Out · IR · PUP · NA … Sleeper's own vocabulary. */
+  status: string
+  bodyPart: string | null
+  notes: string | null
+  /** DNP · Limited Participation · Full Participation. */
+  practice: string | null
+  /** Epoch millis of Sleeper's last news update, for "as of" staleness. */
+  newsUpdated: number | null
 }
 
 const SLEEPER_PLAYERS_URL = 'https://api.sleeper.app/v1/players/nfl'
@@ -84,6 +122,7 @@ export function normalizePool(raw: Record<string, SleeperPlayer>): PoolPlayer[] 
       position,
       searchRank: cleanRank(p.search_rank),
       active,
+      injury: readInjury(p),
     })
   }
 
@@ -404,4 +443,44 @@ export function resolveSleeperIds(
     if (unique) out.set(p.id, unique)
   }
   return out
+}
+
+/**
+ * Pull the injury picture out of a raw Sleeper player.
+ *
+ * Returns null when there is nothing to say, so a healthy player carries no
+ * object rather than an object full of nulls — the UI can then treat presence
+ * as "there is something to show" without inspecting the fields.
+ *
+ * ⚠️ `status` is the gate. Sleeper leaves `injury_body_part` populated on some
+ * players who have since been cleared, so keying off the body part instead
+ * would keep showing a knee that stopped mattering in March.
+ */
+export function readInjury(p: SleeperPlayer): PlayerInjury | null {
+  const status = p.injury_status?.trim()
+  if (!status) return null
+  return {
+    status,
+    bodyPart: p.injury_body_part?.trim() || null,
+    notes: p.injury_notes?.trim() || null,
+    practice: p.practice_participation?.trim() || null,
+    newsUpdated: typeof p.news_updated === 'number' ? p.news_updated : null,
+  }
+}
+
+/**
+ * How much an injury status should worry you, 0–3.
+ *
+ * Used for sort order and for which colour a badge wears — never to tell anyone
+ * whether to draft someone. Unknown strings land at 1 rather than 0: a status
+ * Sleeper invented after this was written is more likely to be worth seeing
+ * than not, and silently ranking it "fine" is the wrong failure.
+ */
+export function injurySeverity(status: string): 0 | 1 | 2 | 3 {
+  const s = status.trim().toUpperCase()
+  if (s === 'IR' || s === 'PUP' || s === 'OUT' || s === 'NFI' || s === 'SUS') return 3
+  if (s === 'DOUBTFUL') return 2
+  if (s === 'QUESTIONABLE' || s === 'PROBABLE' || s === 'LIMITED') return 1
+  if (s === 'NA' || s === 'ACTIVE' || s === 'HEALTHY') return 0
+  return 1
 }

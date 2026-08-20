@@ -1,5 +1,6 @@
 /** Reassign manager colours from the palette in src/lib/colors.ts. */
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 import { colorForSeat, colorNameForSeat, textOn } from '../src/lib/colors'
 
 async function main() {

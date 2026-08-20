@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { spendCurve, type CurvePoint, type StatsInput } from '@/lib/stats'
+import { GlossaryLink } from '../GlossaryLink'
 
 /**
  * When the money actually left the room.
@@ -47,7 +48,7 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
       <div
         className={`grid place-items-center rounded-xl border border-rule bg-slate-900/60 text-sm text-slate-500 ${className}`}
       >
-        Nothing drafted yet — the curve starts with the first sale.
+        Nothing drafted yet.
       </div>
     )
   }
@@ -76,9 +77,7 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
             League spend over the draft
           </h2>
-          <span className="text-[11px] text-slate-600">
-            cumulative dollars by pick — the straight line is an even pace
-          </span>
+          <GlossaryLink anchor="spend-curve" label="the spend curve" />
           <span className="ml-auto text-sm font-semibold tabular-nums text-slate-200">
             ${leagueTotal.toLocaleString()}
           </span>
@@ -164,10 +163,11 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
             Who bought early
           </h2>
-          <span className="text-[11px] text-slate-600">
-            same axes on every panel, so the shapes compare directly · ½ = the pick they were
-            half done spending
-          </span>
+          {/* Trimmed to the legend. "½" is a glyph drawn on the chart and is
+              unreadable without a key, so that half stays; "same axes on every
+              panel" was describing a thing the reader can see. */}
+          <span className="text-[11px] text-slate-600">½ = half their money spent</span>
+          <GlossaryLink anchor="halfway-pick" label="the halfway pick" />
         </div>
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-2 p-3">

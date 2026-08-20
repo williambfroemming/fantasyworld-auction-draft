@@ -24,6 +24,7 @@
  * broke. Run `npm run db:verify` afterwards.
  */
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 /**
  * The year every pre-migration row belongs to. This is the ONE place a literal

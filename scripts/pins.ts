@@ -10,6 +10,7 @@
  * bidding from the wrong seat by mistake.
  */
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 import { hashPin, isValidPinFormat } from '../src/lib/auth'
 
 const args = process.argv.slice(2)

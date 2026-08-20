@@ -16,6 +16,7 @@
  *   3. start the draft                   /setup, or npm run draft:start
  */
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 async function main() {
   const args = process.argv.slice(2).filter((a) => a !== '--')

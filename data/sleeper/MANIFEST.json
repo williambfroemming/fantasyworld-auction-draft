@@ -1,0 +1,125 @@
+{
+  "2026": {
+    "league_id": "1389719640493551616",
+    "previous_league_id": "1257436698095136768",
+    "name": "Fantasy 101 XXI",
+    "roster_positions": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "SUPER_FLEX",
+      "DEF",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN"
+    ],
+    "playoff_week_start": 15,
+    "playoff_teams": 6,
+    "files": {
+      "league": {
+        "sha256": "634dba6e226333d54f7e19a39c503eb1b7bbfd81170be5afc18c97592902b96d",
+        "count": null
+      },
+      "users": {
+        "sha256": "a400329a47c63d48d770030affb73af0263c70d070590d56ca5a026109f80c91",
+        "count": 11
+      },
+      "rosters": {
+        "sha256": "c0a9fa17d8e2323a6ba87801aee5be788e350a0ed060f7503d26be4841680363",
+        "count": 10
+      },
+      "matchups-01": {
+        "sha256": "2faf84f1ca58d0a92f325d15f480103975686f1ad7b954ac61f12d0dbe4cf8d1",
+        "count": 10
+      },
+      "matchups-02": {
+        "sha256": "6e422ca27c62eede93ec8752731690b288384baaa859b22f0c7798985277881e",
+        "count": 10
+      },
+      "matchups-03": {
+        "sha256": "2a28fcb3af9a23fd6e8b03b468e81f51865524870ebf2de55c2998908eabddbe",
+        "count": 10
+      },
+      "matchups-04": {
+        "sha256": "1aad50b1508bca482ebe4006b734b114944050c024f91cd918af41bf31c61b43",
+        "count": 10
+      },
+      "matchups-05": {
+        "sha256": "5d89eb2d7568ad165d29ac798cd605aa5d908b1b6ccddcee69f643023a3a6030",
+        "count": 10
+      },
+      "matchups-06": {
+        "sha256": "562f2eef11e19bc49f1a2168472db38a106f17697b7733a635a827ea154dd880",
+        "count": 10
+      },
+      "matchups-07": {
+        "sha256": "a051299310d2e16c372fb31d4c9580501abfb4b2419c938e1029e59227265dd3",
+        "count": 10
+      },
+      "matchups-08": {
+        "sha256": "882ac7cfa98ea46d7146833bf22fb963d1eeb240d1c538dc7a427bee57e24c61",
+        "count": 10
+      },
+      "matchups-09": {
+        "sha256": "f29468cf35383a4eaaa35d06f7ec28d13aba90d75b5eb0ba4b993520957ed5b2",
+        "count": 10
+      },
+      "matchups-10": {
+        "sha256": "2faf84f1ca58d0a92f325d15f480103975686f1ad7b954ac61f12d0dbe4cf8d1",
+        "count": 10
+      },
+      "matchups-11": {
+        "sha256": "9bba39d088430be5837ec7540309ab780a435221473f97c9142cb808326d4957",
+        "count": 10
+      },
+      "matchups-12": {
+        "sha256": "2a28fcb3af9a23fd6e8b03b468e81f51865524870ebf2de55c2998908eabddbe",
+        "count": 10
+      },
+      "matchups-13": {
+        "sha256": "1aad50b1508bca482ebe4006b734b114944050c024f91cd918af41bf31c61b43",
+        "count": 10
+      },
+      "matchups-14": {
+        "sha256": "5d89eb2d7568ad165d29ac798cd605aa5d908b1b6ccddcee69f643023a3a6030",
+        "count": 10
+      },
+      "matchups-15": {
+        "sha256": "562f2eef11e19bc49f1a2168472db38a106f17697b7733a635a827ea154dd880",
+        "count": 10
+      },
+      "matchups-16": {
+        "sha256": "a051299310d2e16c372fb31d4c9580501abfb4b2419c938e1029e59227265dd3",
+        "count": 10
+      },
+      "matchups-17": {
+        "sha256": "882ac7cfa98ea46d7146833bf22fb963d1eeb240d1c538dc7a427bee57e24c61",
+        "count": 10
+      },
+      "winners_bracket": {
+        "sha256": "936d59be1ab5177412e7a47e39bedfdfdfb6713ec8c21a7bc15c69b20ba82411",
+        "count": 7
+      },
+      "losers_bracket": {
+        "sha256": "1ee2fbd70bfe0b448e933d54868cbc384f67ae5b897eb6f8b95dc0592240fba2",
+        "count": 4
+      },
+      "drafts": {
+        "sha256": "b00b611a0cf2a2ecc33bea46090825fe767df51e1c41b3bb6c2697c7ac0169b5",
+        "count": 1
+      },
+      "draft_picks": {
+        "sha256": "82d23504158573797ee763775dbb14d89a30324855474adf8a8cb0a814c0df8c",
+        "count": 160
+      }
+    }
+  }
+}

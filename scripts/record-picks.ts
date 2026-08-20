@@ -20,6 +20,7 @@
  * guess — picking the wrong Johnson is worse than failing.
  */
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 interface Entry {
   manager: string

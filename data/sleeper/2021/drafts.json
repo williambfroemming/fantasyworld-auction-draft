@@ -1,0 +1,57 @@
+[
+  {
+    "created": 1627488963408,
+    "creators": [
+      "596552796187181056"
+    ],
+    "draft_id": "726144978962747393",
+    "draft_order": {
+      "482305993246502912": 10,
+      "596547532989972480": 5,
+      "596552796187181056": 7,
+      "597564674589913088": 4,
+      "597587057577086976": 2,
+      "597587272728113152": 8,
+      "597822038236774400": 9,
+      "597851820731203584": 3,
+      "598753920659034112": 6,
+      "599337029230194688": 1
+    },
+    "last_message_id": "740066671200382976",
+    "last_message_time": 1630808153490,
+    "last_picked": 1630808152902,
+    "league_id": "726144978962747392",
+    "metadata": {
+      "description": "",
+      "name": "Fantasy 101 XVI",
+      "nominating_slot": "10",
+      "nominating_user_id": "482305993246502912",
+      "scoring_type": "std"
+    },
+    "season": "2021",
+    "season_type": "regular",
+    "settings": {
+      "alpha_sort": 0,
+      "budget": 200,
+      "cpu_autopick": 1,
+      "enforce_position_limits": 1,
+      "nomination_timer": 60,
+      "pick_timer": 120,
+      "player_type": 0,
+      "reversal_round": 0,
+      "rounds": 16,
+      "slots_bn": 7,
+      "slots_def": 1,
+      "slots_flex": 1,
+      "slots_qb": 1,
+      "slots_rb": 2,
+      "slots_te": 1,
+      "slots_wr": 3,
+      "teams": 10
+    },
+    "sport": "nfl",
+    "start_time": 1630806136368,
+    "status": "complete",
+    "type": "auction"
+  }
+]

@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   UNRANKED_SENTINEL,
+  injurySeverity,
   normalizePool,
   parseCsvPool,
   playerMatchKey,
+  readInjury,
   resolveSleeperIds,
   sortForBoard,
   type PoolPlayer,
@@ -308,5 +312,119 @@ describe('resolveSleeperIds', () => {
       sleeperPlayer({ id: 'csv-mike-williams-WR', name: 'Mike Williams', team: 'DAL', position: 'WR' }),
     ]
     expect(resolveSleeperIds(pool, sleeper).has('csv-mike-williams-WR')).toBe(false)
+  })
+})
+
+describe('readInjury', () => {
+  it('returns null for a player with nothing to report', () => {
+    expect(readInjury({ player_id: '1', full_name: 'Fit Guy' })).toBeNull()
+  })
+
+  /**
+   * The gate is `injury_status`, not the body part. Sleeper leaves
+   * `injury_body_part` populated on players who have since been cleared, so
+   * keying off it would keep showing a knee that stopped mattering in March.
+   */
+  it('reports nothing when only a stale body part survives', () => {
+    expect(
+      readInjury({ player_id: '1', full_name: 'Cleared Guy', injury_body_part: 'Knee' }),
+    ).toBeNull()
+  })
+
+  it('carries the detail that actually changes a bid', () => {
+    expect(
+      readInjury({
+        player_id: '1',
+        full_name: 'Malik Nabers',
+        injury_status: 'Questionable',
+        injury_body_part: 'Knee - ACL',
+        injury_notes: 'Surgery',
+        practice_participation: 'DNP',
+        news_updated: 1_755_000_000_000,
+      }),
+    ).toEqual({
+      status: 'Questionable',
+      bodyPart: 'Knee - ACL',
+      notes: 'Surgery',
+      practice: 'DNP',
+      newsUpdated: 1_755_000_000_000,
+    })
+  })
+
+  it('normalises blank strings to null rather than rendering empty detail', () => {
+    const r = readInjury({
+      player_id: '1',
+      full_name: 'X',
+      injury_status: 'Out',
+      injury_body_part: '   ',
+      injury_notes: '',
+    })
+    expect(r).toEqual({
+      status: 'Out',
+      bodyPart: null,
+      notes: null,
+      practice: null,
+      newsUpdated: null,
+    })
+  })
+})
+
+describe('injurySeverity', () => {
+  it('ranks season-enders above game-time decisions', () => {
+    expect(injurySeverity('IR')).toBe(3)
+    expect(injurySeverity('PUP')).toBe(3)
+    expect(injurySeverity('Out')).toBe(3)
+    expect(injurySeverity('Doubtful')).toBe(2)
+    expect(injurySeverity('Questionable')).toBe(1)
+  })
+
+  it('is case- and space-insensitive', () => {
+    expect(injurySeverity('  questionable ')).toBe(1)
+    expect(injurySeverity('ir')).toBe(3)
+  })
+
+  /**
+   * An unrecognised status is more likely to be worth seeing than not, so it
+   * lands at 1 rather than 0. Silently ranking a status Sleeper invented last
+   * week as "fine" is the wrong direction to fail in.
+   */
+  it('treats an unknown status as worth showing, not as healthy', () => {
+    expect(injurySeverity('Limited Participation In Practice')).toBe(1)
+    expect(injurySeverity('Some New Sleeper Status')).toBe(1)
+  })
+
+  it('still ranks the explicitly-clear values at zero', () => {
+    expect(injurySeverity('NA')).toBe(0)
+    expect(injurySeverity('Active')).toBe(0)
+  })
+})
+
+/**
+ * The polling path stays free of outbound calls.
+ *
+ * This survives the removal of the news feed rather than going with it. The
+ * rule it protects is older and broader than that feature: `/api/state` is
+ * polled by every client several times a second, and putting *anyone's* uptime
+ * in front of it would mean a third party could stall an award. A comment
+ * saying so is not enforcement; reading the file is.
+ */
+describe('structural: draft-service makes no outbound calls', () => {
+  const draftService = readFileSync(
+    resolve(import.meta.dirname, '../server/draft-service.ts'),
+    'utf8',
+  )
+
+  it('performs no fetch', () => {
+    expect(draftService).not.toMatch(/\bfetch\(/)
+  })
+
+  /**
+   * Availability reaches the open lot as a stored column on a join that already
+   * existed — never by calling Sleeper. `sleeper.ts` is import-time only
+   * (scripts and seeds), and importing it here would drag `fetchPool` onto the
+   * request path.
+   */
+  it('does not import the Sleeper client', () => {
+    expect(draftService).not.toMatch(/from ['"].*lib\/sleeper['"]/)
   })
 })

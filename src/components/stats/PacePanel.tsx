@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { managerPace, spendBlocks, type StatsInput } from '@/lib/stats'
 import { textOn } from '@/lib/colors'
+import { GlossaryLink } from '../GlossaryLink'
 
 /**
  * How fast the room is burning money, and who is ahead of it.
@@ -35,12 +36,13 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
       {/* ---- the market's own curve ---- */}
       <div className="shrink-0 rounded-xl border border-rule bg-slate-900/60">
         <div className="flex flex-wrap items-baseline gap-2 border-b border-rule px-3 py-2">
+          {/* The subtitle used to carry "average price per N picks". It is the
+              title now — a heading that says what it measures needs no gloss
+              under it. */}
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Market pace
+            Average price per {blockSize} picks
           </h2>
-          <span className="text-[11px] text-slate-600">
-            average price per {blockSize} picks — where the money went early
-          </span>
+          <GlossaryLink anchor="market-pace" label="market pace" />
         </div>
         <div className="p-3">
           <table className="w-full text-sm">
@@ -84,14 +86,14 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
       {/* ---- who is ahead of it ---- */}
       <div className="shrink-0 rounded-xl border border-rule bg-slate-900/60">
         <div className="flex flex-wrap items-baseline gap-2 border-b border-rule px-3 py-2">
+          {/* Titled by what it measures, not by "ahead of pace". That word is
+              ambiguous between "spent more" and "has more left", so it used to
+              need a definition beside it at all times; naming the measurement
+              in the heading retires the ambiguity instead of glossing it. */}
           <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Who is ahead of pace
+            Money per remaining slot
           </h2>
-          {/* The word "ahead" is ambiguous between "spent more" and "has more
-              left", so it appears only next to its definition, never in the data. */}
-          <span className="text-[11px] text-slate-600">
-            ahead = more money per remaining slot than the room&apos;s median
-          </span>
+          <GlossaryLink anchor="vs-room" label="money per remaining slot" />
         </div>
         <div className="p-3">
           <table className="w-full text-sm">
@@ -102,7 +104,9 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
                 <th className="px-2 py-2 text-right">Left</th>
                 <th className="px-2 py-2 text-right">Slots</th>
                 <th className="px-2 py-2 text-right font-bold text-slate-400">$/slot</th>
-                <th className="w-1/3 py-2 pl-2 text-right">vs room</th>
+                <th className="w-1/3 py-2 pl-2 text-right" title="Against the median of everyone who can still bid">
+                  vs room median
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -166,10 +170,6 @@ export function PacePanel({ input, className = '' }: { input: StatsInput; classN
                 })}
             </tbody>
           </table>
-          <p className="mt-3 text-[11px] leading-relaxed text-slate-600">
-            Managers with a full roster are excluded from the room&apos;s median — they cannot
-            bid, so their leftover money will never chase another player.
-          </p>
         </div>
       </div>
     </div>

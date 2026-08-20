@@ -34,6 +34,7 @@
  * about scripts/migrate-called-auction.ts.
  */
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 const useTest = process.argv.includes('--test')
 const url = useTest ? process.env.TEST_DATABASE_URL : process.env.DATABASE_URL

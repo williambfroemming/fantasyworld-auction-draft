@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { autoSlot, pickInRow, positionCounts, slotRows } from '@/lib/draft'
 import { perSlotLeft, spendColumnFor, type SpendColumn } from '@/lib/stats'
+import { SPEND_SEGMENTS } from '@/lib/colors'
 import type { Board, RosterPick } from '@/hooks/useDraft'
 import type { DraftState, StateManager } from '@/server/draft-service'
 import { PositionBadge } from './LotPanel'
@@ -243,20 +244,9 @@ function RoomMoney({ managers, rosterSize }: { managers: StateManager[]; rosterS
  * already answer that, and scaling these to a league-wide peak would make the
  * early-draft bars invisible slivers.
  */
-const SPLIT_SEGMENTS: Array<{ key: SpendColumn; label: string; hex: string }> = [
-  // ⚠️ Not in SPEND_COLUMNS order, deliberately. Rose (QB) against emerald (RB)
-  // is ΔE 4.6 under deuteranopia — indistinguishable for the ~1 in 12 men with
-  // it, and a bar has no room for the labels that make PositionBadge safe.
-  // Interleaving them costs nothing and lifts the worst adjacent pair to 10.6.
-  // Same trick, same reason as SEAT_ORDER in src/lib/colors.ts.
-  { key: 'WR', label: 'WR', hex: '#38bdf8' },
-  { key: 'QB', label: 'QB', hex: '#fb7185' },
-  { key: 'TE', label: 'TE', hex: '#fbbf24' },
-  { key: 'RB', label: 'RB', hex: '#34d399' },
-  // Grey on purpose: K and DEF are the residue, and a residual bucket reading as
-  // "not a real category" is the correct signal, not a palette failure.
-  { key: 'OTHER', label: 'K/DEF', hex: '#64748b' },
-]
+// The palette itself lives in src/lib/colors.ts — Draft DNA draws the same
+// split on a member page, and two copies is how they end up disagreeing.
+const SPLIT_SEGMENTS = SPEND_SEGMENTS as Array<{ key: SpendColumn; label: string; hex: string }>
 
 function SpendSplit({ picks }: { picks: RosterPick[] }) {
   const spent = picks.reduce((s, p) => s + p.price, 0)

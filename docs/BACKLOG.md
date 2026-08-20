@@ -19,7 +19,6 @@ August costs the draft.
 
 | # | Item | Size | Where |
 |---|---|---|---|
-| §1 | Player news feed | Large, and July-2027 work at the earliest | not started |
 | §8 | Mobile layout · push to Sleeper · accessibility pass | Unspecified | — |
 
 **Everything else in this file has shipped.** §2, §3, §4, §5, §6, §7 and all three
@@ -36,15 +35,62 @@ visual direction that came second, so it does not have to be re-derived.
 
 ---
 
-## 1. Player news feed
+## 1. 🟡 Player news feed — injury status shipped, headlines cut
 
 **Want:** click a player anywhere in the app — pool, open lot, League board —
 and see current news for them. "Is this guy hurt?" is the question managers
 currently answer by alt-tabbing to Rotowire mid-auction, which is exactly the
 kind of context the app should own.
 
-**Status: not started.** Notes below are design work already done, not a
-commitment to an approach.
+**PARTLY BUILT, THEN PARTLY REMOVED — 2026-08-17/18.** `PROGRESS_LOG.md` steps 26
+and 27. What shipped and what was cut are both deliberate, and the cut is the
+part worth reading before anyone reopens this.
+
+### What shipped: injury status, as a stored column
+
+**Sleeper's player dump — the same file the pool is already seeded from —
+carries `injury_status`, `injury_body_part`, `injury_notes` and
+`practice_participation`.** So the question this section exists to answer, "is
+this guy hurt", is a **stored column with no runtime dependency**. 84 of the 503
+pool players were carrying something when this was built. On draft night it is
+in Postgres and no provider being down can take it away.
+
+Refreshed by `npm run news:refresh`; rendered by `InjuryBadge` on pool rows, on
+the open lot, and in the private queue.
+
+### ❌ What was cut: the live headline feed
+
+A working ESPN + Sleeper-trending aggregator was built — `news.ts`,
+`news-service.ts`, `/api/news`, a `PlayerDrawer` — verified end-to-end, and
+**removed the next day**. It is gone from the tree; recover it from git history
+(`74e1ebe`) rather than rewriting it, if it ever comes back.
+
+The reasoning, from the user, and it is right:
+
+> "I like the questionable tags but maybe we get rid of the news. People can go
+> to Sleeper and look things up on their own, and in our app it won't be current
+> at all times."
+
+Three things follow, and they generalise past this feature:
+
+1. **A feed is only as fresh as its last refresh, and it does not look stale.**
+   A panel of headlines renders identically whether it is four minutes or four
+   weeks old. That invites trust at exactly the moment it should not be given —
+   someone about to commit $60. Injury *status* survives the same objection
+   because it is one field with an explicit "as of", not a wall of prose.
+2. **Do not rebuild what a better tool already does.** Sleeper is one tab away,
+   is always current, and is where these managers already look. The app's edge
+   is the auction, not being a worse news reader.
+3. **It was the only part of the app with a third party on a request path.**
+   Removing it removed a whole class of failure, and the remaining rules got
+   simpler rather than more careful.
+
+⚠️ **If you are about to add a feed back**, the non-negotiables below still
+apply — but answer this first: what makes it more current than the tab the
+manager already has open? If there is no good answer, the feature is a liability
+rather than a gap.
+
+### Still relevant if this is ever reopened
 
 ### The hard part is player identity, not the feed
 
@@ -59,12 +105,11 @@ seeding path, not the fallback — so in practice the pool is keyed by slugs tha
 no news provider has ever heard of. Whatever provider gets picked, something has
 to map `"Puka Nacua" / LAR / WR` to that provider's ID.
 
-The cheapest fix is at the seam we already control: make the CSV import
-**resolve every row against the Sleeper pool** and store the Sleeper ID
-alongside the slug, so there is one real identifier per player regardless of how
-the pool was seeded. That is worth doing on its own merits — it also makes
-re-importing a corrected CSV non-destructive, and it is the same work §2 needs
-for cross-year price comparisons.
+✅ **This was solved in step 25** — `players.sleeper_id`, resolved at import by
+`resolveSleeperIds`, 498 of 503 pool players and 160 of 160 picks. Any future
+provider has a real identifier to map to, and `npm run news:refresh` already
+joins on it. The paragraphs below are the reasoning that produced it, kept
+because the matcher's refusal to guess is the load-bearing part.
 
 ⚠️ Name matching will not be clean. Suffixes (Jr./III), apostrophes, `D/ST` vs
 `DEF` vs `DST`, and team defenses keyed by abbreviation (`"PHI"`) all break naive
@@ -110,7 +155,7 @@ this feature.
    projected value does not. Don't let the feed smuggle opinions back onto the
    board.
 
-### UI collision — mostly resolved by §4
+### ✅ UI collision — resolved by §4's pattern
 
 The original worry was that a click on a player row in
 `src/components/PlayerPool.tsx` **already means "select for nomination"**, and
@@ -123,8 +168,14 @@ while the row is disabled. A news affordance can be a second sibling, or open a
 `LeagueBoard`). Hover cards remain ruled out — cheap to build, bad on the one
 night that matters, and untestable.
 
-**Do this before draft week, or not at all.** A feature that adds a network
-dependency and a new interaction to the pool is a Wednesday-in-July change.
+§4 shipped the pattern: the queue star is a **sibling button** that stays live
+while the row is disabled. `InjuryBadge` needed no gesture at all — it renders
+in the row, which is better than anything behind a click. The `PlayerDrawer`
+that used this went with the feed.
+
+⚠️ The rule that outlives all of it: **injury status is safe on draft night
+because it touches no network.** Anything added here that does touch one must
+stay as unreachable from an award as `autoSlot()` is.
 
 ---
 

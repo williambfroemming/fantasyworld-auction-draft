@@ -7,6 +7,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { neon } from '@neondatabase/serverless'
+import '../src/db/neon-local'
 
 const dir = join(process.cwd(), 'src/db/sql')
 

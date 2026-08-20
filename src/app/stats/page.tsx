@@ -1,7 +1,9 @@
 'use client'
 
-import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { SiteNav } from '@/components/SiteNav'
+import { useSession } from '@/hooks/useSession'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useMemo } from 'react'
 import { SeasonPicker } from '@/components/SeasonPicker'
 import { CurvePanel } from '@/components/stats/CurvePanel'
 import { NominationsPanel } from '@/components/stats/NominationsPanel'
@@ -23,6 +25,28 @@ const VIEWS = [
   ['value', 'Value'],
 ] as const
 
+const VIEW_KEYS = VIEWS.map(([k]) => k) as readonly string[]
+
+function parseView(raw: string | null): View {
+  return raw !== null && VIEW_KEYS.includes(raw) ? (raw as View) : 'teams'
+}
+
+/**
+ * ⚠️ `useSearchParams` — used here and inside `useSeasonView` — bails the tree
+ * out of prerendering up to the nearest `<Suspense>`, and Next 16 fails the
+ * build without one. `next dev` renders on demand and will not complain, so
+ * this boundary is only ever defended by `npm run build`.
+ */
+export default function StatsPage() {
+  return (
+    <Suspense
+      fallback={<main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>}
+    >
+      <StatsView />
+    </Suspense>
+  )
+}
+
 /**
  * Spend analysis — the draft read back as numbers.
  *
@@ -33,11 +57,37 @@ const VIEWS = [
  * The live season and any archived one go through **one code path**: both are
  * adapted into a `StatsInput` below and every panel underneath is
  * season-agnostic. A bug therefore cannot hide in only one of them.
+ *
+ * ## The header is two rows, and which row a control sits on is the point
+ *
+ * It used to be one: site nav, five view tabs, a tab per season, a link to
+ * /board, a theme toggle and a pick count, all at the same weight, and nothing
+ * saying which of them was the page and which was the context. Row one is now
+ * the site nav and nothing else — identical to every history page, so the top
+ * of the app stops changing shape as you move around it. Row two is this page:
+ * what it is, which view, which year.
+ *
+ * Both the view and the season live in the query string, so a tab is a link
+ * somebody can send.
  */
-export default function StatsPage() {
+function StatsView() {
   const { state, board } = useDraft()
+  const { managerId } = useSession()
   const { seasons, viewing, setViewing, isArchive, archive, archiveError } = useSeasonView()
-  const [view, setView] = useState<View>('teams')
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const view = parseView(searchParams.get('view'))
+
+  const setView = (next: View) => {
+    const params = new URLSearchParams(searchParams.toString())
+    // 'teams' is the default, so it stays out of the URL — a bare /stats and
+    // /stats?view=teams should not be two different-looking links to one page.
+    if (next === 'teams') params.delete('view')
+    else params.set('view', next)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
 
   const input: StatsInput | null = useMemo(() => {
     if (isArchive) {
@@ -46,6 +96,7 @@ export default function StatsPage() {
             season: archive.season,
             rosterSize: archive.rosterSize,
             startingBudget: archive.startingBudget,
+            isFinal: archive.isFinal,
             managers: archive.managers,
             picks: archive.rosters,
             trades: archive.trades,
@@ -64,25 +115,34 @@ export default function StatsPage() {
       : null
   }, [isArchive, archive, state, board])
 
+  const myManager = state?.managers.find((m) => m.id === managerId)
+
   if (!state) {
     return <main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
   }
 
   return (
     <main className="flex h-dvh flex-col bg-slate-950 text-slate-100">
+      {/* Row 1 — where you are in the app. Same shape as every history page. */}
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <Link
-          href="/draft"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-sm font-semibold hover:bg-slate-700"
-        >
-          ← Back to draft
-        </Link>
+        <SiteNav section="draft-history" current="/stats" isCommish={myManager?.isCommish} />
+        <div className="ml-auto">
+          <ThemeToggle />
+        </div>
+      </header>
+
+      {/* Row 2 — this page: what it is, which view, which year. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2">
+        <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">
+          Spend &amp; Value
+        </h1>
 
         <div className="flex items-center gap-1 rounded-lg bg-slate-900 p-1">
           {VIEWS.map(([key, label]) => (
             <button
               key={key}
               onClick={() => setView(key)}
+              aria-current={view === key ? 'page' : undefined}
               className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
                 view === key ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800'
               }`}
@@ -99,15 +159,7 @@ export default function StatsPage() {
           onSelect={setViewing}
         />
 
-        <Link
-          href="/board"
-          className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
-        >
-          League board →
-        </Link>
-
-        <div className="ml-auto flex items-center gap-3">
-          <ThemeToggle />
+        <div className="ml-auto">
           {isArchive ? (
             <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
               Archived · read only
@@ -118,7 +170,7 @@ export default function StatsPage() {
             </span>
           )}
         </div>
-      </header>
+      </div>
 
       <div className="min-h-0 flex-1 p-3">
         {archiveError ? (

@@ -8,6 +8,19 @@ import type { SeasonSummary } from '@/server/archive-service'
  * Shown as soon as any season is on record, even before there is a second one:
  * with an archive in play, "which year am I looking at" is a real question, and
  * the current-season tab answers it.
+ *
+ * ## Why a dropdown rather than a strip of tabs
+ *
+ * It was a tab per season, which is fine at two seasons and was already six
+ * wide by 2026 — a control that grows by one every August, in a header that
+ * also holds the site nav and five view tabs. Everything was competing at the
+ * same weight and nothing said which control was the page and which was the
+ * context it was being read in.
+ *
+ * A `<select>` is also the honest shape: the seasons are mutually exclusive
+ * and there are eventually going to be twenty of them. It costs one click on
+ * the way to a past year and gives the row back to the view tabs, which are the
+ * thing people actually move between.
  */
 export function SeasonPicker({
   liveSeason,
@@ -25,46 +38,20 @@ export function SeasonPicker({
   const past = seasons.filter((s) => !s.isCurrent)
 
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-slate-900 p-1">
-      <SeasonTab
-        label={`${liveSeason}`}
-        sub="live"
-        active={viewing === null}
-        onClick={() => onSelect(null)}
-      />
-      {past.map((s) => (
-        <SeasonTab
-          key={s.season}
-          label={`${s.season}`}
-          sub={`${s.picks} picks`}
-          active={viewing === s.season}
-          onClick={() => onSelect(s.season)}
-        />
-      ))}
-    </div>
-  )
-}
-
-function SeasonTab({
-  label,
-  sub,
-  active,
-  onClick,
-}: {
-  label: string
-  sub: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-md px-2.5 py-1 text-left leading-tight ${
-        active ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800'
-      }`}
-    >
-      <span className="block text-xs font-semibold tabular-nums">{label}</span>
-      <span className="block text-[10px] opacity-70">{sub}</span>
-    </button>
+    <label className="flex items-center gap-1.5">
+      <span className="sr-only">Season</span>
+      <select
+        value={viewing === null ? 'live' : String(viewing)}
+        onChange={(e) => onSelect(e.target.value === 'live' ? null : Number(e.target.value))}
+        className="rounded-lg bg-slate-900 px-2.5 py-1.5 font-mono text-xs font-semibold tabular-nums text-slate-100 hover:bg-slate-800"
+      >
+        <option value="live">{liveSeason} · live</option>
+        {past.map((s) => (
+          <option key={s.season} value={s.season}>
+            {s.season} · {s.picks} picks
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }

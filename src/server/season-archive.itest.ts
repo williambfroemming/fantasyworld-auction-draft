@@ -239,6 +239,65 @@ d('seasons + archive (real Postgres)', () => {
     expect(live.managers.find((m) => m.id === managers[0].id)!.budget).toBe(200)
   })
 
+  it('never offers an inactive player in the draft pool', async () => {
+    // The history import seeds several hundred retired players so that
+    // picks.player_id has something to reference. The active flag is the only
+    // thing keeping them off a live board, and seed.ts deliberately protects any
+    // player a pick points at from the annual wipe — so there is no second line
+    // of defence.
+    await sql`INSERT INTO players (id, name, position, active)
+              VALUES ('retired-guy', 'Retired Guy', 'RB', false)
+              ON CONFLICT (id) DO UPDATE SET active = false`
+
+    const [{ season }] = await sql`SELECT season FROM draft WHERE id = 1`
+    const pool = await sql`
+      SELECT p.id FROM players p
+       WHERE p.active
+         AND NOT EXISTS (SELECT 1 FROM picks pk WHERE pk.player_id = p.id AND pk.season = ${season})
+         AND NOT EXISTS (SELECT 1 FROM lots l WHERE l.player_id = p.id AND l.status = 'open' AND l.season = ${season})`
+
+    expect(pool.map((r) => r.id)).not.toContain('retired-guy')
+    expect(pool.length).toBeGreaterThan(0)
+
+    await sql`DELETE FROM players WHERE id = 'retired-guy'`
+  })
+
+  it('renders a past season with ITS settings, not the current draft\'s', async () => {
+    // The bug this replaces: getArchivedSeason read roster_size and
+    // starting_budget straight from `draft`, so changing a rule today silently
+    // rewrote every board the league had ever played.
+    await buy(0, managers[0].id, 60)
+    await startNewSeason(NOW)
+
+    await sql`INSERT INTO seasons (season, data_tier, roster_size, starting_budget, is_final)
+              VALUES (${PAST}, 'weekly', 16, 200, true)
+              ON CONFLICT (season) DO UPDATE
+                SET roster_size = 16, starting_budget = 200, is_final = true`
+    // A rule change for the CURRENT season only.
+    await sql`UPDATE draft SET roster_size = 20, starting_budget = 500 WHERE id = 1`
+
+    const archived = await getArchivedSeason(PAST)
+    expect(archived!.rosterSize).toBe(16)
+    expect(archived!.startingBudget).toBe(200)
+    // And the budget derived from it is the one that season was played under.
+    expect(archived!.managers.find((m) => m.id === managers[0].id)!.budget).toBe(140)
+
+    await sql`UPDATE draft SET roster_size = 16, starting_budget = 200 WHERE id = 1`
+  })
+
+  it('falls back to the current settings for a season with none recorded', async () => {
+    await buy(0, managers[0].id, 10)
+    await startNewSeason(NOW)
+    await sql`DELETE FROM seasons WHERE season = ${PAST}`
+
+    const archived = await getArchivedSeason(PAST)
+    // No row for that year, so today's settings are the best answer available —
+    // strictly better than refusing to render a season that was really played.
+    expect(archived!.rosterSize).toBe(16)
+    expect(archived!.startingBudget).toBe(200)
+    expect(archived!.isFinal).toBe(false)
+  })
+
   it('preserves the draft order of a past season after the seating is re-drawn', async () => {
     await buy(0, managers[0].id, 5)
     const seatOfFirst = managers[0].draft_slot

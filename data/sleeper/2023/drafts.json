@@ -1,0 +1,62 @@
+[
+  {
+    "created": 1691360487055,
+    "creators": [
+      "596552796187181056"
+    ],
+    "draft_id": "994041566085910529",
+    "draft_order": {
+      "482305993246502912": 8,
+      "596547532989972480": 6,
+      "596552796187181056": 4,
+      "597564674589913088": 7,
+      "597587057577086976": 1,
+      "597587272728113152": 3,
+      "597822038236774400": 5,
+      "597851820731203584": 9,
+      "598753920659034112": 10,
+      "599337029230194688": 2
+    },
+    "last_message_id": "998800815294849024",
+    "last_message_time": 1692495180490,
+    "last_picked": 1692495178890,
+    "league_id": "994041566085910528",
+    "metadata": {
+      "description": "",
+      "name": "Fantasy 101 XVII",
+      "nominating_slot": "10",
+      "nominating_user_id": "482305993246502912",
+      "scoring_type": "2qb"
+    },
+    "season": "2023",
+    "season_type": "regular",
+    "settings": {
+      "alpha_sort": 0,
+      "autopause_enabled": 0,
+      "autopause_end_time": 960,
+      "autopause_start_time": 240,
+      "autostart": 0,
+      "budget": 200,
+      "cpu_autopick": 1,
+      "enforce_position_limits": 1,
+      "nomination_timer": 60,
+      "pick_timer": 120,
+      "player_type": 0,
+      "reversal_round": 0,
+      "rounds": 16,
+      "slots_bn": 6,
+      "slots_def": 1,
+      "slots_flex": 1,
+      "slots_qb": 1,
+      "slots_rb": 2,
+      "slots_super_flex": 1,
+      "slots_te": 1,
+      "slots_wr": 3,
+      "teams": 10
+    },
+    "sport": "nfl",
+    "start_time": 1692490550235,
+    "status": "complete",
+    "type": "auction"
+  }
+]
