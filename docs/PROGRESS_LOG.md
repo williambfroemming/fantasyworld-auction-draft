@@ -2661,3 +2661,67 @@ The tooltip is CSS rather than `title`, and `DraftDnaSeason` gained
 - **Dollars are carried, not recomputed from `share × spent`.** That is
   floating-point arithmetic on a figure people read as money: $47 comes back
   $46.999999999999996 and renders correctly only by luck of rounding.
+
+---
+
+## The league, turned around to face the player
+
+`/history/players` and `/history/players/[id]`. Every other history page is a manager looking
+outward; this is the only one that asks what the league looked like from a player's side, which is
+the form the arguments actually take — "I had him first".
+
+`getPlayerHistory(sleeperId)` returns per-season and career totals, ownership split by manager,
+the weekly series, the best single week and who was holding them for it, a regular/playoff split,
+and the auction line including **who nominated them**. `listPlayers()` backs the index.
+
+Derrick Henry, the case it was built against:
+
+| Season | Points | Playoffs | Rostered by | At auction |
+|---|---|---|---|---|
+| 2020 | 334.6 | 79.2 | Daniel 16w | no auction on record |
+| 2021 | 208.3 | — | Bolek 13w | $58 Bolek ← nominated by Eric/Blakey |
+| 2022 | 305.0 | 48.9 | Mario 17w | $47 Mario ← nominated by Bryan |
+| 2023 | 229.9 | 30.1 | Bill 8w, Bolek 8w, Justin 1w | $37 Bolek ← nominated by Justin |
+| 2024 | 345.8 | 64.6 | Nate 17w | $37 Nate ← nominated by Bolek |
+| 2025 | 298.9 | 94.9 | Nate 17w | $44 Nate ← nominated by Bill |
+
+Five auctions, five different nominators, not one of whom kept him.
+
+**Learned:**
+
+- **`picks.nominator_id` was the most valuable unused column in the schema.** Across 2021–2025,
+  **474 of 800 picks (59%) were won by somebody other than whoever threw the name out.** It cost
+  one join and it is the only thing on the page that is a genuinely new fact rather than a re-cut
+  of points already shown elsewhere. Worth auditing what else is stored and never read.
+- **Ownership from `player_weeks` sidesteps trade attribution entirely.** Money questions need
+  `draftersByPick` to undo trades, but the weekly rows already record who actually held the player
+  that week, so no rewind is needed. Only the auction price — a money question — goes through the
+  drafter. Knowing which questions are money questions is what decides this.
+- **A rejected idea, on evidence.** "Who benched him in his big weeks" sounded strong and the data
+  killed it: Henry's benched weeks are byes and the 2023 injury year, totalling 35 points across
+  four managers. Checking before building cost one query.
+- **The league palette has a documented job, and it is not this.** `CurvePanel` had already written
+  down that these colours were built "to label columns on a wide grid, not to disambiguate ten
+  crossing lines". Colouring 97 thin bars by owner would have repeated that mistake; ownership went
+  to a contiguous, directly-labelled band instead and the columns carry magnitude only.
+
+**Watch out for:**
+
+- **"Career" is a lie here and the page says so.** Weekly data starts in 2020, the league's records
+  start in 2006. Every total is prefaced with the window in prose, and `firstSeason`/`lastSeason`
+  come from actual rows rather than a constant. Do not let a later edit shorten that to "career".
+- **A season with no auction on record is not an undrafted player.** 2020 has weekly data and no
+  draft data at all, so inferring "waiver pickup" from a missing `picks` row would label Daniel's
+  2020 Henry a free find. It renders as "no auction on record" and any future waiver metric must be
+  gated on the season actually having draft data.
+- **The playoff boundary moves** — week 14 in 2020, week 15 from 2021. It is read per season from
+  `seasons.playoff_week_start`; a hardcoded 15 misfiles 2020 week 14 forever and nothing about the
+  resulting total looks wrong. A season with no boundary on record counts entirely as regular
+  season rather than guessing.
+- **The chart palette passes the checks that matter and fails one that is inherent to the theme.**
+  Indigo/orange validated at ΔE 28.0 (protan) and 30.7 (normal vision) against both surfaces, far
+  above the ΔE 8 target. Dark mode fails the validator's lightness band because the league's dark
+  palette is bright pastels on a dark ground — a property of the design system, not of this chart.
+  Secondary encoding (legend, direct labels, tooltip naming the phase in words) is present anyway.
+- Defenses join on a team code (`KC`, `TB`) rather than a numeric Sleeper id, and all 41 DEF picks
+  match. A defense showing no auction really was streamed off waivers.

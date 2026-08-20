@@ -454,3 +454,54 @@ manager hues are stored in the database, tuned to sit on a *dark* ground, and ar
 constrained four ways at once (§`src/lib/colors.ts`). Any light ground needs a
 second set of ten, re-checked and kept in sync forever. Broadsheet pays that cost
 because it ships both themes; a dark-only Chalk Talk would not have to.
+
+---
+
+## 11. Why a 0 in `player_weeks` cannot be explained — and what it would take
+
+**Investigated and parked 2026-08-20.** Built, measured, and reverted rather than
+shipped. 15.6% of all weekly rows (2,634 of 16,888) are exactly 0, and a reader
+reasonably wants to know whether that is a bye, an injury, or a bad game.
+
+**The blocker is not byes.** Byes are easy and were solved: Sleeper publishes an
+NFL schedule at `https://api.sleeper.app/schedule/nfl/regular/<season>` (~26KB, not
+under `/v1`), and a team absent from a week's games was on bye. That resolves all
+32 teams in every season, with 2020's DEN/NE/PIT/TEN correctly having none —
+COVID rescheduling consumed their byes and all four played all 17 weeks.
+
+**The blocker is that we do not know what team a player was on in a past season.**
+`player_weeks.nfl_team` and `player_seasons.nfl_team` both come from the single
+current `players-min.json` snapshot, so every historical row carries the player's
+*present* team. Derrick Henry reads BAL for 2020–2023 when he was on TEN;
+Matthew Stafford reads LAR for 2020 when he was on DET.
+
+Measured cost of shipping anyway: **97 of 599 players (16%) have a provably wrong
+team**, caught by scoring points during their recorded team's bye. That is a floor
+— a player who changed teams *and* happened to score 0 during the wrong team's bye
+is invisible, and would be labelled "BYE" on what was actually an injury. That is
+the failure mode `InjuryBadge` exists to prevent.
+
+Also ruled out: **inferring the bye from the fantasy data** ("every rostered player
+on this team scored 0"). Measured and it does not work — it flagged CLE eight times
+in 2021 and MIA six times in 2020, and half its signal rests on a single rostered
+player having a quiet week.
+
+**What would unblock it:**
+
+- A source for historical player→team. Sleeper's weekly stats endpoint carries no
+  team field and its players endpoint is current-only, so this means a new
+  provider (nflverse rosters or similar) — the first one outside Sleeper.
+- Or simply **time**. The flaw is retroactive only: `refresh-season.ts` touches
+  only the season in progress, so 2026's rows are written *during* 2026 with
+  correct teams. Bye labelling would be accurate from this season forward and
+  wrong only for the 2020–2025 backfill. Worth revisiting once 2026 has played.
+
+**A cheaper partial answer, if this comes up again:** Sleeper's weekly stats do
+carry `gp` (games played) and `gms_active`. Those separate *"played and scored
+nothing"* from *"did not play"* with no team lookup at all, so they carry no
+correctness risk. They still do not say bye vs injury — but they are facts rather
+than guesses, and that distinction alone would explain most of the 2,634.
+
+⚠️ Historical **injury** data is not obtainable and is not worth chasing.
+`players.injury_status` is a current-pool snapshot refreshed out-of-band by
+`npm run news:refresh`; nothing retains it per week, per season.
