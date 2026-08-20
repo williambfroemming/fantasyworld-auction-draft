@@ -1,5 +1,5 @@
 import { GlossaryLink } from '../GlossaryLink'
-import { SPEND_SEGMENTS } from '@/lib/colors'
+import { SPEND_SEGMENTS_BY_POSITION } from '@/lib/colors'
 import type { DraftDna, DraftDnaCareer, DraftDnaSeason } from '@/lib/draft-dna'
 import type { SpendColumn } from '@/lib/stats'
 
@@ -62,7 +62,7 @@ export function DraftDnaPanel({ dna }: { dna: DraftDna }) {
       </table>
 
       <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-        {SPEND_SEGMENTS.map((seg) => (
+        {SPEND_SEGMENTS_BY_POSITION.map((seg) => (
           <li key={seg.key} className="flex items-center gap-1 text-[0.65rem] text-slate-500">
             <span
               aria-hidden
@@ -99,7 +99,10 @@ function Row({ row, spent }: { row: DraftDnaSeason | DraftDnaCareer; spent?: num
         {career ? `${row.seasons} yrs` : row.season}
       </td>
       <td className="px-2 py-1.5">
-        <SplitBar shares={row.positionShare} />
+        <SplitBar
+          spend={row.positionSpend}
+          total={career ? (spent ?? 0) : (row as DraftDnaSeason).spent}
+        />
       </td>
       {/* A real total on the career row, not an em dash. Everywhere else in the
           app "—" means unknown, and the sum of five auctions is known. */}
@@ -141,23 +144,55 @@ function Row({ row, spent }: { row: DraftDnaSeason | DraftDnaCareer; spent?: num
  * money was split, not how much of it there was; the Spent column answers that,
  * and scaling these against a career peak would flatten a cheap season into a
  * sliver for no gain.
+ *
+ * ## The tooltip is CSS, not `title`
+ *
+ * A native `title` waits about a second before appearing, which is far longer
+ * than anyone holds a cursor over a 6px sliver — the dollars would effectively
+ * not be there. A `group-hover` span shows instantly, can be styled to match
+ * the page, and still needs no JavaScript, so this stays a Server Component.
+ * `title` is kept alongside it for touch and for anyone tabbing through.
+ *
+ * ⚠️ It hangs **below** the bar, not above. The table sits in an
+ * `overflow-x-auto` wrapper so a narrow screen can scroll it sideways, and CSS
+ * gives you no way to keep `overflow-y` visible while `overflow-x` is auto —
+ * the used value becomes auto too, so that wrapper clips vertically. Above the
+ * first row, the tooltip cleared the wrapper's top edge by six pixels, which is
+ * a rendering accident rather than a layout. Below, every row has the next row
+ * under it and the last has the legend, so there is always room.
  */
-function SplitBar({ shares }: { shares: Record<SpendColumn, number> }) {
-  const total = Object.values(shares).reduce((a, b) => a + b, 0)
-  if (total <= 0) return <div className="h-1.5" />
+function SplitBar({
+  spend,
+  total,
+}: {
+  spend: Record<SpendColumn, number>
+  total: number
+}) {
+  if (total <= 0) return <div className="h-3" />
 
   return (
-    <div className="flex h-1.5 gap-px overflow-hidden rounded-full">
-      {SPEND_SEGMENTS.map((seg) => {
-        const v = shares[seg.key as SpendColumn] ?? 0
-        if (v === 0) return null
+    // `overflow-visible` so the tooltip can escape the bar; the rounded ends
+    // are on the segments themselves via first/last-child instead.
+    <div className="relative flex h-3 gap-px rounded-full">
+      {SPEND_SEGMENTS_BY_POSITION.map((seg) => {
+        const dollars = spend[seg.key as SpendColumn] ?? 0
+        if (dollars === 0) return null
+        const pct = (dollars / total) * 100
         return (
           <span
             key={seg.key}
-            className="h-full"
-            style={{ width: `${v * 100}%`, backgroundColor: seg.hex }}
-            title={`${seg.label} — ${Math.round(v * 100)}%`}
-          />
+            className="group relative h-full first:rounded-l-full last:rounded-r-full"
+            style={{ width: `${pct}%`, backgroundColor: seg.hex }}
+            title={`${seg.label} $${dollars} — ${Math.round(pct)}%`}
+          >
+            <span
+              role="tooltip"
+              className="pointer-events-none invisible absolute top-full left-1/2 z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded border border-rule-strong bg-slate-950 px-1.5 py-1 font-mono text-[0.65rem] tabular-nums text-slate-100 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100"
+            >
+              <span style={{ color: seg.hex }}>{seg.label}</span> ${dollars} ·{' '}
+              {Math.round(pct)}%
+            </span>
+          </span>
         )
       })}
     </div>

@@ -2604,3 +2604,60 @@ discredit both.
   belongs in muscle memory next to `dev:local`.
 - **`—` means unknown, and Draft DNA nearly broke that in two places.** A career row with no Spent
   and a season with no $1 picks both drew an em dash for values that are perfectly well known.
+
+---
+
+## Draft DNA reads in position order, and says what the money was
+
+Two asks against the bar on the member page: put the segments in QB / RB / WR /
+TE / DEF order, and show the dollars on hover.
+
+The order was the interesting one, because the existing order was deliberate.
+`SPEND_SEGMENTS` interleaves — WR, QB, TE, RB, OTHER — so that rose (QB) never
+touches emerald (RB), a pair that is ΔE 4.6 under deuteranopia and therefore one
+solid block to roughly 1 in 12 men. The requested order puts them adjacent.
+
+Resolved by noticing what the interleaving is actually buying. It matters when
+colour is the **only** cue, which is exactly the draft-night Budgets bar: a 19rem
+sliver under a manager's name, no legend, nothing to hover, read at a glance
+mid-auction. Draft DNA is not that — it has a legend under the table, and now a
+tooltip on every segment naming the position and the dollars. Two non-colour
+cues carry the identification, so the ordering is free to serve reading instead.
+
+So: one palette, two orderings. `SPEND_SEGMENTS` keeps the interleave for the
+sidebar; `SPEND_SEGMENTS_BY_POSITION` is the natural order, carrying a warning
+against reusing it on a bar with neither a legend nor tooltips.
+
+The tooltip is CSS rather than `title`, and `DraftDnaSeason` gained
+`positionSpend` in whole dollars.
+
+**Learned:**
+
+- **An accessibility constraint has a scope, and it is worth finding before
+  trading it away.** "Don't put rose next to emerald" reads like a rule about
+  colours. It is really a rule about bars where colour is the sole cue —
+  restating it that way let both the request and the constraint be satisfied
+  rather than one beating the other.
+- **`title` is not a tooltip for anything small.** It waits ~1s before showing,
+  which is longer than anyone rests a cursor on a 6px sliver. A `group-hover`
+  span appears instantly, styles to match the page, and needs no JavaScript, so
+  the panel stayed a Server Component.
+
+**Watch out for:**
+
+- **`overflow-x-auto` clips vertically too.** CSS has no way to keep
+  `overflow-y: visible` while `overflow-x` is auto — the used value becomes auto
+  as well. The table's horizontal scroller therefore clips anything escaping the
+  top or bottom edge. Positioned *above* the bar, the first row's tooltip cleared
+  the wrapper by six pixels, which is a rendering accident and not a layout; it
+  hangs below now, where every row has the next row under it and the last has the
+  legend. Measured at +53px and +13px of clearance.
+- **The bar went from 6px to 12px tall** because a 6px hover target on a 2%
+  segment is not really a target.
+- **The OTHER bucket stays labelled K/DEF, not DEF.** This league has drafted
+  zero kickers in 960 picks, so "DEF" is true today — but the bucket is defined
+  as "not QB/RB/WR/TE" and the label should not become a lie the first time
+  somebody takes one.
+- **Dollars are carried, not recomputed from `share × spent`.** That is
+  floating-point arithmetic on a figure people read as money: $47 comes back
+  $46.999999999999996 and renders correctly only by luck of rounding.
