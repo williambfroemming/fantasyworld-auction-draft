@@ -117,6 +117,8 @@
   --radius-4xl: 0px;
 
   --font-display: var(--font-oswald), "Haettenschweiler", "Arial Narrow", sans-serif;
+  /* The Gazette's masthead and headlines only. See src/app/layout.tsx. */
+  --font-gazette: var(--font-playfair), "Times New Roman", Georgia, serif;
   --font-sans: var(--font-source-serif), Charter, Georgia, serif;
   --font-serif: var(--font-source-serif), Charter, Georgia, serif;
   --font-mono: var(--font-geist-mono), ui-monospace, Menlo, monospace;
@@ -278,4 +280,120 @@ body {
 }
 .leaders > :last-child {
   flex: 0 0 auto;
+}
+
+/*
+ * ── The Gazette ───────────────────────────────────────────────────────────
+ *
+ * Set columns, justified, with a hairline between them. This is the whole
+ * difference between a newspaper and a blog post: ragged-right body copy reads
+ * as a website no matter what face it is set in, and a column with no rule
+ * beside it reads as a narrow div.
+ *
+ * Tailwind has no `column-rule` utility and no hyphenation utility, which is
+ * why these three declarations exist here rather than as classes on the page.
+ */
+.newspaper {
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  column-rule: 1px solid var(--rule);
+  /*
+   * Deliberately NOT `column-fill: auto`.
+   *
+   * That reads like the setting for "fill each column before spilling", and it
+   * is — but only against a constrained height, because otherwise there is no
+   * "full" to reach. Applied to an auto-height box it pours the entire column
+   * into the first one and leaves the rest empty. `balance` is the default and
+   * is what actually produces equal-depth, fully-set columns; the reason they
+   * were not filling was the paragraph rule below, not this.
+   */
+}
+
+/*
+ * ⚠️ Paragraphs DO break across columns, and that is correct.
+ *
+ * The first version of this put `break-inside: avoid` on `.newspaper p`, which
+ * is what a panel wants and the opposite of what a column of body copy wants:
+ * it forces every paragraph into a single column, so a set of five paragraphs
+ * across three columns leaves ragged gaps wherever one would not fit. Open any
+ * actual newspaper — prose runs off the bottom of a column and picks up at the
+ * top of the next one.
+ *
+ * The furniture is the opposite case and must never be cut in half — but that is
+ * Tailwind's own `break-inside-avoid` utility on the section elements, not
+ * anything defined here.
+ */
+.newspaper p {
+  /* Never strand a single line at the foot or head of a column. */
+  orphans: 2;
+  widows: 2;
+}
+
+/*
+ * The drop cap. Three lines deep, in the display serif, which is what tells a
+ * reader at a glance that the thing below is a column and not a caption.
+ */
+.dropcap::first-letter {
+  float: left;
+  font-family: var(--font-gazette);
+  font-weight: 700;
+  font-size: 3.4rem;
+  line-height: 0.78;
+  padding-right: 0.08em;
+  padding-top: 0.06em;
+}
+
+/*
+ * ── The champions ribbon, on the front page ───────────────────────────────
+ *
+ * A stadium ribbon board: every champion the league has ever had, running
+ * continuously rather than sitting in a table. The track holds the list
+ * TWICE and travels exactly -50%, which is what makes the loop seamless —
+ * at the end of the animation the second copy sits precisely where the first
+ * began, so there is no jump to hide.
+ *
+ * ⚠️ The duplicate is `aria-hidden` in the markup. A screen reader that read
+ * both would announce twenty-one champions as forty-two.
+ */
+.ribbon {
+  display: flex;
+  overflow: hidden;
+  /* Fades the ends rather than cutting them, so names enter and leave instead
+     of appearing at a hard edge. */
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.ribbon-track {
+  display: flex;
+  flex: 0 0 auto;
+  animation: ribbon-slide 48s linear infinite;
+}
+.ribbon:hover .ribbon-track {
+  animation-play-state: paused;
+}
+@keyframes ribbon-slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/*
+ * Reduced motion gets a real fallback, not a frozen one: the animation stops
+ * and the ribbon becomes an ordinary horizontal scroller, so every champion is
+ * still reachable. A stopped marquee that hides half its content is worse than
+ * no marquee.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ribbon {
+    overflow-x: auto;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  .ribbon-track {
+    animation: none;
+  }
 }

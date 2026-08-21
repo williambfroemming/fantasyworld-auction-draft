@@ -29,7 +29,7 @@ export default function TradesPage() {
       .then((r) => r.json())
       .then((d) => {
         setMe(d.managerId)
-        if (!d.managerId) router.replace('/')
+        if (!d.managerId) router.replace('/join')
       })
       .catch(() => {})
   }, [router])

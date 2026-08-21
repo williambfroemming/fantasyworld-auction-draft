@@ -2661,3 +2661,407 @@ The tooltip is CSS rather than `title`, and `DraftDnaSeason` gained
 - **Dollars are carried, not recomputed from `share × spent`.** That is
   floating-point arithmetic on a figure people read as money: $47 comes back
   $46.999999999999996 and renders correctly only by luck of rounding.
+
+---
+
+## The FantasyWorld Gazette, and the fact pack that turned into an eval
+
+The app has been a companion to Sleeper since we stopped pretending it might replace it. Sleeper
+runs the mechanics; this holds the league's identity. What it has never had is a **voice** — Bill
+asked for one on 2026-08-19 ("AI Summaries... it should be fun") and it went nowhere.
+
+The Gazette is a weekly, deliberately unkind newspaper. Nine sections, of which the three that
+matter compound across a season: power rankings with movement, a Worst Manager belt that gets
+passed around and tracked, and the Ledger of the league's own $10 side bet. Plus career milestone
+crossings, this week in the same week of earlier seasons, and one rotating **Stat of the Week**
+drawn from an open registry of generators.
+
+**Issues are ordered, not independent.** Each carries a short list of `threads` into the next, so
+week nine knows what week eight said. That is the whole feature. Week ten of 2025 opens by noting
+that Jack spent two weeks circling his hundredth win "like a man who cannot find the entrance to a
+parking garage he has used every day of his life", and closes on the next man at ninety-eight —
+"the chair at ninety-nine is warm" — which is the paper handing itself next week's lead.
+
+**The snapshot was a mitigation and became the mechanism.** Moving the refresh to Tuesday means
+writing while stat corrections are still settling, so every issue stores the exact fact pack it was
+written from and the page renders its tables from that snapshot. That was defensive. What fell out
+of it is that the grounding check — every digit in the prose accounted for by the pack — became a
+plain vitest test over committed JSON, with no database and no API key, which means it runs in the
+PR gate. A hallucinated score now cannot reach `main`.
+
+**The rotating slot is a registry, not a list.** A generator is a pure function returning candidates
+with a `surprise` scored as a percentile against that candidate's own history. Adding a new kind of
+stat is one function and one test. That is what makes the section open-ended — "anything about this
+league that would make somebody say wait, really" — without any figure being ungrounded.
+
+**Learned:**
+
+- **Percentile, not magnitude, is what makes categories comparable.** A forty-point bust and a
+  six-week streak are different units and cannot be ranked against each other by size. "More extreme
+  than 97% of these on record" means the same thing whatever *these* are. Building the scorer before
+  any generator was the right order; with it working, adding generators is trivial.
+- **A superlative that fires every week is not a superlative.** The first draft printed "only 316
+  losing scores on record beat it" — true, structurally identical to a real record, and completely
+  meaningless. The fix is as much about the weeks the section stays quiet as the weeks it speaks:
+  a `MIN_SURPRISE` floor, and a rank only stated when the rank is short.
+- **"Since Sleeper" was the wrong window for a career number.** Milestones were noise until they
+  reached 2011 through `season_standings` — fifteen career-win thresholds nobody was near became two
+  men tied on ninety-nine. The data had been there the whole time; the query wasn't asking for it.
+- **Telling a model to be "a bit mean" produces arch.** What worked was naming the softeners to
+  delete ("respectable", "to be fair", "in most households") and giving structural rules — never end
+  a paragraph kindly, the bottom of the table gets the most words. Adjectives did nothing; mechanics
+  did. Same for hyperbole, which needed an explicit boundary: licensed on character, never on a
+  figure, or the grounding check eats it.
+- **A comment that quotes the token it forbids fails its own test.** `gazette-service.ts` had a
+  docblock saying the structural test "asserts it contains no `fetch(`" — and the structural test
+  read the docblock. The prompt file had the same problem with backticks. Both notes now describe
+  the forbidden string instead of spelling it.
+- **A dry run cannot demonstrate continuity.** `--sample` stores nothing, so week two would have been
+  handed empty threads and the sample could never show the one thing it exists to show. It threads
+  its issues in memory instead, and takes **consecutive** weeks rather than a spread — three
+  unrelated weeks show you the voice and tell you nothing about the memory.
+
+**Watch out for:**
+
+- **`season_standings` holds the FINAL table for the season in progress.** It is season-grain and
+  the importer rewrites it wholesale every run, so a backfilled week 7 issue that read it would
+  print an 11-3 record for a team that was 4-3 at press time — a confident wrong answer about the
+  thing every reader checks first. Records, streaks and ranks all derive from matchups. The one
+  exception is career totals, which read standings for **completed earlier seasons only**.
+- **`player_seasons.avg_points` is the same trap one level down.** It is the final average, so
+  judging a week-7 explosion against it quietly grades the player on games they had not played.
+  Averages come from the weeks before the one being written about.
+- **`draft-recap.ts` has never actually run, and would have truncated if it had.** It sends
+  `max_tokens: 400` to a model where adaptive thinking is on by default and `max_tokens` caps
+  thinking *and* text together. It also had no `dotenv -e .env.local` prefix, so it did a bare
+  `import 'dotenv/config'` looking for a `.env` this repo does not have — the key would never have
+  been read. Both fixed here.
+- **A game row names two managers**, so a blanket numeric walk credits each of them with the other's
+  score — which is exactly the error the misattribution check exists to catch. Attribute per side.
+  The same check's first version used an eighty-character window and produced eight false positives
+  on one issue; it is scoped to a single sentence now, and skips sentences naming two people.
+- **Regenerating a mid-season week orphans every later issue**, which was written against a version
+  of it that no longer exists. `--regenerate` says so and takes `--forward`; a full-season backfill
+  is safe because it runs strictly chronologically.
+- **`grep -c` counts matching lines, not occurrences.** The backtick guard on the prompt file read
+  clean at "4" when the real count was 6. `grep -o … | wc -l`.
+- **Substring assertions against a serialised pack collide with arithmetic.** `not.toContain('220')`
+  failed because 220 was also a season points-to-date total, and `'99'` failed inside `99.38%`. The
+  fixtures use sentinels that cannot arise from a sum.
+- **A playoff week does not have ten sides.** `pairWeek()` drops unpaired entries, so `season_matchups`
+  carries four to six while `season_lineups` still carries ten. `teamsPlaying` is explicit on the
+  pack for exactly this reason.
+
+**Gordon Applewhite, added after the first read (prompt v5).** Bill supplied a persona spec written
+as a standalone skill — a named reporter, a markdown notebook at `data/gordon_notebook.md`, a
+hand-rolled weekly JSON schema, and named superlatives. The persona and the voice rules were the
+valuable half and went straight in. **The scaffolding was declined on purpose**: a second notebook
+would fork the state that `threads` already holds, and a hand-rolled input schema would cut the
+prose loose from the fact pack, which is the only thing the grounding gate can check against. What
+the spec called a notebook already existed; it needed structure, not a second home.
+
+The structure was the real upgrade. `Thread` gained a `kind` — `bit`, `thesis`, `callback`, `arc`
+— because those four age differently: a bit gets funnier by repetition, a callback becomes a debt,
+a thesis is revised by evidence, and an arc note is only ever a draft. Within three sampled weeks
+the notebook was retiring its own entries (*"New, replaces bill-nine"*), revising a thesis against
+the data (*"Thesis is no longer fraud, it is housekeeping"*), and — unprompted by anything but the
+instruction to let one emerge — recording that it had earned a sign-off and should keep it.
+
+Two of the named superlatives already existed and were renamed. Two did not and became generators:
+**The Group Project** (ranks far better on points than on record — the only measurable injustice in
+the sport) and **The Bandwagon** (biggest move in the power rankings).
+
+**Learned:**
+
+- **A persona is worth more than adjectives.** Four rounds of tuning bought "meaner" and
+  "funnier". Naming the man, giving him a biography and a register — a war correspondent filing
+  from a collapsing capital — bought a voice. "The lease is renewed. Nobody should mistake that
+  for a deed" is not a sentence any amount of *be wittier* was going to produce.
+- **Metaphors should escalate the subject, not deflate it.** v4 said reach as far as possible;
+  v5 says reach for real estate, law, empire, institutions in decline. Distance was the wrong
+  axis. Direction was the right one.
+- **Understatement and hyperbole cannot both be house style.** v4 licensed hyperbole on character;
+  Gordon's register is "this paper acknowledges landmarks". The conflict had to be resolved rather
+  than layered, and resolving it toward understatement made the cruelty land harder.
+- **Guards should be scoped to what they protect.** The already-written guard exists to stop a
+  backfill re-billing itself, and it was blocking `--facts` and `--sample` — the two flags that
+  write nothing and are exactly what you reach for when an issue that already exists reads wrong.
+
+**Watch out for:**
+
+- **`Thread.kind` is optional on the type and required in the JSON schema.** The type has to parse
+  issues written before the notebook had sections; everything written from v5 on files itself.
+- **The misattribution check still cannot see player-level figures.** A sentence naming one manager
+  and quoting a player's score reads as a mismatch, because the check only knows team-level pairs.
+  It is warn-only and it stays that way.
+
+---
+
+## A front door, instead of a draft that is over
+
+**BACKLOG §11, now closed.** `/` was the seat picker, and it sent anyone already signed in straight
+to `/draft` ([the old page.tsx:27](src/app/page.tsx#L27)). Correct in the week before the auction;
+wrong the moment it ended. Every returning manager landed on a live-draft screen with nobody on the
+clock and a pool nobody could nominate from, while `/history`, `/stats`, the record book and the
+Gazette all existed with nothing pointing at them.
+
+The seat picker moved to `/join` unchanged. `/` is now a server-rendered front page: the reigning
+champion as the lead, a roll of honour beside it, the latest Gazette issue in the rail, the season's
+auction in three figures, and an index of every section across the foot.
+
+**The routing rule has four cases, and only two of them are obvious.** It lives in
+`src/lib/landing.ts` as a pure function precisely so all four can be walked without a database:
+
+|                    | signed in | signed out |
+|---|---|---|
+| draft live         | `/draft`  | `/join`    |
+| draft complete     | front page | front page |
+
+**Learned:**
+
+- **The dangerous case was "signed out, on draft night".** Before this route existed, a signed-out
+  visitor always got the seat picker; a front page silently takes that away, and it only bites in a
+  state that is hard to reproduce out of season — a live draft *and* no cookie. Sending signed-out
+  visitors to `/join` while anybody is unfilled keeps draft night byte-identical to what it was, and
+  is why `landingDestination()` checks completeness *before* it looks at the session.
+- **The redirect got faster by moving to the server.** It replaced a page load, a hydration and a
+  `/api/session` round trip with a 307. Reading the cookie costs `force-dynamic`, which is the right
+  trade: the caching scar in AGENTS.md is `/api/state` at five queries every 400ms, not three cheap
+  queries on an occasional visit.
+- **A front page is not an interior page, and the difference is mostly type size.** Every other
+  screen here is a dense grid because every other screen answers a specific question. The first
+  draft of this one matched that and read as a sixth interior page. What fixed it: the champion's
+  name at `text-7xl` (interior pages top out near `text-lg`), `max-w-6xl` instead of the tables'
+  `max-w-[92rem]`, `.rule-strong` bands instead of bordered cards, and exactly one accent colour —
+  the champion's own `--mgr-*` hue.
+- **`.leaders` had been sitting unused for exactly this.** Dot leaders are the broadsheet contents
+  device, and they were already in `globals.css` from the agate columns.
+- **Layout cannot fix a content problem.** Two rounds went into distributing whitespace before
+  admitting the page was simply thin. Adding the roll of honour and the auction band was the fix;
+  `min-h` + `justify-between` had only moved the void from the bottom to the middle.
+- **The empty states got proven for free.** Mid-review the Gazette table was empty (the other branch
+  was rebuilding it) and the rail rendered its "No issues yet" line correctly, unprompted.
+
+**Watch out for:**
+
+- **A bare `fr` track is `minmax(auto, 3fr)`, and `auto` will not shrink below min-content.** A
+  `.leaders` row is `white-space: nowrap`, so its min-content width is the *entire line* — the grid
+  tracks blew out and the columns overlapped on top of each other. Both grids here are
+  `minmax(0,3fr)_minmax(0,2fr)`. Any future column holding dot leaders needs the same.
+- **`picks.player_id` carries a foreign key to `players`.** The first cut of `landing.itest.ts`
+  inserted synthetic ids and was rejected. Fill tests need real pool rows.
+- **`listHistorySeasons()` grew four columns rather than gaining a sibling query.** Its only other
+  caller (`/history`) reads the year and ignores the rest. The integration test asserts the original
+  fields still arrive, because the risk of an additive change is what it breaks, not what it adds.
+- **The mobile nav overflows below ~700px, and that is pre-existing.** `/history` does it
+  identically; it is BACKLOG §8 and was deliberately not fixed here. The front page's own content
+  stacks cleanly — verified at 768px.
+- **`seasons.buy_in` was missing from `neondb_test`.** The test database had drifted from
+  `schema.ts`; `npm run db:local:setup-test` rebuilds it but drops every row, so the pool and
+  managers have to be restored afterwards.
+
+### Then it was redesigned — **Monument**, and the Gazette got art
+
+The first build was correct and dull. Five directions were mocked up and pitched; the league picked
+**Monument**, the most typographic of them. What changed:
+
+- **The champion's name is the picture.** `clamp(3.5rem, 16vw, 14rem)` at `0.84` leading, full
+  bleed. There is deliberately no imagery above the fold to compete with it.
+- **The roll of honour became a ribbon.** Every champion on record runs continuously across a
+  full-bleed band — `.ribbon` in `globals.css`.
+- **The Gazette art is letterboxed below the fold**, a press photo beside its story rather than a
+  hero behind it, and **generated per issue** by `npm run gazette:art`.
+- **The champion's winning lineup fills the space the name leaves.** `getChampionshipLineup()`
+  returns the eleven starters from the final with what each scored, laid out as a box score with
+  the day's top scorer as the only highlighted name.
+
+**Finding the final needs `playoff_placement`, not `playoff_round`.** The consolation bracket shares
+a round with the championship game — 2025 week 17 round 3 holds both the final and the third-place
+game. What separates them is that a placement game carries the place it decides (3, 5, …) and the
+final carries null. The query takes the champion's latest playoff win that is *not* a placement
+game. Ordering by week alone would have picked whichever row came back first.
+
+**Learned:**
+
+- **"The article dictates the art" beat any house style.** The first instinct was to pick a look —
+  engraving, halftone, chalk diagram. The better answer, and the user's, was to hand the finished
+  issue back to the model that wrote it and ask it to art direct. Week 14 (*"the belt went to a man
+  who kept his best player off the sand"*) produced an empty gladiatorial gate-mouth with unused
+  armour hanging in shadow and a sword abandoned in the sand. No fixed style prompt would have
+  found that, and next week's will not look like it.
+- **Two model kinds hide behind one gateway slug list, and the names do not tell you which.**
+  `google/gemini-3.1-flash-image-preview` is a *language* model that emits images — it rejects
+  `experimental_generateImage` with "is a language model, not an image model" and has to go through
+  `generateText`, picture arriving in `result.files`. `kindOf()` asks the gateway rather than
+  guessing.
+- **A cap chosen for one screen is a cap chosen for none.** `8rem` looked fine in isolation and left
+  the lead in the left third of a laptop. The `16vw` term does the work; the cap only catches
+  ultrawide.
+- **A statistic that cannot move is not a statistic.** The auction band first led with *total spent*
+  and *players sold*. Both are constants: the room spends $1,979–$2,000 of its $2,000 every single
+  year, and the pick count is always `managers × rosterSize` — 160, forever. Two of three figures
+  could never say anything, which is worse than dull because it still looks like data. They were
+  replaced with the two that actually range: **median price** ($3–$8) and **$1 players** (31–53).
+  The dollar count is the one with a story in it — 53 means a room that spent early and ran dry, 31
+  means one that held money back. Before putting a number on a summary screen, check its spread
+  across every season on record; if it does not move, it is a caption, not a fact.
+
+**Watch out for:**
+
+- **No identifiable people in generated art, ever.** The Gazette writes about ten real, named men,
+  and a generated photograph of one of them is a fabricated picture of somebody who exists,
+  published under their name. The director prompt forbids faces, portraits, and real team marks, and
+  reaches for objects, weather and aftermath instead. Do not relax this for a "nicer" image.
+- **The free-tier default is the weakest model.** `prodia/flux-fast-schnell` is what runs without
+  buying credits, and it ignores `aspectRatio` — it returns a square that the front page crops to
+  16:9. `openai/gpt-image-1.5` and `google/gemini-3-pro-image` are much better and honour the ratio,
+  but 402 on a free account. Override with `GAZETTE_IMAGE_MODEL`.
+- **Art generation is a separate command from `npm run gazette` on purpose.** An image provider
+  being down must never stop an issue being written, art is the part most likely to need re-rolling,
+  and keeping it separate meant not touching the Gazette script at all.
+- **Generated art is committed, not gitignored.** One PNG per issue, ~17 a season. That is a
+  deliberate choice — a re-deploy cannot lose it and there is no blob store to configure — but it
+  is the thing to revisit first if the repo starts to feel heavy.
+- **`.leaders` and `fr` tracks still do not mix.** Same `minmax(0,…)` trap as above; the ribbon
+  avoids it by not being a grid at all.
+- **Scaffolding data will be read as real, including by the person who asked for it.** The front
+  page was reviewed against 160 hand-inserted picks priced on an invented ladder, and it reported
+  `$8,000 spent` — four times the money that exists — plus a ten-way tie at $60 that made
+  "priciest of the night" arbitrary. Both were spotted by the user, not by me, because I checked the
+  layout and never ran `npm run db:verify` against my own fixture. **Run it after seeding anything**;
+  it catches exactly this, and it also caught the missing `season_orders` row the hand-inserts had
+  skipped.
+
+## Lineup efficiency was quietly measuring who checked out in December
+
+The question was only "is this stat legit". The machinery is: the player map covers **every** id in
+`players_points` across 2020–2025 with zero unmapped and zero `UNKNOWN` positions, so the failure
+mode `pull-player-map.ts` warns about is not happening; the `ppts` cross-check reproduces at 46/60
+exact with a mean gap of **+0.94** and residuals in **both** directions (−11.40 to +37.94), which is
+what rules out the eligibility rules being systematically too generous; and the most-restrictive-first
+fill is provably optimal on nested eligibility sets. The scope was not.
+
+`season_lineups` stores every week that was played, weeks 1 through `playoffStart + 2`. `leagueSummary`
+summed all of them. `allPlay()` — printed in the same row of the same table — has always dropped
+playoff weeks. So two columns side by side covered different seasons, and nothing said so.
+
+**Learned:**
+
+- **The bug was in the scope, not the arithmetic, and only the arithmetic had tests.** Every existing
+  test asked whether `actual / optimal` was computed correctly. None asked *over which weeks*, so a
+  stat could be exactly right about the wrong population and stay green forever. When a metric has a
+  denominator drawn from a set of rows, the test that matters is which rows are in the set.
+- **The eliminated stop trying, and it is measurable.** Across 2020–2025: regular season **88.74%**,
+  weeks 15–17 for teams still alive **86.09%**, weeks 15–17 for eliminated teams **83.51%**. That
+  5.2-point gap is not managing, it is attendance — and it was landing in a column labelled as though
+  it were skill.
+- **Scope errors are small per week and large in aggregate.** Individual manager-seasons shifted up to
+  **4.60pp**, the 2022 season leader flipped, and five of ten managers changed rank in the all-time
+  table. Grossman gained **+1.65**, Daniel — who kept making playoffs — lost 0.07. The correction is
+  almost perfectly correlated with how often a man was eliminated early, which is the tell that the
+  old number was measuring the wrong thing rather than measuring noisily.
+- **Derive a shared scope from the same flag, not from a second source that agrees today.**
+  `regularSeasonWeekKeys()` reads `isPlayoff` off the matchups — the identical field `allPlay()`
+  filters on — so the two cannot drift. `seasons.regularSeasonWeeks` was the obvious alternative and
+  is worse twice over: it is a second lookup that merely happens to agree, and it is **nullable**,
+  so unknown would have to mean "count everything" and would silently restore this exact bug for
+  whichever season we understand least.
+- **Verify a regression test by breaking the fix.** Both new tests were run against the pre-fix line
+  (0.5 and 0.6 against an expected 0.9) before being kept. A test written after a fix that is never
+  seen to fail is a test of nothing.
+
+**Watch out for:**
+
+- **`powerAsOf()` computes the same efficiency a second time** for the previous week's rankings, to
+  get the move arrows. Fixing only the live path would have left the arrows annotating a column
+  computed a different way, so a man appears to move when only the definition did. Both were changed.
+  If a stat is computed in two places, the second one is a *week-ago* copy and is easy to miss.
+- **No committed Gazette issue changed, and that was checked rather than assumed.** The archive holds
+  2025 weeks 6–14 and `playoff_week_start` is 15, so every published issue was already inside the
+  regular season — the `week <= week` bound had been doing this fix's job by accident all season. The
+  snapshotted `facts` argument would have protected the prose anyway, but "the data says zero issues
+  move" is a stronger claim than "the design says it cannot".
+- **The perfect-lineup candidate reads `history.lineups` untruncated** (`gazette.ts`, the
+  `start-sit` generator): `all` and `total` count every manager-week in the input, including weeks
+  *after* the one being covered. `upTo()` is applied to `history.matchups` to build `toDate`, but
+  `history` itself is passed whole to every generator, so a backfilled week-7 issue can print a rate
+  computed through week 17. `ungroundedNumbers()` cannot catch it — the figure *is* in the pack, which
+  is exactly the `season_standings` trap wearing different clothes. **Not fixed here**; it is a
+  different stat and changes published surprise scores.
+- **Efficiency is still judged with hindsight**, and the glossary now says so. Nobody knew on Sunday
+  morning. It also cannot see IR: the archived matchup payloads no longer expose which players sat in
+  an IR slot and so could not legally be started, which is most of the +37.94 outlier against `ppts`.
+
+---
+
+## The Gazette gets an edition with no games in it
+
+The auction is the most consequential night of the league's year and the Gazette had nothing to say
+about it. Every edition is a week in review, and there is no week — the 2026 draft finished on 14
+August and week one has not been played. So the preview became **week zero**: same table, same
+mirror, same grounding gate, a completely different fact pack, and a second prompt.
+
+Also, on the way past: the eight PROMPT_VERSION 6 issues in the 2025 archive were rewritten at v12,
+and weeks 12–14 turned out to have been **orphaned** — generated at 06:27 against a week 11 that was
+regenerated at 14:21. The archive is now one voice end to end.
+
+**Learned:**
+
+- **The two packs share a grounding walk and no figures at all.** `groundedKeys()` walks numeric and
+  string leaves generically, so `PreviewFacts` was authorised by the gate the moment it existed — no
+  second list, exactly as the docblock promised. Everything else diverged: no games, no standings,
+  no all-play, no belt, no efficiency, no ledger. A `GazetteFacts` with nine empty arrays would have
+  put nine empty tables on the page and handed the model nine fields of nothing to hallucinate
+  around, so `PreviewFacts` is its own type and `isPreview()` is the discriminant.
+- **The discriminant has to be tested on the new value, never the old one.** `kind` is absent from
+  every issue written before this, so `kind === 'week'` is false for the entire back catalogue.
+  `kind?: 'week'` and a test on `'preview'` is the only shape that reads nine existing issues
+  correctly, and there is a unit test asserting exactly that.
+- **A cross-position value comparison in a superflex league returns nothing but quarterbacks.** The
+  first cut of bargains/reaches ranked price against overall board rank and produced six QBs in a
+  row — Mahomes, Nix, Purdy, Dart, Prescott, Lawrence. `AGENTS.md` says this in plain English and
+  `draft-value.ts` says it in a docblock, and it still got written, because the cross-position
+  version is the one that falls out of the data naturally. Within-position ranking fixed it; there
+  is now a unit test that puts a $99 QB at overall rank 400 in the pack and fails if he appears.
+- **Both ends of a rank-versus-price measure are degenerate, not just the cheap end.** After moving
+  within-position, the lists filled with $1–$11 tail players: a dollar receiver who is his
+  position's 37th on the board and 46th by price is a nine-place "bargain" on somebody nobody
+  wanted. A bargain now has to be a player the board actually rated (top twenty at his position) and
+  a reach has to have real money on it ($10+), in the spirit of `MIN_SURPRISE`.
+- **`season_standings.place` is the REGULAR SEASON, not the bracket.** In 2025 Jack placed first and
+  Gabes won the title. A table headed "how 2025 finished" showing `place` would have printed first
+  place beside the wrong man, and the column would have repeated it. The fields are now named
+  `regularSeasonPlace` / `bestRegularSeasonPlace` / `lastRegularSeasonPlace`, a `finish` field
+  carries the bracket, and a pack note spells the distinction out for the model.
+- **The room agreed with the board almost exactly, and that is the story.** 116 of 152 scored picks
+  landed within three places of the rankings at their own position. That is computed
+  (`marketDiscipline`) rather than left for the column to assert, because a writer eyeballing two
+  short lists cannot tell a disciplined room from a thin section — and it became the thesis of the
+  issue that got written.
+- **The doc described a test that did not exist.** Build step 30 says the grounding gate runs "in
+  the script, in `--audit`, and as a vitest test over the committed archive". The first two were
+  real; the third was not, so nothing actually stopped a bad figure reaching `main`. It exists now,
+  over every committed season file, plus a second check that no HTML markup survives into a field
+  rendered as text.
+
+**Watch out for:**
+
+- **A model will read "one italic standfirst sentence" as an instruction to emit markup.** The
+  preview came back with its deck wrapped in an em tag, which React escapes, so it would have
+  reached the page as visible angle brackets in the largest italic type in the issue. Fixed with a
+  strip in the pipeline rather than a line in the prompt: a prompt edit obliges a version bump and a
+  regeneration of work that is otherwise correct, and an instruction is a request where a strip is a
+  guarantee.
+- **`Number.MAX_SAFE_INTEGER` does not fit in a Postgres `integer`.** Used as "no upper bound" on the
+  week column when fetching the previous season's issues, it fails in the driver rather than reading
+  as unbounded. A literal 999 is past the end of any season.
+- **Continuity across a New Year needs its own query.** `getPriorIssues()` is same-season by design,
+  so a preview asking it for week zero gets nothing and Gordon opens the year with an empty
+  notebook. `getPreviousSeasonIssues()` finds the last season that has issues and reads all of them,
+  which is how the 2026 preview collected on threads left owed in 2025 week 14.
+- **Week zero is falsy, and argument parsing is full of `!week`.** `gazette-art.ts` guards on
+  `!all && !season` (safe, season is 2026) and passes `week ?? null` (safe, `0 ?? null` is 0). It
+  happens to work. Anything new that parses a week must be checked against zero rather than assumed.
+- **`--backfill 2025` would write seventeen issues, not nine.** `playedWeeks()` returns every week
+  with matchups, and the Gazette only ever covered 6–14. The rewrite was an explicit loop over those
+  nine.

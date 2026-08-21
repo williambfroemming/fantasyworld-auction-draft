@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -520,6 +521,16 @@ export const seasons = pgTable('seasons', {
    */
   buyIn: integer('buy_in'),
   /**
+   * The weekly side bet: what the low scorer pays the high scorer, each week.
+   *
+   * ⚠️ Null is unknown, and unknown is not "no bet". The league has run it at $10
+   * for the last couple of seasons and did not before that — so a column
+   * defaulting to 0 would quietly assert that 2020 ran a side bet worth nothing,
+   * which is a different and false claim. The Gazette's Ledger prints the count
+   * of high and low weeks always, and dollars only for the seasons with a rate.
+   */
+  sideBet: integer('side_bet'),
+  /**
    * The draft's story in a few sentences, written once by a model from a fact
    * pack computed here and stored — never generated on request. See
    * `scripts/history/draft-recap.ts`. Null just means nobody has run it yet.
@@ -756,6 +767,75 @@ export const legacyChampions = pgTable('legacy_champions', {
   moneyWon: integer('money_won'),
 })
 
+/**
+ * One issue of The FantasyWorld Gazette — the weekly newsletter.
+ *
+ * ## Why the prose is stored rather than generated on request
+ *
+ * The same reason `seasons.draft_recap` is: `/history/gazette` is a Server
+ * Component, a finished week never changes, and the app's first rule is that
+ * nothing on a request path makes an outbound call. An issue is written once by
+ * `npm run gazette`, stored here, and read back as text.
+ *
+ * ## Why `facts` is on the row, and why it is load-bearing
+ *
+ * The refresh runs **Tuesday**, while NFL stat corrections are still settling,
+ * and the importer rewrites a season's `season_matchups` wholesale on every run.
+ * So the numbers behind an issue genuinely move after it is written.
+ *
+ * `facts` is the exact pack the model was given, snapshotted at press time. Every
+ * table, ranking and award on the page renders from **it**, never from a live
+ * query — so the column and the furniture beside it can never disagree, and
+ * neither drifts when next Tuesday's import corrects a score. An issue is a
+ * printed artifact, and printed artifacts do not change. A correction that
+ * arrives on Thursday is next week's joke, not this week's bug.
+ *
+ * It is also what makes the grounding check a plain unit test: `gazette.test.ts`
+ * asserts every figure in every committed issue appears in the pack stored beside
+ * it, with no database and no API key, so a hallucinated score cannot reach main.
+ *
+ * ## Why `threads`
+ *
+ * The paper compounds. Each issue emits a short list of running storylines, and
+ * the next week's prompt receives them — which is how week nine knows what week
+ * eight said. Capped small on purpose: a running memo, not a second column.
+ */
+export const weekIssues = pgTable(
+  'week_issues',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    headline: text('headline').notNull(),
+    /** What the edition is called, shown in the masthead beside the week. */
+    issueTitle: text('issue_title'),
+    /**
+     * The frame this week was told through, as chosen.
+     *
+     * `facts.genre` is only the calendar's suggestion. The theme is supposed to
+     * emerge from what happened — a week of squandered points wants a tragedy
+     * whatever the calendar says — so what Gordon actually reached for is
+     * recorded separately from what he was offered.
+     */
+    lens: text('lens'),
+    /** The italic standfirst under the headline. */
+    deck: text('deck').notNull(),
+    columnText: text('column_text').notNull(),
+    /** One comic write-up per matchup, so a manager can find their own result. */
+    gameNotes: jsonb('game_notes').notNull().default([]),
+    /** Running storylines carried into next week's prompt. */
+    threads: jsonb('threads').notNull().default([]),
+    /** The pack the model was given, as of press time. See the note above. */
+    facts: jsonb('facts').notNull(),
+    model: text('model').notNull(),
+    /** Bumped on every prompt edit, so `which voice wrote this` is answerable. */
+    promptVersion: integer('prompt_version').notNull(),
+    generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.week] })],
+)
+
 export type Manager = typeof managers.$inferSelect
 export type Player = typeof players.$inferSelect
 export type Draft = typeof draft.$inferSelect
@@ -773,3 +853,4 @@ export type SeasonLineup = typeof seasonLineups.$inferSelect
 export type PlayerWeek = typeof playerWeeks.$inferSelect
 export type PlayerSeason = typeof playerSeasons.$inferSelect
 export type LegacyChampion = typeof legacyChampions.$inferSelect
+export type WeekIssue = typeof weekIssues.$inferSelect

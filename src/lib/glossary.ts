@@ -299,7 +299,7 @@ export const GLOSSARY: GlossaryEntry[] = [
     group: 'league',
     where: 'League Summary · Member page',
     formula: 'points you actually started ÷ points the best legal lineup on your roster would have scored',
-    note: 'The optimal lineup is filled most-restrictive slot first, so a flex never steals a player a locked slot needed.',
+    note: 'Regular season only, same as all-play — once a man is eliminated he stops setting his lineup, and counting those weeks would measure who checked out in December rather than who managed well. The optimal lineup is filled most-restrictive slot first, so a flex never steals a player a locked slot needed. It is judged with hindsight: nobody knew on Sunday morning.',
     source: 'lineupEfficiency() / optimalLineup() — src/lib/history.ts, src/lib/sleeper-history.ts',
   },
   {

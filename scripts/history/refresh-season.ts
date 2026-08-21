@@ -5,9 +5,17 @@
  *   npm run history:refresh -- --season 2025
  *   npm run history:refresh -- --check     # report only, write nothing
  *
- * Wednesday is the right day: the NFL week finishes Monday night, and stat
- * corrections settle through Tuesday. Pulling before that means importing scores
- * that are still moving.
+ * ⚠️ This runs **Tuesday**, and that is a trade rather than an oversight. The NFL
+ * week finishes Monday night and stat corrections settle through Tuesday, so
+ * some scores are still moving when this pulls — which was the whole reason it
+ * used to run on Wednesday.
+ *
+ * It moved so The FantasyWorld Gazette lands while the week is still worth
+ * talking about, and before Wednesday waivers. Two things make that safe: the
+ * importer rewrites the season wholesale on every run, so the history pages
+ * self-heal within a week; and every Gazette issue snapshots the fact pack it was
+ * written from and renders its tables from that snapshot, so an issue can never
+ * disagree with itself no matter what moves afterwards.
  *
  * ## Why this exists rather than re-running the backfill
  *

@@ -35,7 +35,7 @@ export default function DraftPage() {
       .then((d) => {
         setMe(d.managerId)
         setChecked(true)
-        if (!d.managerId) router.replace('/')
+        if (!d.managerId) router.replace('/join')
       })
       .catch(() => setChecked(true))
   }, [router])
@@ -143,7 +143,10 @@ export default function DraftPage() {
               <button
                 onClick={async () => {
                   await fetch('/api/session', { method: 'DELETE' })
-                  router.push('/')
+                  // Straight to the seat picker, not to `/`. The intent here is
+                  // "let me be someone else", and `/` would land a signed-out
+                  // visitor on the front page once the draft is over.
+                  router.push('/join')
                 }}
                 className="text-xs text-slate-500 underline-offset-2 hover:text-slate-300 hover:underline"
               >

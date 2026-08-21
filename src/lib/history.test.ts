@@ -265,6 +265,43 @@ describe('leagueSummary', () => {
     expect(row.weekly!.lineupEfficiency).toBe(0.9)
   })
 
+  it('excludes playoff and consolation weeks from lineup efficiency', () => {
+    // A man eliminated in the last regular week stops setting his lineup, and
+    // weeks 15-17 run ~5pp below the regular season league-wide because of it.
+    // Counting them would measure who checked out in December, in the column
+    // next to all-play, which has excluded them all along.
+    const withPlayoffs: HistoryInput = {
+      ...input,
+      matchups: [...matchups, ...week(2021, 15, [40, 30, 20, 10], { isPlayoff: true })],
+      lineups: [
+        ...lineups,
+        // A dreadful playoff week that must not reach the number.
+        ...members.map((m) => ({ season: 2021, week: 15, managerId: m.managerId, actual: 10, optimal: 100 })),
+      ],
+    }
+    const row = leagueSummary(withPlayoffs).rows.find((r) => r.member.managerId === 1)!
+    expect(row.weekly!.lineupEfficiency).toBe(0.9)
+  })
+
+  it('keeps lineup efficiency and all-play on the same weeks', () => {
+    // The two sit in one row of the League Summary. If one counts a week the
+    // other does not, the table is quietly comparing different seasons.
+    const played = week(2021, 2, [10, 20, 30, 40])
+    const scoped: HistoryInput = {
+      ...input,
+      matchups: [...matchups, ...played, ...week(2021, 15, [1, 2, 3, 4], { isPlayoff: true })],
+      lineups: [
+        ...lineups,
+        ...members.map((m) => ({ season: 2021, week: 2, managerId: m.managerId, actual: 90, optimal: 100 })),
+        ...members.map((m) => ({ season: 2021, week: 15, managerId: m.managerId, actual: 0, optimal: 100 })),
+      ],
+    }
+    const row = leagueSummary(scoped).rows.find((r) => r.member.managerId === 1)!
+    // Three all-play results per regular week, two regular weeks, no playoff week.
+    expect(row.weekly!.allPlayWins + row.weekly!.allPlayLosses + row.weekly!.allPlayTies).toBe(6)
+    expect(row.weekly!.lineupEfficiency).toBe(0.9)
+  })
+
   it('gives a manager with no week-level record a null weekly block', () => {
     const standingsOnly: HistoryInput = {
       members,

@@ -180,6 +180,66 @@ export async function getVersion(): Promise<string | null> {
   })
 }
 
+export interface LiveSeason {
+  season: number
+  status: string
+  rosterSize: number
+  picks: number
+  /** Managers with an unfilled roster. Zero means the draft is over. */
+  unfilled: number
+  seats: number
+}
+
+/**
+ * The cheap read: what season is it, and is the draft over?
+ *
+ * One query, next to `getVersion()` for the same reason that one exists — the
+ * expensive function is not always the one you need. The landing page (`/`)
+ * calls this on every visit to decide whether to redirect to `/draft`, and
+ * `getState()`'s five queries would be four wasted on a question this answers
+ * on its own.
+ *
+ * ⚠️ **"Is the draft over" is `unfilled === 0`, never `status === 'done'`.**
+ * The flag is set by hand and lags — the whole of `docs/BACKLOG.md` §9 P1. It is
+ * returned here for display ("paused" is worth saying out loud) and must not be
+ * used to answer the question.
+ *
+ * ⚠️ `seats` exists so that "nobody has a roster yet" cannot read as complete.
+ * An empty `managers` table makes `unfilled` zero, which would send the first
+ * visitor of a brand-new season to a front page announcing a finished draft.
+ * This is the same guard `draftComplete()` spells `managers.length > 0`.
+ *
+ * `manager_totals` is season-scoped in its own definition
+ * (`src/db/sql/manager_totals.sql`), so the season filter is inherited rather
+ * than restated — which is the only way it cannot drift from `d.season`.
+ */
+export async function getLiveSeason(): Promise<LiveSeason | null> {
+  const sql = getSql()
+
+  const rows = await sql`
+    SELECT d.season, d.status, d.roster_size,
+           (SELECT count(*)::int FROM picks WHERE season = d.season) AS picks,
+           (SELECT count(*)::int FROM manager_totals t
+             WHERE t.rostered < d.roster_size) AS unfilled,
+           (SELECT count(*)::int FROM manager_totals) AS seats
+      FROM draft d
+     WHERE d.id = 1`
+
+  // Null rather than a throw, matching `getVersion()`: an uninitialised draft is
+  // a state the caller renders, not an exception it catches.
+  const d = rows[0]
+  if (!d) return null
+
+  return {
+    season: Number(d.season),
+    status: String(d.status),
+    rosterSize: Number(d.roster_size),
+    picks: Number(d.picks),
+    unfilled: Number(d.unfilled),
+    seats: Number(d.seats),
+  }
+}
+
 export async function getState(): Promise<DraftState> {
   const sql = getSql()
 

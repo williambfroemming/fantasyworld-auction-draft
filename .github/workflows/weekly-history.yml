@@ -1,12 +1,25 @@
-name: Weekly history refresh
+name: Weekly refresh and Gazette
 
-# Pulls the season in progress from Sleeper and imports it, every Wednesday.
+# Pulls the season in progress from Sleeper, imports it, and writes that week's
+# edition of The FantasyWorld Gazette. Every Tuesday.
 #
-# ## Why Wednesday
+# ## Why Tuesday, and what it costs
 #
-# The NFL week finishes Monday night and stat corrections settle through
-# Tuesday. Pulling earlier means importing scores that are still moving, and
-# every number on /history is derived from those scores.
+# This ran on Wednesday until the Gazette existed, for a good reason that has not
+# stopped being true: the NFL week finishes Monday night and stat corrections
+# settle through Tuesday, so pulling now means importing scores that are still
+# moving.
+#
+# That is a deliberate trade. A recap is worth reading while the week is still
+# worth talking about, and Tuesday noon Eastern also lands it before Wednesday
+# waivers, when it is actually useful.
+#
+# The mitigation is that **every Gazette issue snapshots the exact fact pack it
+# was written from**, and the page renders its tables from that snapshot rather
+# than from a live query. So the prose and the figures beside it are provably
+# consistent with what was known at press time, and a correction that arrives on
+# Thursday is next week's joke rather than this week's bug. The history pages
+# themselves self-heal: the importer rewrites the season wholesale every run.
 #
 # ## Why a GitHub Action rather than a Vercel cron
 #
@@ -27,15 +40,18 @@ name: Weekly history refresh
 # ## Setup
 #
 #   Settings → Secrets and variables → Actions → New repository secret
-#     DATABASE_URL = the Neon connection string
+#     DATABASE_URL      = the Neon connection string
+#     ANTHROPIC_API_KEY = an Anthropic API key, for the Gazette
 #
-# Without it the job fails loudly on the first step rather than silently
-# importing nothing.
+# Without DATABASE_URL the job fails loudly on the first step rather than
+# silently importing nothing. Without ANTHROPIC_API_KEY it warns and skips the
+# newsletter — see the note on that step.
 
 on:
   schedule:
-    # 13:00 UTC Wednesday — 8am Eastern in winter, 9am in summer.
-    - cron: '0 13 * * 3'
+    # 16:00 UTC Tuesday — noon Eastern through the season, 11am once the clocks
+    # go back in November. The NFL season runs almost entirely in EDT.
+    - cron: '0 16 * * 2'
   # So it can be run by hand mid-week, and to test it without waiting.
   workflow_dispatch:
     inputs:
@@ -76,6 +92,29 @@ jobs:
           npx tsx scripts/history/refresh-season.ts \
             ${{ inputs.season && format('--season {0}', inputs.season) || '' }}
 
+      # Between the import and the commit, deliberately: the script writes
+      # data/history/gazette/<season>.json, and the commit step below is what
+      # gets that into the repo.
+      #
+      # ⚠️ This step warns rather than failing, and carries continue-on-error.
+      # The import is the load-bearing job; the newsletter is not. A hard failure
+      # here would stop the workflow before "Commit the snapshot", stranding the
+      # Sleeper files that were just pulled and making next week's diff
+      # incoherent. A genuine API failure still shows as a failed step in the
+      # Actions UI, which is the visibility we actually want.
+      - name: Write the Gazette
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::ANTHROPIC_API_KEY is not set — no issue written this week."
+            exit 0
+          fi
+          npx tsx scripts/history/gazette.ts \
+            ${{ inputs.season && inputs.season || '' }}
+
       - name: Commit the snapshot
         run: |
           if git diff --quiet -- data/; then
@@ -88,5 +127,6 @@ jobs:
           git commit -m "Weekly history refresh
 
           Sleeper snapshot for the season in progress, pulled and imported by
-          .github/workflows/weekly-history.yml. Data only — no code changes."
+          .github/workflows/weekly-history.yml, alongside that week's Gazette
+          issue. Data only — no code changes."
           git push
