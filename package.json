@@ -25,7 +25,7 @@
     "draft:reset": "dotenv -e .env.local -- tsx scripts/reset.ts",
     "draft:record": "dotenv -e .env.local -- tsx scripts/record-picks.ts",
     "db:test-setup": "dotenv -e .env.local -- tsx scripts/setup-test-db.ts",
-    "db:test-migrate": "npm run check:testdb && dotenv -e .env.local -- tsx scripts/migrate-seasons.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-queue.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-pick-ranks.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-lot-index.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-player-identity.ts -- --test --offline && dotenv -e .env.local -- tsx scripts/migrate-history.ts -- --test && npm run db:test-seed",
+    "db:test-migrate": "npm run check:testdb && dotenv -e .env.local -- tsx scripts/migrate-seasons.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-queue.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-pick-ranks.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-lot-index.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-player-identity.ts -- --test --offline && dotenv -e .env.local -- tsx scripts/migrate-history.ts -- --test && dotenv -e .env.local -- tsx scripts/migrate-gazette.ts -- --test && npm run db:test-seed",
     "db:test-seed": "dotenv -e .env.local -- tsx scripts/seed-test.ts",
     "check:testdb": "dotenv -e .env.local -- tsx scripts/guard-test-db.ts",
     "db:migrate-auction": "dotenv -e .env.local -- tsx scripts/migrate-called-auction.ts",
@@ -39,6 +39,7 @@
     "season:list": "dotenv -e .env.local -- tsx scripts/list-seasons.ts",
     "history:pull": "tsx scripts/history/pull-sleeper.ts",
     "db:migrate-history": "dotenv -e .env.local -- tsx scripts/migrate-history.ts",
+    "db:migrate-gazette": "dotenv -e .env.local -- tsx scripts/migrate-gazette.ts",
     "db:local:up": "docker compose up -d --wait",
     "db:local:down": "docker compose down",
     "db:local:reset": "docker compose down -v && docker compose up -d --wait",
@@ -54,7 +55,9 @@
     "history:picks": "dotenv -e .env.local -- tsx scripts/import-history-picks.ts",
     "history:refresh": "dotenv -e .env.local -- tsx scripts/history/refresh-season.ts",
     "season:info": "dotenv -e .env.local -- tsx scripts/set-season-info.ts",
-    "draft:recap": "tsx scripts/history/draft-recap.ts"
+    "draft:recap": "dotenv -e .env.local -- tsx scripts/history/draft-recap.ts",
+    "gazette": "dotenv -e .env.local -- tsx scripts/history/gazette.ts",
+    "gazette:art": "dotenv -e .env.local -- tsx scripts/history/gazette-art.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
@@ -69,6 +72,7 @@
     "@types/node": "^20.19.43",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "ai": "^6.0.261",
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",

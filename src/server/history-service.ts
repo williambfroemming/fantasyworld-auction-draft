@@ -179,13 +179,30 @@ export interface SeasonListing {
   champion: string | null
   city: string | null
   state: string | null
+  /**
+   * Null for the 2006–2010 seasons, whose champion survives in
+   * `legacy_champions` as a **name only** — there is no manager row to hang a
+   * colour on. Treat it as unknown, not as "no colour".
+   */
+  championManagerId: number | null
+  championColor: string | null
+  championPrize: number | null
+  buyIn: number | null
 }
 
-/** Every season the league has any record of, newest first. */
+/**
+ * Every season the league has any record of, newest first.
+ *
+ * The prize and colour columns are here rather than in a second query because
+ * this already reads `seasons` — the landing page (`docs/BACKLOG.md` §11) wants
+ * the reigning champion and what they won, and `/history` simply ignores the
+ * extra fields.
+ */
 export async function listHistorySeasons(): Promise<SeasonListing[]> {
   const sql = getSql()
   const rows = await sql`
     SELECT s.season, s.data_tier, s.draft_city, s.draft_state,
+           s.champion_prize, s.buy_in, s.champion_manager_id, m.color,
            COALESCE(m.display_name, lc.champion_name) AS champion
       FROM seasons s
       LEFT JOIN managers m          ON m.id = s.champion_manager_id
@@ -197,7 +214,99 @@ export async function listHistorySeasons(): Promise<SeasonListing[]> {
     champion: r.champion === null ? null : String(r.champion),
     city: r.draft_city === null ? null : String(r.draft_city),
     state: r.draft_state === null ? null : String(r.draft_state),
+    championManagerId: numOrNull(r.champion_manager_id),
+    championColor: r.color === null ? null : String(r.color),
+    championPrize: numOrNull(r.champion_prize),
+    buyIn: numOrNull(r.buy_in),
   }))
+}
+
+export interface ChampionStarter {
+  slot: string
+  playerName: string
+  position: string | null
+  nflTeam: string | null
+  points: number
+}
+
+export interface ChampionshipLineup {
+  season: number
+  week: number
+  points: number
+  opponent: string | null
+  opponentPoints: number | null
+  starters: ChampionStarter[]
+}
+
+/**
+ * The eleven names that actually won it — the champion's starting lineup from
+ * the final, with what each of them scored.
+ *
+ * ## Finding the final without guessing
+ *
+ * `playoff_round` alone is not enough: the same round holds the consolation
+ * bracket, and in 2025 week 17 round 3 contains both the championship game and
+ * the third-place game. What separates them is `playoff_placement` — a
+ * consolation game carries the place it decides (3, 5, …) and the final carries
+ * null or 1. So the final is the champion's **latest** playoff win that is not a
+ * placement game.
+ *
+ * ⚠️ **Weekly-era seasons only.** `player_weeks` starts in 2020; before that the
+ * league has standings and a champion's name and nothing else. Null is the
+ * ordinary answer for 2006–2019 and callers render the champion without a
+ * lineup rather than treating it as missing data.
+ */
+export async function getChampionshipLineup(season: number): Promise<ChampionshipLineup | null> {
+  const sql = getSql()
+
+  const [final] = await sql`
+    SELECT sm.week, sm.points, sm.opponent_manager_id,
+           opp.points AS opponent_points,
+           om.display_name AS opponent_name
+      FROM seasons s
+      JOIN season_matchups sm
+        ON sm.season = s.season AND sm.manager_id = s.champion_manager_id
+      LEFT JOIN season_matchups opp
+        ON opp.season = sm.season AND opp.week = sm.week
+       AND opp.manager_id = sm.opponent_manager_id
+      LEFT JOIN managers om ON om.id = sm.opponent_manager_id
+     WHERE s.season = ${season}
+       AND sm.is_playoff
+       AND sm.result = 'W'
+       AND (sm.playoff_placement IS NULL OR sm.playoff_placement = 1)
+     ORDER BY sm.week DESC
+     LIMIT 1`
+
+  if (!final) return null
+
+  const rows = await sql`
+    SELECT pw.slot, pw.player_name, pw.position, pw.nfl_team, pw.points
+      FROM player_weeks pw
+      JOIN seasons s ON s.season = pw.season
+     WHERE pw.season = ${season}
+       AND pw.week = ${Number(final.week)}
+       AND pw.manager_id = s.champion_manager_id
+       AND pw.is_starter
+     ORDER BY pw.points DESC`
+
+  // A weekly-era season with no rows is a gap in the import, not a lineup of
+  // nobody — say nothing rather than draw an empty card.
+  if (rows.length === 0) return null
+
+  return {
+    season,
+    week: Number(final.week),
+    points: Number(final.points),
+    opponent: final.opponent_name === null ? null : String(final.opponent_name),
+    opponentPoints: numOrNull(final.opponent_points),
+    starters: rows.map((r) => ({
+      slot: String(r.slot ?? ''),
+      playerName: String(r.player_name),
+      position: r.position === null ? null : String(r.position),
+      nflTeam: r.nfl_team === null ? null : String(r.nfl_team),
+      points: Number(r.points),
+    })),
+  }
 }
 
 export async function getRecordBook() {
@@ -224,7 +333,18 @@ export async function getSeasonReviews() {
 export interface AuctionSummary {
   season: number
   picks: number
+  /**
+   * ⚠️ Nearly a constant, and not worth reporting on its own. Every season lands
+   * between $1,979 and $2,000 of a $2,000 ceiling, because the room spends
+   * essentially all of it every year — as does `picks`, which is always
+   * `managers × rosterSize`. `medianPrice` and `dollarPicks` below are the two
+   * that actually move, and they are what a summary should lead with.
+   */
   spent: number
+  /** Half the draft went for this or less. Has ranged $3–$7. */
+  medianPrice: number
+  /** Players bought for exactly $1. Has ranged 31–53 — the widest spread here. */
+  dollarPicks: number
   /** Managers who finished above the budget. The record does not always balance. */
   overBudget: Array<{ displayName: string; spent: number }>
   topPick: { playerName: string; price: number; displayName: string } | null
@@ -250,7 +370,10 @@ export async function listAuctions(): Promise<AuctionSummary[]> {
   const rows = await sql`
     SELECT pk.season,
            count(*)::int          AS picks,
-           COALESCE(sum(pk.price), 0)::int AS spent
+           COALESCE(sum(pk.price), 0)::int AS spent,
+           COALESCE(percentile_cont(0.5) WITHIN GROUP (ORDER BY pk.price), 0)::int
+                                  AS median_price,
+           count(*) FILTER (WHERE pk.price = 1)::int AS dollar_picks
       FROM picks pk GROUP BY pk.season ORDER BY pk.season DESC`
 
   const spendRows = await sql`
@@ -280,6 +403,8 @@ export async function listAuctions(): Promise<AuctionSummary[]> {
       season,
       picks: Number(r.picks),
       spent: Number(r.spent),
+      medianPrice: Number(r.median_price),
+      dollarPicks: Number(r.dollar_picks),
       recap: recaps.get(season) ?? null,
       overBudget: spendRows
         .filter((s) => Number(s.season) === season)

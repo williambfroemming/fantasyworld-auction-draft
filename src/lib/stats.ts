@@ -92,7 +92,13 @@ export interface StatsInput {
  * commissioner reassignment — is skipped rather than applied, because a
  * half-rewound chain is worse than an un-rewound one.
  */
-export function draftersByPick(picks: StatsPick[], trades: StatsTrade[]): Map<number, number> {
+export function draftersByPick(
+  // The minimum this needs, rather than a full `StatsPick`: the Gazette's season
+  // preview walks `picks` with a different set of columns and has the same
+  // attribution problem to solve. Every `StatsPick` still satisfies it.
+  picks: Array<{ id: number; managerId: number }>,
+  trades: StatsTrade[],
+): Map<number, number> {
   const drafter = new Map<number, number>()
   for (const p of picks) drafter.set(p.id, p.managerId)
 

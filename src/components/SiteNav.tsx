@@ -52,7 +52,7 @@ interface SectionDef {
   items: NavItem[]
 }
 
-const SECTIONS: SectionDef[] = [
+export const SECTIONS: SectionDef[] = [
   {
     key: 'draft',
     label: 'Draft',
@@ -82,6 +82,7 @@ const SECTIONS: SectionDef[] = [
     // broken rather than unfinished.
     items: [
       { href: '/history', label: 'League Summary', hint: 'The all-time table' },
+      { href: '/history/gazette', label: 'The Gazette', hint: 'The week, unkindly' },
       { href: '/history/records', label: 'Records', hint: 'Highs, lows and streaks' },
       { href: '/history/members', label: 'Members', hint: 'One career at a time' },
       { href: '/history/players', label: 'Players', hint: 'Who owned whom, and when' },
@@ -99,7 +100,13 @@ export function SiteNav({
   current,
   isCommish = false,
 }: {
-  section: Section
+  /**
+   * Omitted on the front page (`/`), which belongs to none of the three and
+   * should highlight none of them. `undefined` compares false against every
+   * `s.key` below, so no extra branch is needed — and a fourth section value
+   * would put a fourth word in a top level whose whole design is three.
+   */
+  section?: Section
   /** The active pathname, so the current page is marked rather than guessed. */
   current: string
   isCommish?: boolean

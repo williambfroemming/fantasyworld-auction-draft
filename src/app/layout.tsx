@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Oswald, Source_Serif_4, Geist_Mono } from "next/font/google";
+import { Oswald, Playfair_Display, Source_Serif_4, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 /*
@@ -23,6 +23,22 @@ const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
 });
 
+/*
+ * The Gazette's masthead and headlines, and nowhere else.
+ *
+ * Oswald is a condensed gothic, which is Sports Illustrated rather than a paper
+ * of record — every broadsheet sets its headlines in a serif (the Times in
+ * Cheltenham, the Journal in Escrow). Scoping a display serif to the Gazette
+ * routes gets that voice without touching the draft board's identity, which is
+ * deliberately a sports page and should stay one.
+ */
+const playfair = Playfair_Display({
+  variable: "--font-gazette",
+  subsets: ["latin"],
+  weight: ["400", "700", "900"],
+  style: ["normal", "italic"],
+});
+
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -38,7 +54,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${oswald.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${oswald.variable} ${playfair.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

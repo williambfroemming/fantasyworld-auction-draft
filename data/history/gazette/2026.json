@@ -1,0 +1,1578 @@
+{
+  "_comment": [
+    "The FantasyWorld Gazette. One file per season, one entry per played week.",
+    "Committed as well as stored in Postgres so the prose is reviewable in a diff",
+    "and survives a database rebuild -- the same reason every other source here is",
+    "a file.",
+    "",
+    "facts is the exact pack the model was given, snapshotted at press time. Every",
+    "table on the page renders from it, and gazette.test.ts asserts that every",
+    "figure in the prose below appears in the pack beside it.",
+    "",
+    "  npm run gazette -- 2025 7 --facts   print the pack, call nothing",
+    "  npm run gazette -- 2025 7 --replay  re-prompt from the stored pack",
+    "  npm run gazette -- --seed           load this file into Postgres, no API key"
+  ],
+  "season": 2026,
+  "issues": {
+    "00": {
+      "week": 0,
+      "headline": "Ten men return to the same ground and pay new prices",
+      "issueTitle": "Where the Old Walls Stood, Ten Men Build Again",
+      "lens": "City-founding rite",
+      "deck": "The auction was sold as a founding; almost every founder walked straight back to the plot he used to own",
+      "column": "The ground is cleared before anybody arrives. That is the arrangement here: the plain is swept flat, ten men are handed identical purses, and the whole map is offered up as though nobody had ever lived on it.\n\nThen they walked out onto it and, almost to a man, began pacing the outlines of the houses they used to own.\n\nJustin got there first and hardest. By the fortieth stone he had committed 157 of his 200 dollars, and the heavy ones all went down in ruts he had cut himself. Ja'Marr Chase for the third time in his life — 40 once, 44 last season, 38 now. Ashton Jeanty for exactly 34, which is what Jeanty cost him last season, to the dollar, as though the intervening year had not been permitted to file an opinion. Puka Nacua again. Jayden Daniels again, dearer. He rebuilt the same house from memory, at speed, and had very little left when the middle of the map went.\n\nOn Bryan's plot there is a well he sank himself in 2021 for one dollar.\n\nThat well is Joe Burrow. He has let it go twice and twice come back to the same patch of ground and paid the going rate to reopen it: 32 the time before, 37 this time. He went back for Trevor Lawrence as well. When the surveying finished, Bryan had 81 dollars standing upright in three quarterbacks, more than anyone in the room, which is what five titles' worth of conviction looks like when it is converted into masonry.\n\nHe also walked away with three dollars still in his hand. In a room like this that is money buried in the garden and left there.\n\nThe striking thing about the morning was how little argument there was. Of everything the board could price, 116 came in within three places of where the room expected it to. Ten men, fifteen years of separate grudges, one shared opinion about what things are worth.\n\nThe widest disagreement in the entire auction was Daniel, over an eleven-dollar running back. Blake Corum, thirteen places clear of where the rest of them had him. Nobody outbid him. Nobody needed to.\n\nDaniel's ground has two towers on it and open field behind them. Eighty dollars, two quarterbacks, Lamar Jackson and Drake Maye standing over everything he owns. His entire receiving corps came to 23, four men gathered up off the floor where other people had dropped them. He also paid 24 for Javonte Williams, whom he had last season for 4, which is an unusual way to reward a year's work.\n\nOut at the edge of the map, the man who went 3-11 kept his purse shut while the good land went. By the fortieth stone Bolek had spent 86, less than anybody in the room.\n\nThen he went shopping in his own attic. Davante Adams, who once cost him 32, came home for 7. Chris Godwin, once 16, came home for 3. Nothing on the whole property cost more than 31.\n\nWhat he did pay full price for was the corner of the map nobody looks at: 19 dollars on a tight end, and 12 on a defence, in a league where a defence is generally acquired by finding one in the street. It is either the tidiest correction anyone made this morning or a man rearranging the furniture into a smaller house. Nobody in the room could tell which, including him.\n\nMario lifted the heaviest single stone of the day. Forty-nine dollars for Jahmyr Gibbs, a man he already owned once for 34. That is the rent now on standing where he was already standing. He put 110 into four running backs and built the rest of the place out of salvage: Aaron Rodgers, who cost him 25 four years ago, came off the pile for a dollar.\n\nGabes is the champion, and here that means a surcharge for having been right in public. James Cook cost him 27 last season. To keep the same man on the same ground this season the room charged him 41, and he paid it, and then put a further 45 into Bijan Robinson. At the very bottom of his ledger, for two dollars, is Kyle Pitts, bought for the third time in his life. That is not hope. That is collecting.\n\nBill bought the most expensive quarterback in the auction, 46 for Josh Allen, and then roofed the last two rooms of his house at a dollar apiece. Eric/Blakey went back for Christian McCaffrey, who cost him 46 in 2022 and 34 now, the same man at a clearance price. Jack, who led the table for the whole of last season and finished the year holding nothing at all, set his biggest stone at 36 and left one dollar unspent, fourteen years after his only title.\n\nAnd Nate needs one win. Ninety-nine of them across fifteen seasons, the hundredth in sight since the closing weeks of last year. He came to the auction and picked up Jonathan Taylor, whom he first bought in 2021 for 48, and Derrick Henry for the third straight season at a price that falls every time he reaches for it: 37, then 44, now 28.\n\nThe stones are set. 1993 dollars are gone into the ground.\n\nTen cities founded this morning, every one of them standing precisely where the last one fell.",
+      "gameNotes": [
+        "Bill spent all 200 and took the most expensive quarterback in the auction, Josh Allen at 46, alongside Amon-Ra St. Brown at 38. Six receivers for 86, and one dollar each on his tight end and defence; Aaron Jones returns for a dollar having cost him 27 in 2022.",
+        "Jack spent 199 with Jaxon Smith-Njigba his top buy at 36, and re-signed Caleb Williams at 30 after paying 22 for him in 2024. Travis Etienne at 13 was one of the auction's better-value running backs; Garrett Wilson came back at the same 14 he cost last season.",
+        "Justin was the most aggressive early buyer in the room, committing 157 of his 200 by the fortieth pick. Ja'Marr Chase at 38 is his third stint with him, Ashton Jeanty cost exactly the 34 he paid last season, and Nacua and Jayden Daniels are both repeat purchases at higher prices.",
+        "Eric/Blakey put 84 into five running backs, headed by Christian McCaffrey at 34 — the same man cost him 46 in 2022. Matthew Stafford at 9 and Zay Flowers at 13 were two of the four flagged bargains of the day.",
+        "Mario paid the highest price of the auction, 49 for Jahmyr Gibbs, having owned him at 34 in 2024, and put 110 of his 198 into four running backs. Chris Olave returns for a third season at 20 and Aaron Rodgers, once a 25-dollar buy, came back for one.",
+        "Daniel went heaviest at quarterback in a two-man configuration: 80 across Lamar Jackson at 42 and Drake Maye at 38, with only 23 spent on four receivers. He also paid 24 for Javonte Williams, who cost him 4 last season, and produced the auction's widest single gap from the board with Blake Corum at 11.",
+        "The defending champion spent all 200 with 102 in running backs — Bijan Robinson 45 and James Cook 41, the latter a sharp rise on the 27 he paid last season. CeeDee Lamb at 30 and Kyle Pitts at 2 are both third-time purchases.",
+        "Bolek, last in the regular season at 3-11, was the slowest starter in the room with 86 spent by the fortieth pick and the smallest top buy in the league, Justin Jefferson at 31. He paid 19 for Brock Bowers and 12 for the Denver defence, both position-topping prices, and recovered Davante Adams for 7 and Chris Godwin for 3.",
+        "Bryan committed 81 to three quarterbacks, the most in the league, with Joe Burrow at 37 — a man he first bought for one dollar in 2021 — and Trevor Lawrence at 32. Cam Skattebo at 11 was a flagged bargain, and he left three dollars unspent, the largest amount in the room.",
+        "Nate spent 106 on seven running backs, led by Jonathan Taylor at 43, whom he last owned in 2021 for 48. Derrick Henry returns for a third straight season at 28, down from 44, and Nate begins the year on 99 career wins."
+      ],
+      "threads": [
+        {
+          "id": "hundred-wins-race",
+          "kind": "callback",
+          "note": "Nate opens the season on 99 career wins, one away, having been one away since the closing weeks of last year. Justin is on 97. Whoever gets there first does it in a season where both bought heavily at the top."
+        },
+        {
+          "id": "justin-rebought-his-own-team",
+          "kind": "thesis",
+          "note": "Justin spent 157 of 200 by the fortieth pick, almost all of it on men he has owned before: Chase a third time at 38, Jeanty at exactly last season's 34, Nacua and Jayden Daniels dearer. If the same roster produces the same fourth place, that is the argument settled."
+        },
+        {
+          "id": "bryan-quarterback-rent",
+          "kind": "thesis",
+          "note": "Five titles and 91-109 all time, and this year he put 81 into three quarterbacks. Joe Burrow cost him one dollar in 2021, 32 in 2024 and 37 now. The rising rent on the same well is the story to follow."
+        },
+        {
+          "id": "bolek-attic",
+          "kind": "thesis",
+          "note": "After 3-11 he was the slowest spender in the room (86 by pick forty), owns nothing dearer than 31, and paid the top price at tight end (19) and defence (12) while recovering Adams for 7 and Godwin for 3. Correction or contraction — check by week six."
+        },
+        {
+          "id": "gabes-champion-surcharge",
+          "kind": "thesis",
+          "note": "The champion paid 41 to keep James Cook, who cost him 27 last season, and 45 for Bijan: 102 into running backs. He is now buying at hunted-man prices. Watch whether being the target changes what he can afford in-season."
+        },
+        {
+          "id": "daniel-two-towers",
+          "kind": "thesis",
+          "note": "Eighty dollars in two quarterbacks, 23 across four receivers, plus the widest disagreement of the auction (Corum at 11, thirteen places off the board). Given last season's habit of leaving his best scorer on the bench, the thin end of this roster is where it will show."
+        },
+        {
+          "id": "belt-custody",
+          "kind": "bit",
+          "note": "Daniel starts the year wearing the belt, taken off Bolek for leaving 51.54 on the bench. Bolek still leads all-time with four weeks. First lineup crime of the new season transfers it."
+        },
+        {
+          "id": "mario-most-points-least-return",
+          "kind": "bit",
+          "note": "Most points in the league last season, 1976.78, and third place for it. He answered by paying 49 for Gibbs, having owned him at 34, and putting 110 into four running backs. Same appetite, higher prices."
+        }
+      ],
+      "promptVersion": 102,
+      "model": "claude-opus-5",
+      "generatedAt": "2026-08-22T00:38:59.083Z",
+      "facts": {
+        "kind": "preview",
+        "season": 2026,
+        "week": 0,
+        "weekLabel": "Season preview",
+        "genre": null,
+        "city": "San Diego",
+        "state": "CA",
+        "buyIn": 350,
+        "sideBet": 10,
+        "budget": 200,
+        "rosterSize": 16,
+        "picks": 160,
+        "spent": 1993,
+        "rosters": [
+          {
+            "manager": "Bill",
+            "spent": 200,
+            "unspent": 0,
+            "players": 16,
+            "topBuy": {
+              "player": "Josh Allen",
+              "position": "QB",
+              "price": 46
+            },
+            "byPosition": [
+              {
+                "position": "WR",
+                "spent": 86,
+                "players": 6
+              },
+              {
+                "position": "QB",
+                "spent": 63,
+                "players": 3
+              },
+              {
+                "position": "RB",
+                "spent": 49,
+                "players": 5
+              },
+              {
+                "position": "TE",
+                "spent": 1,
+                "players": 1
+              },
+              {
+                "position": "DEF",
+                "spent": 1,
+                "players": 1
+              }
+            ],
+            "byPick40": 105,
+            "topThirty": 4,
+            "nominations": 17
+          },
+          {
+            "manager": "Jack",
+            "spent": 199,
+            "unspent": 1,
+            "players": 16,
+            "topBuy": {
+              "player": "Jaxon Smith-Njigba",
+              "position": "WR",
+              "price": 36
+            },
+            "byPosition": [
+              {
+                "position": "WR",
+                "spent": 77,
+                "players": 6
+              },
+              {
+                "position": "QB",
+                "spent": 67,
+                "players": 3
+              },
+              {
+                "position": "RB",
+                "spent": 50,
+                "players": 5
+              },
+              {
+                "position": "DEF",
+                "spent": 3,
+                "players": 1
+              },
+              {
+                "position": "TE",
+                "spent": 2,
+                "players": 1
+              }
+            ],
+            "byPick40": 110,
+            "topThirty": 2,
+            "nominations": 14
+          },
+          {
+            "manager": "Justin",
+            "spent": 200,
+            "unspent": 0,
+            "players": 16,
+            "topBuy": {
+              "player": "Ja'Marr Chase",
+              "position": "WR",
+              "price": 38
+            },
+            "byPosition": [
+              {
+                "position": "WR",
+                "spent": 79,
+                "players": 6
+              },
+              {
+                "position": "QB",
+                "spent": 58,
+                "players": 3
+              },
+              {
+                "position": "RB",
+                "spent": 58,
+                "players": 5
+              },
+              {
+                "position": "TE",
+                "spent": 3,
+                "players": 1
+              },
+              {
+                "position": "DEF",
+                "spent": 2,
+                "players": 1
+              }
+            ],
+            "byPick40": 157,
+            "topThirty": 3,
+            "nominations": 15
+          },
+          {
+            "manager": "Eric/Blakey",
+            "spent": 199,
+            "unspent": 1,
+            "players": 16,
+            "topBuy": {
+              "player": "Christian McCaffrey",
+              "position": "RB",
+              "price": 34
+            },
+            "byPosition": [
+              {
+                "position": "RB",
+                "spent": 84,
+                "players": 5
+              },
+              {
+                "position": "WR",
+                "spent": 66,
+                "players": 6
+              },
+              {
+                "position": "QB",
+                "spent": 42,
+                "players": 3
+              },
+              {
+                "position": "TE",
+                "spent": 6,
+                "players": 1
+              },
+              {
+                "position": "DEF",
+                "spent": 1,
+                "players": 1
+              }
+            ],
+            "byPick40": 115,
+            "topThirty": 4,
+            "nominations": 18
+          },
+          {
+            "manager": "Mario",
+            "spent": 198,
+            "unspent": 2,
+            "players": 16,
+            "topBuy": {
+              "player": "Jahmyr Gibbs",
+              "position": "RB",
+              "price": 49
+            },
+            "byPosition": [
+              {
+                "position": "RB",
+                "spent": 110,
+                "players": 4
+              },
+              {
+                "position": "WR",
+                "spent": 51,
+                "players": 7
+              },
+              {
+                "position": "QB",
+                "spent": 35,
+                "players": 4
+              },
+              {
+                "position": "TE",
+                "spent": 2,
+                "players": 1
+              }
+            ],
+            "byPick40": 122,
+            "topThirty": 4,
+            "nominations": 20
+          },
+          {
+            "manager": "Daniel",
+            "spent": 200,
+            "unspent": 0,
+            "players": 16,
+            "topBuy": {
+              "player": "Lamar Jackson",
+              "position": "QB",
+              "price": 42
+            },
+            "byPosition": [
+              {
+                "position": "QB",
+                "spent": 80,
+                "players": 2
+              },
+              {
+                "position": "RB",
+                "spent": 68,
+                "players": 7
+              },
+              {
+                "position": "TE",
+                "spent": 28,
+                "players": 2
+              },
+              {
+                "position": "WR",
+                "spent": 23,
+                "players": 4
+              },
+              {
+                "position": "DEF",
+                "spent": 1,
+                "players": 1
+              }
+            ],
+            "byPick40": 137,
+            "topThirty": 1,
+            "nominations": 20
+          },
+          {
+            "manager": "Gabes",
+            "spent": 200,
+            "unspent": 0,
+            "players": 16,
+            "topBuy": {
+              "player": "Bijan Robinson",
+              "position": "RB",
+              "price": 45
+            },
+            "byPosition": [
+              {
+                "position": "RB",
+                "spent": 102,
+                "players": 6
+              },
+              {
+                "position": "WR",
+                "spent": 51,
+                "players": 5
+              },
+              {
+                "position": "QB",
+                "spent": 44,
+                "players": 3
+              },
+              {
+                "position": "TE",
+                "spent": 2,
+                "players": 1
+              },
+              {
+                "position": "DEF",
+                "spent": 1,
+                "players": 1
+              }
+            ],
+            "byPick40": 116,
+            "topThirty": 3,
+            "nominations": 14
+          },
+          {
+            "manager": "Bolek",
+            "spent": 200,
+            "unspent": 0,
+            "players": 16,
+            "topBuy": {
+              "player": "Justin Jefferson",
+              "position": "WR",
+              "price": 31
+            },
+            "byPosition": [
+              {
+                "position": "WR",
+                "spent": 83,
+                "players": 6
+              },
+              {
+                "position": "QB",
+                "spent": 47,
+                "players": 4
+              },
+              {
+                "position": "RB",
+                "spent": 39,
+                "players": 4
+              },
+              {
+                "position": "TE",
+                "spent": 19,
+                "players": 1
+              },
+              {
+                "position": "DEF",
+                "spent": 12,
+                "players": 1
+              }
+            ],
+            "byPick40": 86,
+            "topThirty": 3,
+            "nominations": 12
+          },
+          {
+            "manager": "Bryan",
+            "spent": 197,
+            "unspent": 3,
+            "players": 16,
+            "topBuy": {
+              "player": "Joe Burrow",
+              "position": "QB",
+              "price": 37
+            },
+            "byPosition": [
+              {
+                "position": "QB",
+                "spent": 81,
+                "players": 3
+              },
+              {
+                "position": "WR",
+                "spent": 48,
+                "players": 6
+              },
+              {
+                "position": "RB",
+                "spent": 46,
+                "players": 5
+              },
+              {
+                "position": "TE",
+                "spent": 17,
+                "players": 1
+              },
+              {
+                "position": "DEF",
+                "spent": 5,
+                "players": 1
+              }
+            ],
+            "byPick40": 102,
+            "topThirty": 2,
+            "nominations": 12
+          },
+          {
+            "manager": "Nate",
+            "spent": 200,
+            "unspent": 0,
+            "players": 16,
+            "topBuy": {
+              "player": "Jonathan Taylor",
+              "position": "RB",
+              "price": 43
+            },
+            "byPosition": [
+              {
+                "position": "RB",
+                "spent": 106,
+                "players": 7
+              },
+              {
+                "position": "WR",
+                "spent": 52,
+                "players": 4
+              },
+              {
+                "position": "QB",
+                "spent": 38,
+                "players": 3
+              },
+              {
+                "position": "TE",
+                "spent": 4,
+                "players": 2
+              }
+            ],
+            "byPick40": 117,
+            "topThirty": 4,
+            "nominations": 18
+          }
+        ],
+        "priciest": [
+          {
+            "player": "Jahmyr Gibbs",
+            "position": "RB",
+            "nflTeam": "DET",
+            "price": 49,
+            "rank": 3,
+            "manager": "Mario"
+          },
+          {
+            "player": "Josh Allen",
+            "position": "QB",
+            "nflTeam": "BUF",
+            "price": 46,
+            "rank": 25,
+            "manager": "Bill"
+          },
+          {
+            "player": "Bijan Robinson",
+            "position": "RB",
+            "nflTeam": "ATL",
+            "price": 45,
+            "rank": 4,
+            "manager": "Gabes"
+          },
+          {
+            "player": "Jonathan Taylor",
+            "position": "RB",
+            "nflTeam": "IND",
+            "price": 43,
+            "rank": 10,
+            "manager": "Nate"
+          },
+          {
+            "player": "Lamar Jackson",
+            "position": "QB",
+            "nflTeam": "BAL",
+            "price": 42,
+            "rank": 31,
+            "manager": "Daniel"
+          },
+          {
+            "player": "James Cook III",
+            "position": "RB",
+            "nflTeam": "BUF",
+            "price": 41,
+            "rank": 16,
+            "manager": "Gabes"
+          },
+          {
+            "player": "Ja'Marr Chase",
+            "position": "WR",
+            "nflTeam": "CIN",
+            "price": 38,
+            "rank": 1,
+            "manager": "Justin"
+          },
+          {
+            "player": "Amon-Ra St. Brown",
+            "position": "WR",
+            "nflTeam": "DET",
+            "price": 38,
+            "rank": 6,
+            "manager": "Bill"
+          },
+          {
+            "player": "Drake Maye",
+            "position": "QB",
+            "nflTeam": "NE",
+            "price": 38,
+            "rank": 40,
+            "manager": "Daniel"
+          },
+          {
+            "player": "Joe Burrow",
+            "position": "QB",
+            "nflTeam": "CIN",
+            "price": 37,
+            "rank": 47,
+            "manager": "Bryan"
+          },
+          {
+            "player": "Jaxon Smith-Njigba",
+            "position": "WR",
+            "nflTeam": "SEA",
+            "price": 36,
+            "rank": 5,
+            "manager": "Jack"
+          },
+          {
+            "player": "Christian McCaffrey",
+            "position": "RB",
+            "nflTeam": "SF",
+            "price": 34,
+            "rank": 8,
+            "manager": "Eric/Blakey"
+          }
+        ],
+        "bargains": [
+          {
+            "player": "Matthew Stafford",
+            "position": "QB",
+            "nflTeam": "LAR",
+            "price": 9,
+            "rank": 102,
+            "manager": "Eric/Blakey",
+            "pricePositionRank": 21,
+            "boardPositionRank": 15
+          },
+          {
+            "player": "Cam Skattebo",
+            "position": "RB",
+            "nflTeam": "NYG",
+            "price": 11,
+            "rank": 54,
+            "manager": "Bryan",
+            "pricePositionRank": 24,
+            "boardPositionRank": 19
+          },
+          {
+            "player": "Travis Etienne Jr.",
+            "position": "RB",
+            "nflTeam": "NO",
+            "price": 13,
+            "rank": 50,
+            "manager": "Jack",
+            "pricePositionRank": 22,
+            "boardPositionRank": 18
+          },
+          {
+            "player": "Zay Flowers",
+            "position": "WR",
+            "nflTeam": "BAL",
+            "price": 13,
+            "rank": 27,
+            "manager": "Eric/Blakey",
+            "pricePositionRank": 18,
+            "boardPositionRank": 14
+          }
+        ],
+        "reaches": [
+          {
+            "player": "Blake Corum",
+            "position": "RB",
+            "nflTeam": "LAR",
+            "price": 11,
+            "rank": 111,
+            "manager": "Daniel",
+            "pricePositionRank": 25,
+            "boardPositionRank": 38
+          },
+          {
+            "player": "Ladd McConkey",
+            "position": "WR",
+            "nflTeam": "LAC",
+            "price": 17,
+            "rank": 34,
+            "manager": "Bill",
+            "pricePositionRank": 14,
+            "boardPositionRank": 19
+          },
+          {
+            "player": "Christian Watson",
+            "position": "WR",
+            "nflTeam": "GB",
+            "price": 11,
+            "rank": 56,
+            "manager": "Daniel",
+            "pricePositionRank": 23,
+            "boardPositionRank": 28
+          },
+          {
+            "player": "Patrick Mahomes II",
+            "position": "QB",
+            "nflTeam": "KC",
+            "price": 28,
+            "rank": 99,
+            "manager": "Bolek",
+            "pricePositionRank": 10,
+            "boardPositionRank": 14
+          },
+          {
+            "player": "Javonte Williams",
+            "position": "RB",
+            "nflTeam": "DAL",
+            "price": 24,
+            "rank": 46,
+            "manager": "Daniel",
+            "pricePositionRank": 13,
+            "boardPositionRank": 17
+          }
+        ],
+        "byPosition": [
+          {
+            "position": "RB",
+            "spent": 712,
+            "share": 36,
+            "players": 53,
+            "top": "Jahmyr Gibbs $49"
+          },
+          {
+            "position": "WR",
+            "spent": 616,
+            "share": 31,
+            "players": 56,
+            "top": "Amon-Ra St. Brown $38"
+          },
+          {
+            "position": "QB",
+            "spent": 555,
+            "share": 28,
+            "players": 31,
+            "top": "Josh Allen $46"
+          },
+          {
+            "position": "TE",
+            "spent": 84,
+            "share": 4,
+            "players": 12,
+            "top": "Brock Bowers $19"
+          },
+          {
+            "position": "DEF",
+            "spent": 26,
+            "share": 1,
+            "players": 8,
+            "top": "Denver Broncos $12"
+          }
+        ],
+        "marketDiscipline": {
+          "scored": 152,
+          "withinThree": 116,
+          "widest": {
+            "player": "Blake Corum",
+            "position": "RB",
+            "nflTeam": "LAR",
+            "price": 11,
+            "rank": 111,
+            "manager": "Daniel",
+            "pricePositionRank": 25,
+            "boardPositionRank": 38
+          },
+          "widestBy": 13
+        },
+        "repeats": [
+          {
+            "manager": "Justin",
+            "player": "Ja'Marr Chase",
+            "seasons": [
+              2022,
+              2025,
+              2026
+            ],
+            "prices": [
+              40,
+              44,
+              38
+            ]
+          },
+          {
+            "manager": "Bryan",
+            "player": "Joe Burrow",
+            "seasons": [
+              2021,
+              2024,
+              2026
+            ],
+            "prices": [
+              1,
+              32,
+              37
+            ]
+          },
+          {
+            "manager": "Gabes",
+            "player": "CeeDee Lamb",
+            "seasons": [
+              2021,
+              2025,
+              2026
+            ],
+            "prices": [
+              31,
+              35,
+              30
+            ]
+          },
+          {
+            "manager": "Nate",
+            "player": "Derrick Henry",
+            "seasons": [
+              2024,
+              2025,
+              2026
+            ],
+            "prices": [
+              37,
+              44,
+              28
+            ]
+          },
+          {
+            "manager": "Nate",
+            "player": "Nico Collins",
+            "seasons": [
+              2024,
+              2025,
+              2026
+            ],
+            "prices": [
+              18,
+              35,
+              24
+            ]
+          },
+          {
+            "manager": "Daniel",
+            "player": "Javonte Williams",
+            "seasons": [
+              2021,
+              2025,
+              2026
+            ],
+            "prices": [
+              6,
+              4,
+              24
+            ]
+          },
+          {
+            "manager": "Mario",
+            "player": "Chris Olave",
+            "seasons": [
+              2023,
+              2024,
+              2026
+            ],
+            "prices": [
+              24,
+              26,
+              20
+            ]
+          },
+          {
+            "manager": "Gabes",
+            "player": "Kyler Murray",
+            "seasons": [
+              2021,
+              2024,
+              2026
+            ],
+            "prices": [
+              18,
+              38,
+              14
+            ]
+          },
+          {
+            "manager": "Bolek",
+            "player": "Davante Adams",
+            "seasons": [
+              2022,
+              2023,
+              2026
+            ],
+            "prices": [
+              32,
+              27,
+              7
+            ]
+          },
+          {
+            "manager": "Bolek",
+            "player": "Chris Godwin Jr.",
+            "seasons": [
+              2021,
+              2022,
+              2026
+            ],
+            "prices": [
+              16,
+              8,
+              3
+            ]
+          },
+          {
+            "manager": "Gabes",
+            "player": "Kyle Pitts Sr.",
+            "seasons": [
+              2022,
+              2023,
+              2026
+            ],
+            "prices": [
+              12,
+              5,
+              2
+            ]
+          },
+          {
+            "manager": "Mario",
+            "player": "Dallas Goedert",
+            "seasons": [
+              2022,
+              2023,
+              2026
+            ],
+            "prices": [
+              1,
+              5,
+              2
+            ]
+          },
+          {
+            "manager": "Mario",
+            "player": "Aaron Rodgers",
+            "seasons": [
+              2022,
+              2023,
+              2026
+            ],
+            "prices": [
+              25,
+              11,
+              1
+            ]
+          },
+          {
+            "manager": "Mario",
+            "player": "Jahmyr Gibbs",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              34,
+              49
+            ]
+          },
+          {
+            "manager": "Nate",
+            "player": "Jonathan Taylor",
+            "seasons": [
+              2021,
+              2026
+            ],
+            "prices": [
+              48,
+              43
+            ]
+          },
+          {
+            "manager": "Daniel",
+            "player": "Lamar Jackson",
+            "seasons": [
+              2022,
+              2026
+            ],
+            "prices": [
+              39,
+              42
+            ]
+          },
+          {
+            "manager": "Gabes",
+            "player": "James Cook III",
+            "seasons": [
+              2025,
+              2026
+            ],
+            "prices": [
+              27,
+              41
+            ]
+          },
+          {
+            "manager": "Eric/Blakey",
+            "player": "Christian McCaffrey",
+            "seasons": [
+              2022,
+              2026
+            ],
+            "prices": [
+              46,
+              34
+            ]
+          },
+          {
+            "manager": "Justin",
+            "player": "Ashton Jeanty",
+            "seasons": [
+              2025,
+              2026
+            ],
+            "prices": [
+              34,
+              34
+            ]
+          },
+          {
+            "manager": "Justin",
+            "player": "Jayden Daniels",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              21,
+              33
+            ]
+          },
+          {
+            "manager": "Justin",
+            "player": "Puka Nacua",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              29,
+              32
+            ]
+          },
+          {
+            "manager": "Bryan",
+            "player": "Trevor Lawrence",
+            "seasons": [
+              2023,
+              2026
+            ],
+            "prices": [
+              37,
+              32
+            ]
+          },
+          {
+            "manager": "Jack",
+            "player": "Caleb Williams",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              22,
+              30
+            ]
+          },
+          {
+            "manager": "Bolek",
+            "player": "Patrick Mahomes II",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              50,
+              28
+            ]
+          },
+          {
+            "manager": "Mario",
+            "player": "Josh Jacobs",
+            "seasons": [
+              2023,
+              2026
+            ],
+            "prices": [
+              29,
+              21
+            ]
+          },
+          {
+            "manager": "Mario",
+            "player": "Brock Purdy",
+            "seasons": [
+              2023,
+              2026
+            ],
+            "prices": [
+              7,
+              20
+            ]
+          },
+          {
+            "manager": "Bryan",
+            "player": "DeVonta Smith",
+            "seasons": [
+              2022,
+              2026
+            ],
+            "prices": [
+              2,
+              16
+            ]
+          },
+          {
+            "manager": "Jack",
+            "player": "Garrett Wilson",
+            "seasons": [
+              2025,
+              2026
+            ],
+            "prices": [
+              14,
+              14
+            ]
+          },
+          {
+            "manager": "Jack",
+            "player": "Travis Etienne Jr.",
+            "seasons": [
+              2025,
+              2026
+            ],
+            "prices": [
+              3,
+              13
+            ]
+          },
+          {
+            "manager": "Daniel",
+            "player": "Christian Watson",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              1,
+              11
+            ]
+          },
+          {
+            "manager": "Daniel",
+            "player": "Blake Corum",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              3,
+              11
+            ]
+          },
+          {
+            "manager": "Justin",
+            "player": "Jonathon Brooks",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              3,
+              6
+            ]
+          },
+          {
+            "manager": "Gabes",
+            "player": "Jaylen Warren",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              4,
+              6
+            ]
+          },
+          {
+            "manager": "Gabes",
+            "player": "Jordan Mason",
+            "seasons": [
+              2025,
+              2026
+            ],
+            "prices": [
+              5,
+              4
+            ]
+          },
+          {
+            "manager": "Jack",
+            "player": "Los Angeles Rams",
+            "seasons": [
+              2021,
+              2026
+            ],
+            "prices": [
+              1,
+              3
+            ]
+          },
+          {
+            "manager": "Justin",
+            "player": "Tyrone Tracy Jr.",
+            "seasons": [
+              2025,
+              2026
+            ],
+            "prices": [
+              6,
+              1
+            ]
+          },
+          {
+            "manager": "Bill",
+            "player": "Aaron Jones Sr.",
+            "seasons": [
+              2022,
+              2026
+            ],
+            "prices": [
+              27,
+              1
+            ]
+          },
+          {
+            "manager": "Daniel",
+            "player": "Isiah Pacheco",
+            "seasons": [
+              2025,
+              2026
+            ],
+            "prices": [
+              11,
+              1
+            ]
+          },
+          {
+            "manager": "Mario",
+            "player": "Matthew Golden",
+            "seasons": [
+              2025,
+              2026
+            ],
+            "prices": [
+              2,
+              1
+            ]
+          },
+          {
+            "manager": "Nate",
+            "player": "Kenny Gainwell",
+            "seasons": [
+              2022,
+              2026
+            ],
+            "prices": [
+              1,
+              1
+            ]
+          },
+          {
+            "manager": "Bill",
+            "player": "Tyjae Spears",
+            "seasons": [
+              2024,
+              2026
+            ],
+            "prices": [
+              3,
+              1
+            ]
+          }
+        ],
+        "lastSeason": {
+          "season": 2025,
+          "champion": "Gabes",
+          "runnerUp": "Jack",
+          "standings": [
+            {
+              "manager": "Jack",
+              "regularSeasonPlace": 1,
+              "finish": "runner-up",
+              "record": "9-5",
+              "pointsFor": 1820.38
+            },
+            {
+              "manager": "Gabes",
+              "regularSeasonPlace": 2,
+              "finish": "champion",
+              "record": "9-5",
+              "pointsFor": 1795.42
+            },
+            {
+              "manager": "Mario",
+              "regularSeasonPlace": 3,
+              "finish": null,
+              "record": "8-6",
+              "pointsFor": 1976.78
+            },
+            {
+              "manager": "Justin",
+              "regularSeasonPlace": 4,
+              "finish": null,
+              "record": "8-6",
+              "pointsFor": 1799.42
+            },
+            {
+              "manager": "Bill",
+              "regularSeasonPlace": 5,
+              "finish": null,
+              "record": "7-7",
+              "pointsFor": 1826.74
+            },
+            {
+              "manager": "Bryan",
+              "regularSeasonPlace": 6,
+              "finish": null,
+              "record": "7-7",
+              "pointsFor": 1785.66
+            },
+            {
+              "manager": "Nate",
+              "regularSeasonPlace": 7,
+              "finish": null,
+              "record": "7-7",
+              "pointsFor": 1763.16
+            },
+            {
+              "manager": "Daniel",
+              "regularSeasonPlace": 8,
+              "finish": null,
+              "record": "7-7",
+              "pointsFor": 1736.22
+            },
+            {
+              "manager": "Eric/Blakey",
+              "regularSeasonPlace": 9,
+              "finish": null,
+              "record": "5-9",
+              "pointsFor": 1723.42
+            },
+            {
+              "manager": "Bolek",
+              "regularSeasonPlace": 10,
+              "finish": null,
+              "record": "3-11",
+              "pointsFor": 1592.24
+            }
+          ]
+        },
+        "careers": [
+          {
+            "manager": "Bill",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "86-114",
+            "titles": 1,
+            "bestRegularSeasonPlace": 2,
+            "lastRegularSeasonPlace": 5,
+            "titleDrought": 10
+          },
+          {
+            "manager": "Jack",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "102-98",
+            "titles": 1,
+            "bestRegularSeasonPlace": 1,
+            "lastRegularSeasonPlace": 1,
+            "titleDrought": 14
+          },
+          {
+            "manager": "Justin",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "97-103",
+            "titles": 2,
+            "bestRegularSeasonPlace": 1,
+            "lastRegularSeasonPlace": 4,
+            "titleDrought": 8
+          },
+          {
+            "manager": "Eric/Blakey",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "94-106",
+            "titles": 1,
+            "bestRegularSeasonPlace": 1,
+            "lastRegularSeasonPlace": 9,
+            "titleDrought": 12
+          },
+          {
+            "manager": "Mario",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "111-89",
+            "titles": 2,
+            "bestRegularSeasonPlace": 1,
+            "lastRegularSeasonPlace": 3,
+            "titleDrought": 3
+          },
+          {
+            "manager": "Daniel",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "102-98",
+            "titles": 4,
+            "bestRegularSeasonPlace": 1,
+            "lastRegularSeasonPlace": 8,
+            "titleDrought": 5
+          },
+          {
+            "manager": "Gabes",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "108-92",
+            "titles": 1,
+            "bestRegularSeasonPlace": 2,
+            "lastRegularSeasonPlace": 2,
+            "titleDrought": 1
+          },
+          {
+            "manager": "Bolek",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "110-90",
+            "titles": 2,
+            "bestRegularSeasonPlace": 1,
+            "lastRegularSeasonPlace": 10,
+            "titleDrought": 4
+          },
+          {
+            "manager": "Bryan",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "91-109",
+            "titles": 5,
+            "bestRegularSeasonPlace": 1,
+            "lastRegularSeasonPlace": 6,
+            "titleDrought": 7
+          },
+          {
+            "manager": "Nate",
+            "seasons": 15,
+            "firstSeason": 2011,
+            "record": "99-101",
+            "titles": 1,
+            "bestRegularSeasonPlace": 1,
+            "lastRegularSeasonPlace": 7,
+            "titleDrought": 2
+          }
+        ],
+        "milestones": [
+          {
+            "manager": "Nate",
+            "label": "100 career wins",
+            "crossed": false,
+            "value": 99,
+            "threshold": 100,
+            "away": 1,
+            "coverage": {
+              "from": 2011,
+              "to": 2026,
+              "seasons": [
+                2011,
+                2012,
+                2013,
+                2014,
+                2015,
+                2016,
+                2017,
+                2018,
+                2019,
+                2020,
+                2021,
+                2022,
+                2023,
+                2024,
+                2025,
+                2026
+              ],
+              "label": "all time"
+            }
+          },
+          {
+            "manager": "Justin",
+            "label": "100 career wins",
+            "crossed": false,
+            "value": 97,
+            "threshold": 100,
+            "away": 3,
+            "coverage": {
+              "from": 2011,
+              "to": 2026,
+              "seasons": [
+                2011,
+                2012,
+                2013,
+                2014,
+                2015,
+                2016,
+                2017,
+                2018,
+                2019,
+                2020,
+                2021,
+                2022,
+                2023,
+                2024,
+                2025,
+                2026
+              ],
+              "label": "all time"
+            }
+          }
+        ],
+        "priorThreads": [
+          {
+            "id": "bryan-winning-ugly",
+            "kind": "thesis",
+            "note": "The reversal has arrived. After a season and a half of huge scores and no wins, Bryan is on three straight, this one by 0.7 with Jalen Hurts scoring 0.4. Seventh-best score of the week, 3-6 against the field, 7-7 and sixth. He is now being paid in small coin for poor mornings after being ignored for great ones."
+          },
+          {
+            "id": "bill-finally-paid",
+            "kind": "thesis",
+            "note": "Brought everything again and this time won: 147.52, the week high, 9-0 against the field, Bolek beaten by 30.1. Climbs four places to third in the power rankings and is still only 7-7 and fifth on record. Three high weeks now."
+          },
+          {
+            "id": "daniel-buries-his-best",
+            "kind": "thesis",
+            "note": "Two weeks running he has left his best man out of the lineup. Last week 18.1, this week 51.54, including Sanders at 35.96 in place of Daniels at 3.22. Lowest score of the week, 0-9 against the field, falls three places to eighth at 7-7."
+          },
+          {
+            "id": "belt-custody",
+            "kind": "bit",
+            "note": "Daniel takes the belt off Bolek after Bolek held it one week, for losing the lowest score of the week with 51.54 on the bench. Bolek still leads all-time with four weeks."
+          },
+          {
+            "id": "hundred-wins-race",
+            "kind": "callback",
+            "note": "Nate is on 99 after beating Justin, one win from 100 and the closest anyone has been. Justin stuck on 97 and now on a two-game losing streak. The wooden sword is within one."
+          },
+          {
+            "id": "justin-perfect-and-ninth",
+            "kind": "callback",
+            "note": "Started the perfect lineup — 100.02, nothing on the bench — and it was the ninth-best score of the week and a 30.16 defeat. 1-8 against the field. Owed a week where the flawless morning is also a big one."
+          },
+          {
+            "id": "mario-most-points-least-return",
+            "kind": "bit",
+            "note": "1976.78 for the season, out of sight of the field, 88-38 against it, power rank first for the whole autumn. Beat Gabes with 33.2 from Nacua and is third at 8-6."
+          },
+          {
+            "id": "playoff-order-arc",
+            "kind": "arc",
+            "note": "Jack and Gabes both 9-5 at the top and both lost this week; Mario and Justin 8-6; Bill, Bryan, Nate and Daniel all 7-7 and separated by nothing. The order is still being set by pairings rather than by scoring."
+          }
+        ],
+        "priorColumns": [
+          "Kell has one working pump and it runs brown for the first minute.\n\nThe warden operates it on a rule nobody agreed to. Men go out into the dead country, come back dragging whatever they found, and at the gate they are set in pairs with their hauls on the beam. The heavier man drinks. The lighter man is walked back past the wire with a dry can. It does not matter how far he went, how clean he worked, or what it cost him to get home.\n\nIt matters who was standing at the other end of the scale.\n\nBryan has been coming to this gate for two seasons doing everything right and going back out thirsty.\n\nHis wire patrol had been worthless all year. Ten point two on an average trip, enough to justify the ammunition and nothing beyond that. This time it came over the ridge at dusk hauling a bowser on a rope and the packs of two men who were not with them any more.\n\n32.5.\n\nBehind it came the rest of it, and when the warden had finished loading the pan he had 158.36 on the beam, more than any man brought into Kell that week. There was no one on the plain who could have outweighed him. Nine out of nine.\n\nThe man they set opposite him was Bolek.\n\nAcross ten weighings in their lives Bolek has walked in heavier eight times. He is the one obstacle in this settlement that Bryan has never been able to shift. Bryan is 2-8 against him now, which is one better than it was, and the improvement was made by 47.36 of daylight.\n\nBolek came in with the lightest load at Kell.\n\nWhat makes it worth writing down is what he did not come in with. Somewhere out on the flats there is a rock with a mark scratched on it that Bolek made himself, and under that rock is 30.7, and he walked past it on the way home. He is 3-10. Every man on the plain outweighed him. The yoke goes back around his neck, for the fourth time, which is more than anyone else in this place has had to wear it.\n\nNow the part of the morning that a man should not look at directly.\n\nTwo survivors came off the salt at almost exactly the same weight. Nate had 113.3 in his pan. Gabes had 113.34.\n\n0.04.\n\nThe difference between them is not measurable by any instrument at this station, and it decided nothing, because the beam does not compare all ten. Gabes was set against Justin, who came in at 111.86, and Gabes drank. He is 9-4 and second in FantasyWorld with a scavenging record that would embarrass a careful man.\n\nNate was set against Eric/Blakey, who came in at 126.96, and Nate was walked back out through the gate with an empty can for the third week running.\n\nSame weight. Opposite ends of the yard. One of them heard the pump start.\n\nThere is a water tower over Kell with names cut into the steel of it, and a man's name is cut when he has survived a hundred weighings. Nate has ninety-eight strokes against him. He has had ninety-eight for a month. Justin has ninety-seven and went out dry as well, so the two of them are back on the flats together, walking in the same direction, neither able to get the last of it done.\n\nBill brought in everything he owned.\n\nUnderstand what that means here. Most men bury something — a spare can, a coil of wire, a good man they could not carry. When the warden went through Bill's tracks he found 1.6 left behind in the whole of the dead country. Nothing. Twice now in three weeks he has come home stripped to the frame and correct, after three months of leaving the better half of his haul under a tarpaulin and being let through the gate regardless.\n\nJack outweighed him by 2.22.\n\nJack drank, and took first place in FantasyWorld at 9-4, and did not appear to notice how close it had been. Bill went back out at 6-7. Six men in Kell brought less than he did. All six of them were paired better.\n\nDaniel did the opposite of Bill and was rewarded for it.\n\nHe left Terry McLaurin under a rock — 18.1, sitting in the shade, safe and useless — and carried Rome Odunze the whole way in on his shoulders for 1.3. That is what he chose to do with his strength. He then outweighed Mario by 12.12 and drank his fill.\n\nMario has hauled 1838.42 out of the wasteland this season, more than any man at this station by a distance nobody else can see the far side of, and he is 7-6. His best runner came back with 3.3 in an empty sack and no explanation.\n\nEric/Blakey found something at last, which after nine defeats is worth the ink, and went to the pump for the first time in a while.\n\nThe warden chalked the pairings for next week on the gatepost before the light went, the way he does, without looking up.\n\nBryan stood in the yard with the heaviest load anyone had brought to Kell all week, at 6-7, seventh in FantasyWorld, drinking water he should have been given a month ago.\n\nOut past the wire, a rock with a mark on it. Under the rock, 30.7. It will be there in the morning.",
+          "The editor of the games does not fight, does not bleed and does not lose. He sits under the awning with a stick of chalk and sets the ten of them against each other, two names at a time, and that is the whole of his labour.\n\nNo man here chooses who he meets on the sand.\n\nHe chooses only which of his fighters come up out of the dark.\n\nBeneath the arena there is a corridor of cages and a lift on four ropes, and a winchman who raises whoever he is pointed at and leaves the rest where they are.\n\nDaniel went down there before the gates opened.\n\nHe walked the corridor with a lamp, past men who stood up when the light reached them, and he stopped and pointed at Jayden Daniels.\n\nTwo cages further along, Shedeur Sanders had both hands through the grille.\n\nThe lift went up. The bolt shot home behind it.\n\nDaniels came out into the noise and gave Daniel 3.22.\n\nUnder the floor, in the dark, Sanders was worth 35.96. Between the two of them lay 32.74 points, one boy in the sunlight and one boy behind iron, and Daniel had personally decided which was which.\n\nHe was not finished. All along that corridor, when the sand was raked at the end of it, there was 51.54 left standing in cages.\n\nWhat came up top was 98.76. Least of anyone in the building. Put him against every other man on the card and he loses to all nine of them, one after another, without a single reprieve.\n\nThe man the chalk had actually given him was Eric/Blakey, who have lost this pairing six times out of eight across their lives and who took him apart by 30.54 without ever appearing to hurry. Second win running. Still 5-9, still ninth, but they walked off the sand and Daniel did not.\n\nThen the editor came down the steps himself, carrying the belt.\n\nIt is old bronze and it does not shine any more, because it is not given for defeat. Losing is ordinary here. The belt is for the man who arms the wrong half of his household and then goes out to die in front of a crowd. Bolek had worn it exactly one week. He handed it over without a word and Daniel stood there while it was buckled on him.\n\nJustin's cages were empty.\n\nAll of them. The winchman went down after and had nothing to do; every door stood open, every man had been brought up into the light, and there was not one point left under that arena belonging to Justin.\n\nHe fought with the whole of what he owned and it came to 100.02.\n\nOnly one man in FantasyWorld did less. Against the field he goes 1-8. A morning of absolutely flawless preparation, and it was the second-smallest thing on the sand.\n\nThe man opposite him was Nate, who had 130.18 and rather a lot riding on it.\n\nBecause there is a wooden sword in this place. It hangs behind the editor's chair, and it is handed down to a fighter on his hundredth victory, at which point he is finished with the sand for good and everybody stands up.\n\nNate now has ninety-nine.\n\nHe has been walking toward that thing all autumn with the crowd getting quieter each week. He has it in his sight. He took the ninety-ninth off a man who did nothing wrong at all, which is how these things get taken.\n\nJustin is on ninety-seven and went out through the far gate with a clean record and a beating.\n\nBryan's champion went down before the crowd had settled.\n\nJalen Hurts is worth better than twenty on an ordinary week. He fell in the opening moments, in front of everyone, and contributed 0.4 to the rest of the day.\n\nBryan won anyway.\n\nBy 0.7.\n\nUnderstand what that is. For a season and a half this column has watched Bryan bring the tidiest, hardest, most complete work in FantasyWorld onto this sand and be sent home in the dark. He is now winning. He is winning with the seventh-best showing on the card, three men in the arena beat what he did and he still went to the gate. Third straight time.\n\nThe man he stepped over was Jack, who leads FantasyWorld at 9-5 and who, set against the whole card, goes 2-7.\n\nBill had the best morning anyone had.\n\n147.52. Nine out of nine against the field. There was nobody in the building who could have stood in front of him, and the chalk had given him Bolek, who is 3-11 and who fought better than his season and lost by 30.1 for the trouble.\n\nFor three months Bill picked the wrong man out of the cages and was waved through regardless. Then he started bringing everything, and was beaten twice for it. This time he brought everything and it was rewarded, and at the end of it he is 7-7 and fifth, which is what this place pays for competence when the chalk is not in the mood.\n\nMario killed more than anyone again — 138.36, with 33.2 of it off Puka Nacua alone, and 1976.78 for the season, a number no other man in this arena can see the back of. It buys him third.\n\nGabes brought the fifth-best of the ten, which is more than he has brought in a month, and this was the week he was set against Mario. He lost 120.02 to it and stayed second.\n\nWhen the crowd had gone, the winchman went back down with a lamp to open what was still locked.\n\nHe let Sanders out last. Thirty-five points and change came up the ramp into an arena with nobody in it, blinking at the light, ready."
+        ],
+        "priorHeadlines": [
+          "Bill abandons 47.1 on the far bank and is decorated anyway",
+          "Two flawless accounts presented at court, and only one man rises",
+          "Bryan comes in heaviest at last and is still seventh",
+          "Daniel leaves 51.54 in the cages and is buckled into the belt"
+        ],
+        "priorLenses": [
+          "Pirate fleet action",
+          "Western frontier",
+          "Graveyard resurrectionists",
+          "Mountaintop casino thriller",
+          "Wonderland croquet",
+          "Cold War crossing",
+          "Palace court intrigue",
+          "Post-apocalyptic waystation",
+          "Gladiatorial arena"
+        ],
+        "notes": [
+          "No game of this season has been played. There are no results, no standings and no records to report.",
+          "Every manager began the auction with $200 and a roster of 16 to fill.",
+          "This is a superflex league: a quarterback may be started in the flex, which is why quarterbacks cost far more here than a general ranking board suggests. Never treat a low board rank on a quarterback as an overpay on its own.",
+          "lastSeason.standings is the REGULAR-SEASON table. The team that placed first is not necessarily the champion — the \"finish\" field is the only place the bracket is recorded, and titles are the only thing anybody won.",
+          "BARGAINS and REACHES compare a price against the board WITHIN a position only. A quarterback is measured against other quarterbacks, never against a running back."
+        ]
+      }
+    }
+  }
+}

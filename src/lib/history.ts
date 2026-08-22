@@ -167,6 +167,42 @@ export function isCountedPlayoff(m: HistoryMatchup): boolean {
   return m.isPlayoff && (m.playoffPlacement === null || m.playoffPlacement <= 3)
 }
 
+/**
+ * The `season:week` keys of every regular-season week, from the matchups.
+ *
+ * **Lineup efficiency is regular season only, and this is how it says so.**
+ * `season_lineups` stores every week that was played, including the playoff and
+ * consolation weeks — but weeks 15-17 are not the same question. Managers who
+ * were eliminated in week 14 run **5.2 points of efficiency below** their own
+ * regular-season figure (83.51% against 88.74% across 2020-2025), because a man
+ * who has stopped caring stops setting his lineup. Counting those weeks measures
+ * who checked out in December, and prints it in the column next to all-play,
+ * which has excluded them all along.
+ *
+ * ⚠️ Derived from `isPlayoff` on the matchups rather than from
+ * `seasons.regularSeasonWeeks`, so this and `allPlay()` cannot drift apart: they
+ * read the same flag on the same rows. Two independent lookups that merely agree
+ * today are the setup for the two columns disagreeing later. `regularSeasonWeeks`
+ * is also nullable, and unknown would have to mean "count everything" — silently
+ * restoring the bug for exactly the season whose shape we are least sure of.
+ *
+ * Keyed by week and not by manager on purpose: a manager with no opponent that
+ * week has no matchup row, but the *week* is still a regular-season week and his
+ * lineup still counts.
+ */
+export function regularSeasonWeekKeys(matchups: HistoryMatchup[]): Set<string> {
+  return new Set(matchups.filter((m) => !m.isPlayoff).map((m) => `${m.season}:${m.week}`))
+}
+
+/** The lineups played in a regular-season week. See `regularSeasonWeekKeys`. */
+export function regularSeasonLineups(
+  lineups: HistoryLineup[],
+  matchups: HistoryMatchup[],
+): HistoryLineup[] {
+  const weeks = regularSeasonWeekKeys(matchups)
+  return lineups.filter((l) => weeks.has(`${l.season}:${l.week}`))
+}
+
 /** The seasons that actually produced rows — never the seasons that merely exist. */
 function playedSeasons(rows: Array<{ season: number }>): Set<number> {
   return new Set(rows.map((r) => r.season))
@@ -412,6 +448,7 @@ export function leagueSummary(input: HistoryInput): LeagueSummaryReport {
   const highLowBy = new Map(highLow.rows.map((r) => [r.managerId, r]))
 
   const weeklySeasons = new Set(seasons.filter((s) => s.dataTier === 'weekly').map((s) => s.season))
+  const regularLineups = regularSeasonLineups(lineups, matchups)
 
   const rows = members.map((member) => {
     const mine = standings.filter((s) => s.managerId === member.managerId)
@@ -497,7 +534,9 @@ export function leagueSummary(input: HistoryInput): LeagueSummaryReport {
     allTime.playoffWinPct = playoffGames ? round(allTime.playoffWins / playoffGames, 4) : null
 
     // --- weekly (only the seasons that have week-level rows) ---------------
-    const myLineups = lineups.filter((l) => l.managerId === member.managerId)
+    // Regular season only, to match all-play in the row beside it. See
+    // `regularSeasonLineups`.
+    const myLineups = regularLineups.filter((l) => l.managerId === member.managerId)
     const myPlayoffs = matchups.filter(
       (m) => m.managerId === member.managerId && isCountedPlayoff(m) && weeklySeasons.has(m.season),
     )

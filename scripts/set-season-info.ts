@@ -6,6 +6,7 @@
  *   npm run season:info -- 2026 --city "San Diego" --state CA
  *   npm run season:info -- 2026 --champion 2100 --runner-up 600 --third 300
  *   npm run season:info -- 2026 --buy-in 200
+ *   npm run season:info -- 2025 --side-bet 10      # low scorer pays high scorer
  *   npm run season:info -- 2026 --champion none           # back to unknown
  *
  * Two kinds of league fact live here, and neither is derivable:
@@ -58,6 +59,10 @@ const MONEY_FIELDS: Array<[string, string]> = [
   ['runner-up', 'runner_up_prize'],
   ['third', 'third_prize'],
   ['buy-in', 'buy_in'],
+  // What the low scorer pays the high scorer each week. Null is unknown rather
+  // than "no bet" -- the league has only run it for the last couple of seasons,
+  // and the Gazette's Ledger prints dollars only for the years that have a rate.
+  ['side-bet', 'side_bet'],
 ]
 
 const TEXT_FIELDS: Array<[string, string]> = [
@@ -81,10 +86,10 @@ const money = (v: unknown) => (v === null || v === undefined ? '—' : `$${v}`)
 async function show(only: number | null) {
   const rows = only
     ? await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize,
-                       buy_in, draft_city, draft_state
+                       buy_in, side_bet, draft_city, draft_state
                   FROM seasons WHERE season = ${only}`
     : await sql`SELECT season, data_tier, champion_prize, runner_up_prize, third_prize,
-                       buy_in, draft_city, draft_state
+                       buy_in, side_bet, draft_city, draft_state
                   FROM seasons ORDER BY season`
   if (!rows.length) {
     console.log(`\nNo season ${only} on record.\n`)
@@ -99,6 +104,7 @@ async function show(only: number | null) {
       'runner-up': money(r.runner_up_prize),
       third: money(r.third_prize),
       'buy-in': money(r.buy_in),
+      'side bet': money(r.side_bet),
       drafted: r.draft_city ? `${r.draft_city}${r.draft_state ? `, ${r.draft_state}` : ''}` : '—',
     })),
   )

@@ -246,7 +246,12 @@ async function generate(facts: RecapFacts): Promise<string> {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 400,
+      // Caps thinking AND response text together, and adaptive thinking is ON by
+      // default on Opus 5 when `thinking` is omitted. The 400 that used to be here
+      // would have been eaten by the thinking budget and returned a truncated
+      // paragraph or none at all -- never caught, because the committed recaps were
+      // written in-session and this call has never actually run.
+      max_tokens: 4000,
       system: PROMPT,
       messages: [{ role: 'user', content: JSON.stringify(facts, null, 2) }],
     }),

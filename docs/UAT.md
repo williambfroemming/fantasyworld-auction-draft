@@ -153,3 +153,27 @@ refuses anything illegal.
 | ⬜ | Nobody was confused about whose turn it was or the current bid | |
 | ⬜ | Nothing needed manual correction | |
 | ⬜ | It was faster than the spreadsheet | |
+
+## I. The FantasyWorld Gazette — read one before the league does
+
+The grounding check proves every figure is real. It says nothing about whether
+the writing is any good, or whether a joke lands badly on someone. That part is
+a person's job, and it is the reason the archive is committed as a reviewable
+diff rather than written straight to the database.
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | `/history/gazette` renders the latest issue in full, with back issues grouped by season below | |
+| ⬜ | Masthead reads as a newspaper — rules top and bottom, dateline between, serif headline | |
+| ⬜ | The column sets in justified columns with a drop cap; nothing splits awkwardly across a break | |
+| ⬜ | Readable in **both** themes, and on the smallest laptop in the room | |
+| ⬜ | Standings and Power Rankings disagree, and the movement arrows make sense against last week | |
+| ⬜ | The Ledger shows dollars for 2024+ and counts only for earlier seasons — `—` never reads as $0 | |
+| ⬜ | The Belt changed hands across the season and its history is right | |
+| ⬜ | A career milestone claim names the years it is true across, not "of all time" over six seasons | |
+| ⬜ | Pick three issues at random: **every number in the prose is real** and attributed to the right manager | |
+| ⬜ | An issue reads like it remembers last week — a callback, a running bit, a settled prediction | |
+| ⬜ | `npm run gazette -- --audit` passes over the whole committed archive | |
+| ⬜ | **Read every issue before the league sees it.** Mean is the point; cruel about the wrong thing is not | |
+| ⬜ | Nothing references a day of the week, a kickoff time, or "came down to the last game" — none of that is knowable | |
+| ⬜ | The Tuesday cron ran on `workflow_dispatch` and committed both the Sleeper snapshot and the issue | |

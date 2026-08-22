@@ -21,9 +21,14 @@ August costs the draft.
 |---|---|---|---|
 | §8 | Mobile layout · push to Sleeper · accessibility pass | Unspecified | — |
 
-**Everything else in this file has shipped.** §2, §3, §4, §5, §6, §7 and all three
-of §9's items are closed; those sections are stubs pointing at `PROGRESS_LOG.md`.
-Steps 21–24 (2026-08-17) cleared the last of them.
+**Everything else in this file has shipped.** §2, §3, §4, §5, §6, §7, §11 and all
+three of §9's items are closed; those sections are stubs pointing at
+`PROGRESS_LOG.md`. Steps 21–24 (2026-08-17) cleared most of them, and step 31
+(2026-08-20) closed §11.
+
+⚠️ §8's **mobile layout** item is the live one of the three: the nav header
+overflows below roughly 700px on *every* page, which was confirmed while
+building §11 and deliberately left alone there.
 
 §1 is now **materially cheaper than it was written**: its "the hard part is
 player identity" problem was solved by §2's `players.sleeper_id`, and its UI
@@ -45,6 +50,16 @@ kind of context the app should own.
 **PARTLY BUILT, THEN PARTLY REMOVED — 2026-08-17/18.** `PROGRESS_LOG.md` steps 26
 and 27. What shipped and what was cut are both deliberate, and the cut is the
 part worth reading before anyone reopens this.
+
+> **The Gazette (step 30) does not reopen this, and is not a precedent for it.**
+> The feed was cut because a panel of headlines renders identically whether it is
+> four minutes or four weeks old, so a reader cannot tell fresh from stale and
+> will trust it at the exact moment they shouldn't. A Gazette issue is the
+> opposite claim, made explicitly: it recaps a **finished** week, it carries a
+> press-time dateline, and it renders from a fact pack frozen when it was
+> written. It cannot go stale because it never claimed to be current. Anything
+> that would render *periodically-refreshed* prose still has to clear the bar
+> below.
 
 ### What shipped: injury status, as a stored column
 
@@ -457,51 +472,29 @@ because it ships both themes; a dark-only Chalk Talk would not have to.
 
 ---
 
-## 11. Why a 0 in `player_weeks` cannot be explained — and what it would take
+## 11. ✅ Landing page — a front door instead of a finished draft
 
-**Investigated and parked 2026-08-20.** Built, measured, and reverted rather than
-shipped. 15.6% of all weekly rows (2,634 of 16,888) are exactly 0, and a reader
-reasonably wants to know whether that is a bye, an injury, or a bad game.
+**BUILT 2026-08-20** — `PROGRESS_LOG.md` step 31. `/` is now a server-rendered
+front page: reigning champion as the lead, roll of honour beside it, the latest
+Gazette issue in the rail, the season's auction in three figures, and an index of
+every section across the foot. The seat picker moved to `/join`.
 
-**The blocker is not byes.** Byes are easy and were solved: Sleeper publishes an
-NFL schedule at `https://api.sleeper.app/schedule/nfl/regular/<season>` (~26KB, not
-under `/v1`), and a team absent from a week's games was on bye. That resolves all
-32 teams in every season, with 2020's DEN/NE/PIT/TEN correctly having none —
-COVID rescheduling consumed their byes and all four played all 17 weeks.
+The rule that came out of it, and the reason the routing lives in
+`src/lib/landing.ts` as a pure function rather than three lines in the page:
+**it has four cases, and the dangerous one is "signed out, on draft night".**
+Before `/` was a front page, a signed-out visitor always got the seat picker; a
+landing page silently takes that away, in a state that only exists during a live
+draft with no cookie. So completeness is checked *before* the session, and while
+anybody is unfilled `/` still goes straight to `/draft` or `/join` exactly as it
+always did.
 
-**The blocker is that we do not know what team a player was on in a past season.**
-`player_weeks.nfl_team` and `player_seasons.nfl_team` both come from the single
-current `players-min.json` snapshot, so every historical row carries the player's
-*present* team. Derrick Henry reads BAL for 2020–2023 when he was on TEN;
-Matthew Stafford reads LAR for 2020 when he was on DET.
+⚠️ Two things here that look like mistakes and are not. `/` is
+`force-dynamic` while every `/history` page is `revalidate = 3600` — it reads the
+session cookie, and three cheap queries on an occasional visit is not the thing
+`AGENTS.md`'s caching rule is about. And both grids use
+`minmax(0,3fr)_minmax(0,2fr)` rather than a bare `fr`, because a `.leaders` row
+is `white-space: nowrap` and a bare `fr` will not shrink below it — the columns
+overlap.
 
-Measured cost of shipping anyway: **97 of 599 players (16%) have a provably wrong
-team**, caught by scoring points during their recorded team's bye. That is a floor
-— a player who changed teams *and* happened to score 0 during the wrong team's bye
-is invisible, and would be labelled "BYE" on what was actually an injury. That is
-the failure mode `InjuryBadge` exists to prevent.
-
-Also ruled out: **inferring the bye from the fantasy data** ("every rostered player
-on this team scored 0"). Measured and it does not work — it flagged CLE eight times
-in 2021 and MIA six times in 2020, and half its signal rests on a single rostered
-player having a quiet week.
-
-**What would unblock it:**
-
-- A source for historical player→team. Sleeper's weekly stats endpoint carries no
-  team field and its players endpoint is current-only, so this means a new
-  provider (nflverse rosters or similar) — the first one outside Sleeper.
-- Or simply **time**. The flaw is retroactive only: `refresh-season.ts` touches
-  only the season in progress, so 2026's rows are written *during* 2026 with
-  correct teams. Bye labelling would be accurate from this season forward and
-  wrong only for the 2020–2025 backfill. Worth revisiting once 2026 has played.
-
-**A cheaper partial answer, if this comes up again:** Sleeper's weekly stats do
-carry `gp` (games played) and `gms_active`. Those separate *"played and scored
-nothing"* from *"did not play"* with no team lookup at all, so they carry no
-correctness risk. They still do not say bye vs injury — but they are facts rather
-than guesses, and that distinction alone would explain most of the 2,634.
-
-⚠️ Historical **injury** data is not obtainable and is not worth chasing.
-`players.injury_status` is a current-pool snapshot refreshed out-of-band by
-`npm run news:refresh`; nothing retains it per week, per season.
+**Nothing open.** The mobile nav overflow noticed while building this is §8's,
+not this one's — `/history` has it identically.
