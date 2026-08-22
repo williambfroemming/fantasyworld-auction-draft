@@ -38,6 +38,7 @@ import {
   type LeagueSummaryReport,
 } from '@/lib/history'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
+import { draftersByPick } from '@/lib/stats'
 import type { StatsTrade } from '@/lib/stats'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
@@ -736,4 +737,489 @@ export async function getBestPickups(perSeason = 3): Promise<Map<number, BestPic
     out.set(season, list)
   }
   return out
+}
+
+// ---------------------------------------------------------------------------
+// Player history — the league seen from one player's side
+// ---------------------------------------------------------------------------
+
+/** One manager's share of a player, over a season or over the whole run. */
+export interface PlayerOwnerLine {
+  managerId: number
+  displayName: string
+  weeksRostered: number
+  weeksStarted: number
+  /** Every point scored while on this manager's roster, bench included. */
+  points: number
+  /** Only the weeks they actually started them. */
+  pointsStarted: number
+}
+
+/** Points and weeks over some subset — a whole run, or just the playoffs. */
+export interface PlayerSplit {
+  weeksRostered: number
+  weeksStarted: number
+  points: number
+  pointsStarted: number
+}
+
+/**
+ * What an auction cost, and who put them on the block.
+ *
+ * The nominator is very often not the buyer — across 2021–2025, 474 of 800 picks
+ * (59%) were won by somebody other than whoever threw the name out. That gap is
+ * the interesting part, so it is stated rather than left to be inferred.
+ */
+export interface PlayerDraftLine {
+  /** The buyer, resolved through `draftersByPick` — never the current owner. */
+  managerId: number
+  displayName: string
+  price: number
+  nominatedBy: { managerId: number; displayName: string } | null
+  /** True when whoever nominated them also ended up winning them. */
+  nominatorWon: boolean
+}
+
+export interface PlayerSeasonLine {
+  season: number
+  weeksRostered: number
+  weeksStarted: number
+  points: number
+  pointsStarted: number
+  /** Weeks before this season's `playoff_week_start`. */
+  regular: PlayerSplit
+  /** Weeks from `playoff_week_start` on. */
+  playoff: PlayerSplit
+  /**
+   * Everyone who rostered them that season, most weeks first.
+   *
+   * More than one is common and is the interesting case — a waiver find who gets
+   * traded belongs to both managers, and naming only one erases either the find
+   * or the payoff. Same reasoning as `BestPickup.owners`.
+   */
+  owners: PlayerOwnerLine[]
+  /** The auction that season. Null before 2021, and for anyone undrafted. */
+  draft: PlayerDraftLine | null
+}
+
+export interface PlayerWeekPoint {
+  season: number
+  week: number
+  points: number
+  isStarter: boolean
+  isPlayoff: boolean
+  managerId: number
+  displayName: string
+}
+
+export interface PlayerHistory {
+  playerId: string
+  playerName: string
+  position: string | null
+  /**
+   * The window these totals actually cover.
+   *
+   * Weekly data starts in 2020 (`seasons.data_tier`), so a "career" total here
+   * means "since 2020" and the page must say so. The league has records back to
+   * 2006; presenting six years as a career is a confident wrong answer about the
+   * one thing this page exists to report.
+   */
+  firstSeason: number
+  lastSeason: number
+  weeksRostered: number
+  weeksStarted: number
+  points: number
+  pointsStarted: number
+  /** Career totals, split on each season's own playoff boundary. */
+  regular: PlayerSplit
+  playoff: PlayerSplit
+  seasons: PlayerSeasonLine[]
+  /** Career ownership, most weeks first — "who kept rostering this guy". */
+  owners: PlayerOwnerLine[]
+  /** Best single week, and who was holding them for it. */
+  best: PlayerWeekPoint | null
+  /** Every week, oldest first. The series behind the chart. */
+  weekly: PlayerWeekPoint[]
+}
+
+/** A `player_weeks` row joined to its manager, before aggregation. */
+export interface PlayerWeekRow {
+  season: number
+  week: number
+  managerId: number
+  displayName: string
+  points: number
+  isStarter: boolean
+  /**
+   * Resolved by the caller against that season's `playoff_week_start`, not by
+   * comparing to a constant. The boundary is **week 14 in 2020 and week 15 from
+   * 2021 on** — a hardcoded 15 files 2020's first playoff week as a regular one
+   * forever, and nothing about the result looks wrong.
+   */
+  isPlayoff: boolean
+  playerName: string | null
+  position: string | null
+}
+
+/** A draft row for this player, already attributed to the drafter. */
+export interface PlayerDraftRow {
+  season: number
+  managerId: number
+  displayName: string
+  price: number
+  nominatorId: number | null
+  nominatorName: string | null
+}
+
+function addOwner(
+  into: Map<number, PlayerOwnerLine>,
+  r: PlayerWeekRow,
+): void {
+  const line = into.get(r.managerId) ?? {
+    managerId: r.managerId,
+    displayName: r.displayName,
+    weeksRostered: 0,
+    weeksStarted: 0,
+    points: 0,
+    pointsStarted: 0,
+  }
+  line.weeksRostered += 1
+  line.points += r.points
+  if (r.isStarter) {
+    line.weeksStarted += 1
+    line.pointsStarted += r.points
+  }
+  into.set(r.managerId, line)
+}
+
+const byWeeksDesc = (a: PlayerOwnerLine, b: PlayerOwnerLine) =>
+  b.weeksRostered - a.weeksRostered || b.points - a.points || a.displayName.localeCompare(b.displayName)
+
+/**
+ * Shape raw weeks into the player view. Pure, so it is unit-testable without a
+ * database — the aggregation rules are the part worth pinning down.
+ *
+ * Points are counted **rostered, not started**, for the headline totals. From a
+ * manager's side `getFavoritePlayers` counts only starts, because a player
+ * benched did not help them. From the player's side that would silently delete
+ * the weeks somebody sat him, which is a different and wrong question. Both
+ * numbers are carried so a caller never has to guess which one it has.
+ */
+export function buildPlayerHistory(
+  playerId: string,
+  rows: PlayerWeekRow[],
+  drafts: PlayerDraftRow[] = [],
+): PlayerHistory | null {
+  if (rows.length === 0) return null
+
+  const ordered = [...rows].sort((a, b) => a.season - b.season || a.week - b.week)
+  const draftBySeason = new Map(drafts.map((d) => [d.season, d]))
+
+  const careerOwners = new Map<number, PlayerOwnerLine>()
+  const seasons = new Map<number, PlayerSeasonLine>()
+  const seasonOwners = new Map<number, Map<number, PlayerOwnerLine>>()
+
+  let best: PlayerWeekPoint | null = null
+  const weekly: PlayerWeekPoint[] = []
+  const careerRegular = emptySplit()
+  const careerPlayoff = emptySplit()
+
+  for (const r of ordered) {
+    const point: PlayerWeekPoint = {
+      season: r.season,
+      week: r.week,
+      points: r.points,
+      isStarter: r.isStarter,
+      isPlayoff: r.isPlayoff,
+      managerId: r.managerId,
+      displayName: r.displayName,
+    }
+    weekly.push(point)
+    addSplit(r.isPlayoff ? careerPlayoff : careerRegular, r)
+
+    // Strictly greater, so the earliest week wins a tie rather than the latest.
+    if (!best || r.points > best.points) best = point
+
+    addOwner(careerOwners, r)
+
+    const perSeason = seasonOwners.get(r.season) ?? new Map<number, PlayerOwnerLine>()
+    addOwner(perSeason, r)
+    seasonOwners.set(r.season, perSeason)
+
+    const d = draftBySeason.get(r.season)
+    const line = seasons.get(r.season) ?? {
+      season: r.season,
+      weeksRostered: 0,
+      weeksStarted: 0,
+      points: 0,
+      pointsStarted: 0,
+      regular: emptySplit(),
+      playoff: emptySplit(),
+      owners: [],
+      draft: d
+        ? {
+            managerId: d.managerId,
+            displayName: d.displayName,
+            price: d.price,
+            nominatedBy:
+              d.nominatorId !== null
+                ? { managerId: d.nominatorId, displayName: d.nominatorName ?? String(d.nominatorId) }
+                : null,
+            // Compared against the *drafter*, not the current owner: a pick that
+            // was later traded still belongs, for this purpose, to whoever
+            // actually bid on it in the room.
+            nominatorWon: d.nominatorId === d.managerId,
+          }
+        : null,
+    }
+    line.weeksRostered += 1
+    line.points += r.points
+    if (r.isStarter) {
+      line.weeksStarted += 1
+      line.pointsStarted += r.points
+    }
+    addSplit(r.isPlayoff ? line.playoff : line.regular, r)
+    seasons.set(r.season, line)
+  }
+
+  for (const [season, line] of seasons) {
+    line.owners = [...(seasonOwners.get(season)?.values() ?? [])].sort(byWeeksDesc)
+  }
+
+  const seasonList = [...seasons.values()].sort((a, b) => a.season - b.season)
+  const latest = ordered[ordered.length - 1]
+
+  return {
+    playerId,
+    playerName: latest.playerName ?? playerId,
+    position: latest.position,
+    firstSeason: seasonList[0].season,
+    lastSeason: seasonList[seasonList.length - 1].season,
+    weeksRostered: ordered.length,
+    weeksStarted: ordered.filter((r) => r.isStarter).length,
+    points: round2(ordered.reduce((s, r) => s + r.points, 0)),
+    pointsStarted: round2(
+      ordered.filter((r) => r.isStarter).reduce((s, r) => s + r.points, 0),
+    ),
+    regular: roundSplit(careerRegular),
+    playoff: roundSplit(careerPlayoff),
+    seasons: seasonList.map((s) => ({
+      ...s,
+      points: round2(s.points),
+      pointsStarted: round2(s.pointsStarted),
+      regular: roundSplit(s.regular),
+      playoff: roundSplit(s.playoff),
+      owners: s.owners.map(roundOwner),
+    })),
+    owners: [...careerOwners.values()].sort(byWeeksDesc).map(roundOwner),
+    best,
+    weekly,
+  }
+}
+
+function emptySplit(): PlayerSplit {
+  return { weeksRostered: 0, weeksStarted: 0, points: 0, pointsStarted: 0 }
+}
+
+function addSplit(into: PlayerSplit, r: PlayerWeekRow): void {
+  into.weeksRostered += 1
+  into.points += r.points
+  if (r.isStarter) {
+    into.weeksStarted += 1
+    into.pointsStarted += r.points
+  }
+}
+
+function roundSplit(s: PlayerSplit): PlayerSplit {
+  return { ...s, points: round2(s.points), pointsStarted: round2(s.pointsStarted) }
+}
+
+/** Float addition drifts; every total here is money-adjacent enough to notice. */
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+function roundOwner(o: PlayerOwnerLine): PlayerOwnerLine {
+  return { ...o, points: round2(o.points), pointsStarted: round2(o.pointsStarted) }
+}
+
+/** A row in the player index — enough to find someone, no more. */
+export interface PlayerListing {
+  playerId: string
+  playerName: string
+  position: string | null
+  firstSeason: number
+  lastSeason: number
+  weeksRostered: number
+  points: number
+  /** Most ever paid at auction. Null for anyone only ever picked up free. */
+  topPrice: number | null
+}
+
+/**
+ * Every player the league has ever rostered, for the index and its search box.
+ *
+ * Deliberately the whole list rather than a server-side query per keystroke:
+ * there are ~600 of them across six seasons, which is a small payload once and
+ * then instant filtering, versus a round trip per character. It is also a
+ * cacheable page rather than a search endpoint.
+ *
+ * Name and position are taken from the **most recent** week on record, so a
+ * player reads as whoever he is now rather than whoever he was in 2020.
+ */
+export async function listPlayers(): Promise<PlayerListing[]> {
+  const sql = getSql()
+
+  const rows = await sql`
+    WITH weeks AS (
+      SELECT pw.player_id,
+             (array_agg(pw.player_name ORDER BY pw.season DESC, pw.week DESC))[1] AS player_name,
+             (array_agg(pw.position    ORDER BY pw.season DESC, pw.week DESC))[1] AS position,
+             min(pw.season)::int AS first_season,
+             max(pw.season)::int AS last_season,
+             count(*)::int       AS weeks_rostered,
+             sum(pw.points)      AS points
+        FROM player_weeks pw
+       GROUP BY pw.player_id
+    ),
+    prices AS (
+      SELECT pk.player_sleeper_id AS player_id, max(pk.price)::int AS top_price
+        FROM picks pk
+       WHERE pk.player_sleeper_id IS NOT NULL
+       GROUP BY pk.player_sleeper_id
+    )
+    SELECT w.*, p.top_price
+      FROM weeks w
+      LEFT JOIN prices p ON p.player_id = w.player_id
+     ORDER BY w.points DESC`
+
+  return rows.map((r) => ({
+    playerId: String(r.player_id),
+    playerName: (r.player_name as string | null) ?? String(r.player_id),
+    position: (r.position as string | null) ?? null,
+    firstSeason: Number(r.first_season),
+    lastSeason: Number(r.last_season),
+    weeksRostered: Number(r.weeks_rostered),
+    points: round2(Number(r.points)),
+    topPrice: r.top_price === null ? null : Number(r.top_price),
+  }))
+}
+
+/**
+ * One player's whole run in the league.
+ *
+ * Keyed by **Sleeper id**, the only player key that survives a season
+ * (AGENTS.md): `players.id` is a CSV slug that dies every August when the pool
+ * is re-imported, so a page keyed on it would break annually and silently.
+ *
+ * Ownership comes from `player_weeks`, which records who actually held them each
+ * week. That sidesteps the trade-attribution problem entirely — no rewind is
+ * needed, because the weekly rows already say who had them. The **draft price**
+ * is the one part that is a money question, and it goes through `draftersByPick`
+ * like every other one.
+ */
+export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory | null> {
+  const sql = getSql()
+
+  const [weekRows, pickRows, tradeRows, managerRows, seasonRows] = await Promise.all([
+    sql`
+      SELECT pw.season, pw.week, pw.manager_id, pw.points, pw.is_starter,
+             pw.player_name, pw.position,
+             m.display_name
+        FROM player_weeks pw
+        JOIN managers m ON m.id = pw.manager_id
+       WHERE pw.player_id = ${sleeperId}
+       ORDER BY pw.season, pw.week`,
+    sql`
+      SELECT pk.id, pk.season, pk.manager_id, pk.price, pk.nominator_id
+        FROM picks pk
+       WHERE pk.player_sleeper_id = ${sleeperId}
+       ORDER BY pk.season`,
+    sql`
+      SELECT t.id, t.season, t.manager_a_id, t.manager_b_id,
+             t.picks_a_to_b, t.picks_b_to_a, t.created_at
+        FROM trades t
+       ORDER BY t.created_at`,
+    sql`SELECT id, display_name FROM managers`,
+    // The playoff boundary moves: week 14 in 2020, week 15 from 2021. Read it
+    // per season rather than assuming, or 2020's first playoff week is filed as
+    // a regular-season one and nothing about the total looks wrong.
+    sql`SELECT season, playoff_week_start FROM seasons`,
+  ])
+
+  const playoffStart = new Map(
+    seasonRows
+      .filter((s) => s.playoff_week_start !== null)
+      .map((s) => [Number(s.season), Number(s.playoff_week_start)]),
+  )
+
+  const rows: PlayerWeekRow[] = weekRows.map((r) => {
+    const season = Number(r.season)
+    const start = playoffStart.get(season)
+    return {
+      season,
+      week: Number(r.week),
+      managerId: Number(r.manager_id),
+      displayName: String(r.display_name),
+      points: Number(r.points),
+      isStarter: Boolean(r.is_starter),
+      // No boundary on record means the season cannot be split, so everything
+      // counts as regular season rather than being guessed into the playoffs.
+      isPlayoff: start !== undefined && Number(r.week) >= start,
+      playerName: (r.player_name as string | null) ?? null,
+      position: (r.position as string | null) ?? null,
+    }
+  })
+
+  // Attribute each auction to whoever actually bought them. `draftersByPick`
+  // tolerates a partial pick list — it skips ids it has never seen — so passing
+  // only this player's picks is safe and keeps the query small.
+  const statsPicks = pickRows.map((p) => ({
+    id: Number(p.id),
+    pickNo: 0,
+    managerId: Number(p.manager_id),
+    nominatorId: 0,
+    price: Number(p.price),
+    position: '',
+    name: '',
+    rank: null,
+    posRank: null,
+  }))
+  const statsTrades = tradeRows.map((t) => ({
+    id: Number(t.id),
+    managerAId: Number(t.manager_a_id),
+    managerBId: Number(t.manager_b_id),
+    createdAt: String(t.created_at),
+    players: [
+      ...(t.picks_a_to_b as number[]).map((pickId) => ({
+        pickId: Number(pickId),
+        toManagerId: Number(t.manager_b_id),
+      })),
+      ...(t.picks_b_to_a as number[]).map((pickId) => ({
+        pickId: Number(pickId),
+        toManagerId: Number(t.manager_a_id),
+      })),
+    ],
+  }))
+
+  const drafter = draftersByPick(statsPicks as never, statsTrades as never)
+  // From `managers`, not from the weekly rows: someone who drafted a player and
+  // cut them before week 1 has no `player_weeks` row to take a name from, and
+  // that is exactly the case a draft-price line needs to render.
+  const names = new Map(managerRows.map((m) => [Number(m.id), String(m.display_name)]))
+
+  const drafts: PlayerDraftRow[] = pickRows.map((p) => {
+    const managerId = drafter.get(Number(p.id)) ?? Number(p.manager_id)
+    const nominatorId = p.nominator_id === null ? null : Number(p.nominator_id)
+    return {
+      season: Number(p.season),
+      managerId,
+      displayName: names.get(managerId) ?? String(managerId),
+      price: Number(p.price),
+      nominatorId,
+      nominatorName: nominatorId === null ? null : (names.get(nominatorId) ?? null),
+    }
+  })
+
+  return buildPlayerHistory(sleeperId, rows, drafts)
 }

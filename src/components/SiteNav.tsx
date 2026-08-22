@@ -85,6 +85,7 @@ export const SECTIONS: SectionDef[] = [
       { href: '/history/gazette', label: 'The Gazette', hint: 'The week, unkindly' },
       { href: '/history/records', label: 'Records', hint: 'Highs, lows and streaks' },
       { href: '/history/members', label: 'Members', hint: 'One career at a time' },
+      { href: '/history/players', label: 'Players', hint: 'Who owned whom, and when' },
       { href: '/history/h2h', label: 'Head to Head', hint: 'Everyone against everyone' },
       // Listed under both history sections on purpose: it defines the auction
       // metrics and the league ones, and a third top-level section for one page
