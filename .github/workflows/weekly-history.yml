@@ -40,12 +40,15 @@ name: Weekly refresh and Gazette
 # ## Setup
 #
 #   Settings → Secrets and variables → Actions → New repository secret
-#     DATABASE_URL      = the Neon connection string
-#     ANTHROPIC_API_KEY = an Anthropic API key, for the Gazette
+#     DATABASE_URL       = the Neon connection string
+#     ANTHROPIC_API_KEY  = an Anthropic API key, for the Gazette
+#     AI_GATEWAY_API_KEY = a Vercel AI Gateway key, for the issue's artwork
 #
 # Without DATABASE_URL the job fails loudly on the first step rather than
 # silently importing nothing. Without ANTHROPIC_API_KEY it warns and skips the
-# newsletter — see the note on that step.
+# newsletter — see the note on that step. Without AI_GATEWAY_API_KEY the issue
+# is written and simply runs without a picture, which is the normal case for
+# every issue in the archive older than the art step.
 
 on:
   schedule:
@@ -115,15 +118,41 @@ jobs:
           npx tsx scripts/history/gazette.ts \
             ${{ inputs.season && inputs.season || '' }}
 
+      # ⚠️ Same posture as the step above, and for a stronger reason: art is the
+      # least load-bearing artifact in the repo. Null art is the NORMAL case —
+      # every issue written before this step existed has none, and the front page
+      # simply runs the headline without a picture. A failed image provider must
+      # never cost the league its newsletter, let alone its Sleeper snapshot.
+      #
+      # It runs with no season or week argument, which writes art for the newest
+      # issue that has none — so it picks up whatever the step above just wrote,
+      # without the two needing to agree on which week that was.
+      - name: Illustrate the issue
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        run: |
+          if [ -z "$AI_GATEWAY_API_KEY" ] || [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::No gateway or Anthropic key — this issue runs without a picture."
+            exit 0
+          fi
+          npx tsx scripts/history/gazette-art.ts --all
+
       - name: Commit the snapshot
         run: |
-          if git diff --quiet -- data/; then
+          # `public/gazette/` as well as `data/`: the art is a committed artifact
+          # read off disk by `issueArt()`, exactly like every other source here.
+          # Leaving it out would generate a picture every Tuesday and throw it
+          # away when the runner terminated.
+          if git diff --quiet -- data/ public/gazette/; then
             echo "No change in the pulled data — nothing to commit."
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/
+          git add data/ public/gazette/
           git commit -m "Weekly history refresh
 
           Sleeper snapshot for the season in progress, pulled and imported by

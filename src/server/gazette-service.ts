@@ -103,7 +103,7 @@ export async function getPriorIssues(
 ): Promise<PriorIssue[]> {
   const sql = getSql()
   const rows = await sql`
-    SELECT season, week, headline, column_text, threads, facts
+    SELECT season, week, headline, lens, column_text, threads, facts
       FROM week_issues
      WHERE season = ${season} AND week < ${week}
      ORDER BY week`
@@ -114,6 +114,7 @@ export async function getPriorIssues(
       season: Number(r.season),
       week: Number(r.week),
       headline: String(r.headline),
+      lens: str(r.lens),
       columnText: String(r.column_text),
       threads: (r.threads as Thread[]) ?? [],
       beltManagerId: holder === null ? null : (nameToId.get(holder) ?? null),

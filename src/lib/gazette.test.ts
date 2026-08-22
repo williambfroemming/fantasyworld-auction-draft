@@ -345,8 +345,8 @@ describe('the belt', () => {
 
   it('counts how long the current holder has kept it', () => {
     const prior: PriorIssue[] = [
-      { season: 2025, week: 1, headline: 'h', columnText: 'c', threads: [], beltManagerId: 2, statIds: [] },
-      { season: 2025, week: 2, headline: 'h', columnText: 'c', threads: [], beltManagerId: 2, statIds: [] },
+      { season: 2025, week: 1, headline: 'h', lens: null, columnText: 'c', threads: [], beltManagerId: 2, statIds: [] },
+      { season: 2025, week: 2, headline: 'h', lens: null, columnText: 'c', threads: [], beltManagerId: 2, statIds: [] },
     ]
     const facts = weekInReview(input({ week: 3, priorIssues: prior }))!
     expect(facts.belt!.manager).toBe('M2')
@@ -446,6 +446,7 @@ describe('stat of the week', () => {
         season: 2025,
         week: 2,
         headline: 'h',
+        lens: null,
         columnText: 'c',
         threads: [],
         beltManagerId: null,
@@ -757,6 +758,7 @@ describe('seasonPreview', () => {
         season: 2025,
         week: 14,
         headline: 'the last word',
+        lens: null,
         columnText: 'the final column',
         threads: [{ id: 't', kind: 'callback', note: 'still owed' }],
         beltManagerId: null,
@@ -908,11 +910,12 @@ describe('the committed archive is grounded', () => {
 describe('continuity', () => {
   it('hands the previous issue threads and the last two columns to the next one', () => {
     const prior: PriorIssue[] = [
-      { season: 2025, week: 1, headline: 'one', columnText: 'first', threads: [], beltManagerId: null, statIds: [] },
+      { season: 2025, week: 1, headline: 'one', lens: null, columnText: 'first', threads: [], beltManagerId: null, statIds: [] },
       {
         season: 2025,
         week: 2,
         headline: 'two',
+        lens: null,
         columnText: 'second',
         threads: [{ id: 't', note: 'the running bit' }],
         beltManagerId: null,

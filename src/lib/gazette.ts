@@ -78,6 +78,18 @@ export interface PriorIssue {
   headline: string
   columnText: string
   threads: Thread[]
+  /**
+   * The world that issue was actually told through.
+   *
+   * Null for anything written before the field existed. Carried so the season's
+   * spent lenses can be handed to the next edition — the calendar keeps two
+   * worlds from being *assigned* alike, and this is what keeps them from being
+   * *written* alike, which is a different failure. Weeks eight and nine were
+   * assigned Halloween Horror and Witches and Covens, and came back as "folk
+   * horror harvest" and "witch-trial ordeal": two distinct entries on the
+   * calendar, one indistinguishable world on the page.
+   */
+  lens: string | null
   /** Who held the belt that week, so its history is readable without a join. */
   beltManagerId: number | null
   /** Stat ids already used, so the rotating slot does not repeat itself. */
@@ -272,7 +284,22 @@ const SEASON_ONE: Record<number, string> = {
   6: 'Pirates and the High Seas',
   7: 'Western Frontier',
   8: 'Halloween Horror',
-  9: 'Witches and Covens',
+  // ⚠️ NOT a second espionage week. Week 11 is Cold War Espionage, two editions
+  // later, and the two must not converge -- so this entry names the register
+  // rather than the subject. This is the SPECTRE end of the genre: dinner
+  // jackets, a casino, a mountaintop lair, a named villain with a scheme and a
+  // henchman. Week 11 is the le Carre end: drab, bureaucratic, a betrayal at a
+  // crossing point, nobody enjoying themselves. `priorLenses` in the pack is
+  // what enforces the gap at generation time; this comment is what stops a
+  // future editor collapsing the two back together.
+  //
+  // It replaced Witches and Covens, which sat directly beside Halloween Horror
+  // and gave the season its only pair of genuinely similar consecutive weeks.
+  // Named by REGISTER, not by subject. "Superspy Thriller" alone was read as
+  // espionage-in-general and drifted straight into week 11's assignment: the
+  // first run of this entry came back lensed "Cold War espionage", producing two
+  // identical worlds two editions apart. The parenthetical is the steer.
+  9: 'Superspy Thriller (dinner jackets, a casino, a mountaintop lair, a named villain with a scheme)',
   10: 'Wonderland',
   // ⚠️ NOT "War Correspondent". Gordon's baseline persona already is one --
   // "the gravitas of a war correspondent filing from a collapsing capital" --
@@ -346,10 +373,32 @@ export interface GazetteFacts {
   rivalry: RivalryNote[]
   stats: StatCandidate[]
 
+  /**
+   * Genres the calendar has assigned to OTHER weeks of this season.
+   *
+   * `priorLenses` only knows what has already been printed, which leaves an
+   * edition free to wander into a world belonging to a week that has not
+   * happened yet — and that is exactly what happened. Week nine was assigned a
+   * superspy thriller, read it as espionage-in-general, and filed "Cold War
+   * espionage": week ELEVEN's assignment, two editions early, producing the one
+   * thing the calendar exists to prevent.
+   *
+   * The calendar is fixed and knowable in both directions, so the model is told
+   * what is spoken for rather than left to infer it from what it has seen.
+   */
+  reservedGenres: string[]
+
   /** Continuity, for the prompt. Not printed. */
   priorThreads: Thread[]
   priorColumns: string[]
   priorHeadlines: string[]
+  /**
+   * Worlds this season has already been told through, oldest first.
+   *
+   * The calendar stops two weeks being *assigned* the same genre; this stops
+   * them being *written* the same. See {@link PriorIssue.lens}.
+   */
+  priorLenses: string[]
 
   notes: string[]
 }
@@ -764,6 +813,13 @@ export function weekInReview(input: GazetteInput): GazetteFacts | null {
     week,
     weekLabel: label,
     genre: genreFor(season, week),
+    // Every OTHER week's assignment, in calendar order. Both directions: a week
+    // can drift into a genre that has not been printed yet just as easily as
+    // into one that has.
+    reservedGenres: Object.entries(GENRE_CALENDARS[season] ?? {})
+      .filter(([w]) => Number(w) !== week)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, g]) => g),
     phase,
     teamsPlaying,
     games,
@@ -781,6 +837,7 @@ export function weekInReview(input: GazetteInput): GazetteFacts | null {
     priorThreads: priorIssues[priorIssues.length - 1]?.threads ?? [],
     priorColumns: recent.map((i) => i.columnText),
     priorHeadlines: priorIssues.slice(-4).map((i) => i.headline),
+    priorLenses: priorIssues.map((i) => i.lens).filter((l): l is string => l !== null),
     notes,
   }
 }
@@ -1786,6 +1843,13 @@ export interface PreviewFacts {
   priorThreads: Thread[]
   priorColumns: string[]
   priorHeadlines: string[]
+  /**
+   * Worlds this season has already been told through, oldest first.
+   *
+   * The calendar stops two weeks being *assigned* the same genre; this stops
+   * them being *written* the same. See {@link PriorIssue.lens}.
+   */
+  priorLenses: string[]
 
   notes: string[]
 }
@@ -2165,6 +2229,7 @@ export function seasonPreview(input: PreviewInput): PreviewFacts | null {
     priorThreads: priorIssues.at(-1)?.threads ?? [],
     priorColumns: priorIssues.slice(-2).map((i) => i.columnText),
     priorHeadlines: priorIssues.slice(-4).map((i) => i.headline),
+    priorLenses: priorIssues.map((i) => i.lens).filter((l): l is string => l !== null),
     notes,
   }
 }
