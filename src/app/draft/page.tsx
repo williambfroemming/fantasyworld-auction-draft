@@ -72,7 +72,7 @@ export default function DraftPage() {
 
   if (!checked || !state) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">
+      <main id="main" className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">
         Loading draft…
       </main>
     )
@@ -98,7 +98,7 @@ export default function DraftPage() {
             : `It's ${onClock?.displayName ?? 'someone else'}'s turn to nominate.`
 
   return (
-    <main
+    <main id="main"
       className="min-h-dvh bg-slate-950 text-slate-100"
       onClickCapture={unlockAudio}
     >

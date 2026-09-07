@@ -33,7 +33,7 @@ export default async function HeadToHeadPage() {
   const ordered = [...members].sort((a, b) => a.displayName.localeCompare(b.displayName))
 
   return (
-    <main className="min-h-dvh bg-slate-950 text-slate-100">
+    <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <SiteNav section="league-history" current="/history/h2h" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Head to Head</h1>
@@ -68,20 +68,46 @@ export default async function HeadToHeadPage() {
 
         <div className="overflow-x-auto">
           <table className="border-collapse text-sm">
+            {/*
+              A caption, and `scope` on both axes, because on this table the
+              association IS the content. Every cell is the bare string "8-2":
+              it means nothing without knowing which two men it is about, and a
+              screen reader can only supply that if the headers say which
+              direction they head. The row headers have always been marked; the
+              column ones were plain `<th>`, so a cell announced as "8-2" with
+              one name attached rather than two.
+
+              The visible corner cell reads "vs →", which is an arrow doing the
+              same job for sighted readers and is useless read aloud — hence the
+              caption spelling the orientation out in words.
+            */}
+            <caption className="sr-only">
+              Head to head records, all-time. Each row is one manager and each column is
+              their opponent; the cell gives the row manager&rsquo;s wins and losses against
+              that opponent.
+            </caption>
             <thead>
               <tr>
-                <th className="sticky left-0 z-10 bg-slate-950 px-2 py-2 text-left font-display text-[0.62rem] uppercase tracking-[0.08em] text-slate-400">
-                  vs →
+                <th
+                  scope="col"
+                  className="sticky left-0 z-10 bg-slate-950 px-2 py-2 text-left font-display text-[0.62rem] uppercase tracking-[0.08em] text-slate-400"
+                >
+                  <span aria-hidden>vs →</span>
+                  <span className="sr-only">Manager</span>
                 </th>
                 {ordered.map((m) => (
                   <th
                     key={m.managerId}
+                    scope="col"
                     className="px-2 py-2 text-center font-display text-[0.62rem] uppercase tracking-[0.06em] text-slate-400"
                   >
                     {m.displayName}
                   </th>
                 ))}
-                <th className="px-2 py-2 text-center font-display text-[0.62rem] uppercase tracking-[0.08em] text-slate-400">
+                <th
+                  scope="col"
+                  className="px-2 py-2 text-center font-display text-[0.62rem] uppercase tracking-[0.08em] text-slate-400"
+                >
                   Total
                 </th>
               </tr>

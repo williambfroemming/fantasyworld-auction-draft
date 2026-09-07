@@ -223,10 +223,18 @@ export function LeagueSummaryTable({ report }: { report: LeagueSummaryReport }) 
         <thead>
           <tr>
             <th className="sticky left-0 z-10 bg-slate-950" />
-            <th colSpan={12} className="px-2.5 pb-1 text-left">
+            {/*
+              `colgroup`, not `col`: these two head the era bands rather than
+              any single column, and this is the row that says which years the
+              numbers under it actually cover — the distinction the league's own
+              spreadsheet lost when it put the bands side by side unlabelled.
+              Marked as `col` they would be announced as the heading of one
+              column each and the banding would go unread.
+            */}
+            <th scope="colgroup" colSpan={12} className="px-2.5 pb-1 text-left">
               <EraBadge coverage={report.allTime} />
             </th>
-            <th colSpan={7} className="border-l-2 border-rule-strong px-2.5 pb-1 text-left">
+            <th scope="colgroup" colSpan={7} className="border-l-2 border-rule-strong px-2.5 pb-1 text-left">
               <EraBadge coverage={report.weekly} />
             </th>
           </tr>

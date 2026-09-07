@@ -27,7 +27,7 @@ export default function BoardPage() {
   // Suspense boundary or Next 16 fails the build. `next dev` will not tell you.
   return (
     <Suspense
-      fallback={<main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>}
+      fallback={<main id="main" className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>}
     >
       <BoardView />
     </Suspense>
@@ -41,7 +41,7 @@ function BoardView() {
   const [view, setView] = useState<'grid' | 'market'>('grid')
 
   if (!state) {
-    return <main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
+    return <main id="main" className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
   }
 
   const lot = state.lot
@@ -49,7 +49,7 @@ function BoardView() {
   const myManager = state.managers.find((m) => m.id === managerId)
 
   return (
-    <main className="flex h-dvh flex-col bg-slate-950 text-slate-100">
+    <main id="main" className="flex h-dvh flex-col bg-slate-950 text-slate-100">
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <SiteNav section="draft" current="/board" isCommish={myManager?.isCommish} />
 

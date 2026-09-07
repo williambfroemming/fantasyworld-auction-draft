@@ -233,11 +233,11 @@ function PreviewTables({ facts, members }: { facts: PreviewFacts; members: Histo
         <table className="w-full text-[0.72rem] tabular-nums">
           <thead>
             <tr className="text-left font-display uppercase tracking-[0.1em] text-slate-500">
-              <th className="pb-1 font-medium">Manager</th>
-              <th className="pb-1 text-right font-medium">Spent</th>
-              <th className="pb-1 text-right font-medium">Left</th>
-              <th className="pb-1 text-right font-medium">Top 30</th>
-              <th className="pb-1 text-right font-medium">Biggest buy</th>
+              <th scope="col" className="pb-1 font-medium">Manager</th>
+              <th scope="col" className="pb-1 text-right font-medium">Spent</th>
+              <th scope="col" className="pb-1 text-right font-medium">Left</th>
+              <th scope="col" className="pb-1 text-right font-medium">Top 30</th>
+              <th scope="col" className="pb-1 text-right font-medium">Biggest buy</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-rule">
@@ -277,11 +277,11 @@ function PreviewTables({ facts, members }: { facts: PreviewFacts; members: Histo
         <table className="w-full text-[0.72rem] tabular-nums">
           <thead>
             <tr className="text-left font-display uppercase tracking-[0.1em] text-slate-500">
-              <th className="pb-1 font-medium">Pos</th>
-              <th className="pb-1 text-right font-medium">Spent</th>
-              <th className="pb-1 text-right font-medium">Share</th>
-              <th className="pb-1 text-right font-medium">Bought</th>
-              <th className="pb-1 text-right font-medium">Priciest</th>
+              <th scope="col" className="pb-1 font-medium">Pos</th>
+              <th scope="col" className="pb-1 text-right font-medium">Spent</th>
+              <th scope="col" className="pb-1 text-right font-medium">Share</th>
+              <th scope="col" className="pb-1 text-right font-medium">Bought</th>
+              <th scope="col" className="pb-1 text-right font-medium">Priciest</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-rule">
@@ -320,11 +320,11 @@ export function Tables({
         <table className="w-full text-[0.72rem] tabular-nums">
           <thead>
             <tr className="text-left font-display uppercase tracking-[0.1em] text-slate-500">
-              <th className="pb-1 font-medium">#</th>
-              <th className="pb-1 font-medium">Manager</th>
-              <th className="pb-1 text-right font-medium">W-L</th>
-              <th className="pb-1 text-right font-medium">PF</th>
-              <th className="pb-1 text-right font-medium">Mv</th>
+              <th scope="col" className="pb-1 font-medium">#</th>
+              <th scope="col" className="pb-1 font-medium">Manager</th>
+              <th scope="col" className="pb-1 text-right font-medium">W-L</th>
+              <th scope="col" className="pb-1 text-right font-medium">PF</th>
+              <th scope="col" className="pb-1 text-right font-medium">Mv</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-rule">
@@ -350,11 +350,11 @@ export function Tables({
         <table className="w-full text-[0.72rem] tabular-nums">
           <thead>
             <tr className="text-left font-display uppercase tracking-[0.1em] text-slate-500">
-              <th className="pb-1 font-medium">#</th>
-              <th className="pb-1 font-medium">Manager</th>
-              <th className="pb-1 text-right font-medium">All-play</th>
-              <th className="pb-1 text-right font-medium">Eff</th>
-              <th className="pb-1 text-right font-medium">Mv</th>
+              <th scope="col" className="pb-1 font-medium">#</th>
+              <th scope="col" className="pb-1 font-medium">Manager</th>
+              <th scope="col" className="pb-1 text-right font-medium">All-play</th>
+              <th scope="col" className="pb-1 text-right font-medium">Eff</th>
+              <th scope="col" className="pb-1 text-right font-medium">Mv</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-rule">

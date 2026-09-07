@@ -61,7 +61,7 @@ export default function JoinPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-slate-950 text-slate-100 px-4 py-10">
+    <main id="main" className="min-h-dvh bg-slate-950 text-slate-100 px-4 py-10">
       <div className="mx-auto w-full max-w-md">
         <div className="flex items-start justify-between gap-3">
           <h1 className="text-3xl font-bold tracking-tight">Auction Draft</h1>

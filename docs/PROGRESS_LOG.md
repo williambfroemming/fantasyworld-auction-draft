@@ -3216,3 +3216,87 @@ weekly newsletter is the entire notification system.
   of. The cron only ever runs the current season, so this is not on any live
   path, but a bare season argument with no week is not a safe thing to type at a
   season that is over.
+
+---
+
+## The nav menus could not be opened on a phone
+
+BACKLOG §8's mobile item, which had been carried since before draft night as
+"the nav header overflows below roughly 700px". It does not — every header is
+`flex-wrap`, the draft page already stacks at `lg:`, and the wide tables are all
+inside `overflow-x-auto`. The actual defect was worse and had been sitting under
+a different description: the section menus opened on `group-hover` plus
+`group-focus-within`, and a touch screen has neither. Tapping "League History"
+navigated to `/history` and the six links beneath it — the Gazette, Records,
+Members, Players, Head to Head, the glossary — could not be reached from the nav
+at all. Same for Board and Trades under "Draft".
+
+That went from a defect to the wrong defect the moment the auction finished. The
+draft is a laptop activity for one night a year; the archive and the Gazette are
+read on a phone every week of the season, and the nav was failing exactly that
+reader.
+
+The menus are now `<details>`/`<summary>`, which keeps both properties the hover
+version was built for — no hooks, so the component still renders in the client
+draft pages and the server history pages alike, and no JavaScript, so it works
+while the bundle is loading — and adds keyboard operation, `aria-expanded` and
+the disclosure role that the div never had. `name="sitenav"` makes the three an
+exclusive group natively.
+
+Alongside it, the first of the accessibility pass §8 also asks for: a skip link,
+and `scope` on the tables where the header association is the content.
+
+**Learned:**
+
+- **A backlog entry can preserve the wrong description of a real problem for
+  months.** "The nav overflows below 700px" was specific enough to sound
+  verified and was never checked again; the real fault was in the same component
+  and was invisible to anyone testing by narrowing a desktop window, because a
+  desktop browser at 360px still has a mouse. The note in `BACKLOG.md` even said
+  it had been "confirmed while building §11", which is how it survived.
+- **The trigger being a link was the whole bug, not the hover.** Hover alone
+  degrades to "menu never opens"; hover *plus* a navigating trigger degrades to
+  "the tap does something plausible and you never learn there was a menu". The
+  second is much harder to notice, and it is why nobody reported it.
+- **Every section's home page was already the first item in its own menu**, so
+  making the trigger a pure disclosure cost nothing. That was luck rather than
+  design, and it is now written down as a constraint on `SectionDef.items`.
+- **`<details>` keeps `open` across a client-side navigation.** React has no
+  reason to reset DOM state on an element that did not move in the tree, so the
+  menu stays open over the page it was just used to reach. `key` including
+  `current` remounts it and closes it, with no effect and no state.
+- **`static sm:relative` on the `<li>` is the whole mobile positioning fix.** The
+  panel resolves against its nearest positioned ancestor, so dropping the item
+  out of the positioning context on narrow screens anchors the menu to the
+  `<nav>` instead — full width, always on screen — while `sm:relative` restores
+  the popover-under-its-trigger behaviour above it. With `relative` at every
+  width, "League History" is the rightmost and longest of the three and opens a
+  14rem panel most of the way across a 360px screen.
+- **The cells of the head-to-head grid carry their record as text, so the colour
+  is reinforcement rather than the only cue.** The legend was on the list to fix
+  as a WCAG 1.4.1 failure and turned out not to be one. What was genuinely broken
+  was quieter: the column headers were plain `<th>`, so a screen reader announced
+  a cell as "8-2" with one name attached instead of two, on a table where the
+  association between the two names *is* the content.
+
+**Watch out for:**
+
+- **`<th>` without `scope` is the rule rather than the exception in this
+  codebase** — ten more components have it, listed in BACKLOG §8. This pass
+  covered the three tables that are read as reference (head to head, the
+  all-time table, the Gazette's four) and deliberately left the live draft
+  panels, which are a different job: they update several times a second and want
+  looking at rather than reading.
+- **The era bands on the all-time table are `scope="colgroup"`, not `col`.** They
+  head twelve and seven columns respectively and say which years the numbers
+  under them cover — which is the exact distinction the league's own spreadsheet
+  lost by putting the bands side by side unlabelled. Marked as `col` they would
+  be read as the heading of one column each.
+- **`id="main"` is on 28 `<main>` elements across 19 files, several per file.**
+  Those are alternate branches — a loading fallback and the real page — so only
+  one is ever in the document, but anything that renders two at once would put a
+  duplicate id in the page and send the skip link to the wrong one.
+- **`name` on `<details>` is recent.** Chrome 120, Safari 17.2 and Firefox 130.
+  Older browsers ignore it and allow two menus open at once, which is untidy and
+  not broken — but it is the one part of this that is not universally supported,
+  and it is doing real work rather than decoration.
