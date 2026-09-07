@@ -125,14 +125,21 @@ jobs:
       # simply runs the headline without a picture. A failed image provider must
       # never cost the league its newsletter, let alone its Sleeper snapshot.
       #
-      # `--all` means *every issue on record that has no art*, not just the one
-      # written above — so the two steps never have to agree on which week that
-      # was, and an issue whose picture failed last week is retried this week
-      # rather than going without one forever. That self-healing is the reason
-      # for the flag, and its cost is the thing to watch: the run generates one
-      # image per artless issue, so leaving a backlog un-illustrated makes every
-      # Tuesday pay for it again. Clear a backlog deliberately with
-      # `npm run gazette:art -- --all` rather than letting the cron discover it.
+      # ⚠️ `--latest`, NOT `--all`, and that is a cost decision rather than a
+      # detail. `--all` illustrates every issue on record that has no picture,
+      # which self-heals a failed image but also re-attempts the whole
+      # un-illustrated back catalogue on every run — the nine 2025 issues
+      # written before this script existed would be nine image generations every
+      # Tuesday, forever, for issues nobody is waiting on.
+      #
+      # `--latest` takes the newest issue and stops, so a scheduled run costs
+      # exactly one image. It needs no argument and so never has to agree with
+      # the step above about which week was just written. Re-running is safe:
+      # an issue that already has a picture is skipped.
+      #
+      # The trade is that a failed image is not retried. Null art is the normal
+      # case — the front page runs the headline without a picture — so that is
+      # cheap. Clear a backlog deliberately with `npm run gazette:art -- --all`.
       - name: Illustrate the issue
         id: art
         continue-on-error: true
@@ -145,7 +152,7 @@ jobs:
             echo "::warning::No gateway or Anthropic key — this issue runs without a picture."
             exit 0
           fi
-          npx tsx scripts/history/gazette-art.ts --all
+          npx tsx scripts/history/gazette-art.ts --latest
 
       - name: Commit the snapshot
         run: |

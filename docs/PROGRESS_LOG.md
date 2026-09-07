@@ -3189,12 +3189,17 @@ weekly newsletter is the entire notification system.
   responses; the importer reads them and inserts nothing, which is why the cron
   has committed nothing in three firings. That is the designed behaviour, not a
   broken job.
-- **`--all` on the art step is self-healing and the comment beside it described a
-  different command.** The comment claimed it illustrated "the newest issue that
-  has none"; the flag means *every* issue that has none. The behaviour is the one
-  worth having — a picture that failed last week is retried this week — but it
-  bills one image per artless issue every run, so a backlog left standing is paid
-  for again every Tuesday.
+- **`--all` on the art step billed the whole back catalogue every week, and the
+  comment beside it described a different command.** The comment claimed it
+  illustrated "the newest issue that has none"; the flag means *every* issue that
+  has none. With nine 2025 issues written before the art script existed, the
+  first real Tuesday would have generated nine images and then re-attempted any
+  that failed, forever, for issues nobody is waiting on. The step now runs
+  `--latest`: the newest issue, skipped if it already has a picture, so a
+  scheduled run costs exactly one image and needs no argument agreeing with the
+  step above it. The trade is that a failed image is not retried, which is cheap
+  — null art is the normal case and the front page just runs the headline.
+  `--all` remains the way to clear a backlog deliberately.
 
 **Watch out for:**
 
