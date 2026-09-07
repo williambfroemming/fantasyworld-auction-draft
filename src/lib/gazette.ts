@@ -341,6 +341,43 @@ export function genreFor(season: number, week: number): string | null {
   return GENRE_CALENDARS[season]?.[week] ?? null
 }
 
+/**
+ * Which week the unattended weekly run should write: the **oldest played week
+ * this season has not published yet**, or null when there is nothing owed.
+ *
+ * ⚠️ **A resume point, not a high-water mark.** The obvious version of this is
+ * "the newest played week", and it reads correctly every single time nothing
+ * goes wrong — which is what makes it dangerous. It is a cursor driven by a
+ * clock nobody controls: if week seven's issue fails to write (the provider is
+ * down, or the grounding gate rejects both attempts), the next Tuesday asks the
+ * same question seven days later and is told *eight*. Week seven is never
+ * reconsidered.
+ *
+ * That hole is permanent rather than cosmetic. Issues are ordered — each one
+ * reads the last one's notebook, belt holder and used stat ids — so recovering
+ * week seven a month later means regenerating every issue written since. The
+ * cheap fix is to never create the hole: resume from the last issue on record,
+ * and a failed week is simply retried next week.
+ *
+ * It also keeps the ordering intact in the other direction. This deliberately
+ * returns the *oldest* owed week even when a newer one is also complete, so the
+ * caller can never write week eight before week seven. If the resumed week is
+ * not finished yet, the caller skips it and waits, rather than reaching past it.
+ *
+ * `lastPublishedWeek` is null for a season with no issues at all, which must
+ * start at the earliest played week rather than skip it. **Zero is a real
+ * value** and not the same as null — the season preview is stored as week zero,
+ * so a season that has published only its preview resumes at week one.
+ */
+export function nextIssueWeek(
+  playedWeeks: readonly number[],
+  lastPublishedWeek: number | null,
+): number | null {
+  const after = lastPublishedWeek ?? -1
+  const owed = playedWeeks.filter((w) => w > after)
+  return owed.length === 0 ? null : Math.min(...owed)
+}
+
 export interface GazetteFacts {
   /**
    * Which pack this is. See {@link isPreview}.

@@ -3132,3 +3132,87 @@ vivid then made them collide, which is 14 and 15.
 - **The art prompt still says "this week's edition"** even when it is illustrating the season
   preview, which has no week. Harmless — the issue text drives the picture — but it is the kind of
   wording that quietly stops being true.
+
+---
+
+## The cron picked the newest week, not the week it owed
+
+The weekly workflow has existed since 21 August and has never once published an
+issue, because 2026 had not kicked off — so its happy path had never run and
+nobody had read it against a season in progress. With week one three days away,
+it got read.
+
+`npm run gazette` with no arguments chose its week with `SELECT max(week) FROM
+season_matchups`. That is the newest week *played*, which is the right answer
+every time nothing goes wrong, and the wrong answer permanently the first time
+something does. The write step carries `continue-on-error` on purpose — a dead
+model provider must not strand the Sleeper files pulled in the step before it —
+so a failed issue left a green tick, and seven days later the same query returned
+the *next* week. The missed one is never reconsidered, and because issues thread
+off each other (notebook, belt holder, used stat ids), recovering it a month
+later means regenerating every issue written since.
+
+The selection is now `nextIssueWeek()` in `src/lib/gazette.ts`: the oldest played
+week the season has not published, resuming from the last issue on record. A
+failed week is simply retried the following Tuesday. It lives in `lib` with seven
+unit tests rather than inline in the script, because this is the same shape as
+the `nomination_index` bug that has been fixed three times — a cursor that reads
+correctly right up until the thing it is tracking skips.
+
+The workflow gained a final step that fails the job when the issue was not
+written, after the commit rather than instead of it, so the Sleeper snapshot
+still lands. GitHub emails the owner when a scheduled run fails, which for a
+weekly newsletter is the entire notification system.
+
+**Learned:**
+
+- **A high-water mark and a resume point are indistinguishable until a failure,
+  which is exactly why the wrong one gets written.** Every test anyone would
+  write by hand — week 6 published, week 7 played, expect 7 — passes under both.
+  The failing case needs a *gap*: week 6 published, weeks 7 and 8 played, expect
+  7 and specifically not 8. Same lesson as the `nominatorAt` regression suite,
+  where the even and mildly-lumpy draft shapes pass against the broken code and
+  only the realistic skewed one fails.
+- **Zero is a real week and null is not the same as it.** The season preview is
+  stored at week zero, so `lastPublishedWeek ?? -1` is load-bearing: `|| -1`
+  would treat a season that has published only its preview as having published
+  nothing and resume at the earliest played week. The preview shipped six days
+  before this and is the only reason the distinction exists.
+- **Returning the oldest owed week rather than the newest complete one is the
+  ordering guarantee, not a limitation.** If the resumed week is unfinished
+  `one()` skips it and waits, rather than reaching past it — week eight cannot be
+  written before week seven, and a selector that could skip ahead would let it.
+- **The empty state was already correct and worth checking rather than assuming.**
+  `season_matchups` holds no rows at all for 2026, so both the old and new
+  selectors return null and tomorrow's run is a clean no-op. The seventeen
+  identical 9437-byte `matchups-*.json` files on disk are empty pre-season
+  responses; the importer reads them and inserts nothing, which is why the cron
+  has committed nothing in three firings. That is the designed behaviour, not a
+  broken job.
+- **`--all` on the art step is self-healing and the comment beside it described a
+  different command.** The comment claimed it illustrated "the newest issue that
+  has none"; the flag means *every* issue that has none. The behaviour is the one
+  worth having — a picture that failed last week is retried this week — but it
+  bills one image per artless issue every run, so a backlog left standing is paid
+  for again every Tuesday.
+
+**Watch out for:**
+
+- **`continue-on-error` converts a failure into silence, not into resilience.**
+  It is the right call on both model steps, and on its own it meant the only
+  trace of a missed edition was a collapsed step in a UI nobody opens on a
+  Tuesday. Pair it with something that reports, or the workflow is green in
+  precisely the weeks it did nothing.
+- **The report step must run after the commit and must not gate it.** Failing
+  earlier would strand the pulled Sleeper files and make the following week's
+  diff incoherent — which is the exact failure `continue-on-error` was added to
+  prevent, reintroduced from the other end.
+- **Art alone does not fail the run, deliberately.** Null art is the normal case;
+  every issue older than the art step has none and the front page just runs the
+  headline. Only a missing *issue* is worth a red tick, or the signal stops
+  meaning anything.
+- **`npm run gazette -- 2025` now resolves to week 15, where it used to resolve
+  to 17.** Neither is wanted for a finished season the Gazette covered weeks 6–14
+  of. The cron only ever runs the current season, so this is not on any live
+  path, but a bare season argument with no week is not a safe thing to type at a
+  season that is over.
