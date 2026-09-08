@@ -189,7 +189,6 @@ export default async function FrontPage({
             <SeasonSoFarPanel
               report={soFar.report}
               members={soFar.members}
-              preview={previewSeason !== null}
               lead
             />
           </div>
