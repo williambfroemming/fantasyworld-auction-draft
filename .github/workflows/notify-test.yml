@@ -72,6 +72,17 @@ jobs:
             exit 1
           fi
 
+          # ⚠️ Whitespace is not emptiness, and the check above does not catch it.
+          # A secret holding a stray space or newline is non-empty, sails past
+          # `-z`, and then dies inside `neon()` as "not a valid URL" -- which is
+          # exactly how this failed the first time it ran.
+          if [ -z "$(printf '%s' "$DATABASE_URL" | tr -d '[:space:]')" ]; then
+            echo "::error::DATABASE_URL is set but contains only whitespace. Note that GitHub"
+            echo "::error::always shows a BLANK value box when you edit a secret -- that is not"
+            echo "::error::evidence it is empty. Overwrite it with the full connection string."
+            exit 1
+          fi
+
           # ⚠️ Shape check, never a value dump. `neon()` fails with "not a valid
           # URL" and no indication of what it actually received, which is
           # unhelpful for a value nobody can print. These are the three ways a
