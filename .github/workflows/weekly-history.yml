@@ -110,6 +110,26 @@ jobs:
             echo "::error::DATABASE_URL secret is not set — nothing would be imported."
             exit 1
           fi
+
+          # ⚠️ Shape check, never a value dump. `neon()` fails with "not a valid
+          # URL" and no indication of what it actually received, which is
+          # unhelpful for a value nobody can print. These are the three ways a
+          # connection string arrives wrong from a copy-paste, named explicitly.
+          case "$DATABASE_URL" in
+            postgres://*|postgresql://*) ;;
+            \"*|\'*)
+              echo "::error::DATABASE_URL starts with a quote. Paste the value without surrounding quotes."
+              exit 1 ;;
+            psql*)
+              echo "::error::DATABASE_URL looks like a psql command. Paste only the connection string, not 'psql ...'."
+              exit 1 ;;
+            DATABASE_URL=*)
+              echo "::error::DATABASE_URL includes the variable name. Paste only the value after the '='."
+              exit 1 ;;
+            *)
+              echo "::error::DATABASE_URL does not begin with postgres:// or postgresql:// (length ${#DATABASE_URL})."
+              exit 1 ;;
+          esac
           npx tsx scripts/history/refresh-season.ts \
             ${{ inputs.season && format('--season {0}', inputs.season) || '' }}
 
