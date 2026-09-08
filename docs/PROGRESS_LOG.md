@@ -3609,3 +3609,42 @@ sent by `curl` in the workflow.
   check: the "Between the import and the commit" note ended up above "What is
   owed", describing a step three below it. Inserting a step into a heavily
   commented workflow moves the comment, not just the YAML.
+
+---
+
+## A test for the email, because the obvious way to test it proves nothing
+
+`.github/workflows/notify-test.yml` — sends the notification for the newest
+issue on record and does nothing else.
+
+**Learned:**
+
+- **Dispatching the weekly job does not test the mail, and would look like it
+  did.** The mail step is guarded on a week being *owed*, so out of season it is
+  skipped and the run goes green having proved nothing about Gmail. The first
+  anyone would learn that the app password was mistyped is the first Tuesday it
+  mattered. A guard that correctly suppresses a step also correctly suppresses
+  the test of that step.
+- **The test is a separate workflow rather than a flag on the weekly one.**
+  Threading `test: true` through the real job puts a branch on the path that
+  pulls Sleeper and commits to the repository, where a mistyped input can write
+  data. This one has `contents: read`, touches no files and cannot import
+  anything.
+- **A test send is a real email about a real issue.** Out of season the newest
+  issue is the season preview, months old — so without a marker the league gets
+  what reads as a fresh edition on a Thursday in September, which is the exact
+  confusion the owed-week guard exists to prevent. `GAZETTE_SUBJECT_PREFIX`
+  marks the subject and a banner says it in the body too, because subjects get
+  truncated on a phone.
+- **curl exits 67 on a bad SMTP login**, which is what a revoked or mistyped app
+  password looks like. The workflow names that case rather than leaving the next
+  person to read an SMTP transcript to find it.
+
+**Watch out for:**
+
+- **A `workflow_dispatch` workflow only appears in the Actions UI once it is on
+  the default branch.** A test workflow therefore cannot be tested on the branch
+  that adds it, which is mildly circular and worth knowing before wondering why
+  the button is missing.
+- **`--latest` is for the test path only.** The weekly job names the week it just
+  wrote, so a concurrent run cannot make it announce the wrong issue.
