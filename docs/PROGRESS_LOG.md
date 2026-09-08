@@ -3436,3 +3436,67 @@ score belongs in "highest score ever" the moment it is played.
   partial. The others were `season_standings` holding the final table in a
   backfilled Gazette week, and `player_seasons.avg_points` grading a week-seven
   boom against a full-season average.
+
+---
+
+## The season in progress, measured the ways Sleeper does not
+
+`src/lib/season-so-far.ts` — the record, all-play, a vs-median column, luck,
+strength of schedule, lineup efficiency and the weekly side-bet counts, for the
+year currently being played. Pure, seventeen tests, no page yet.
+
+The framing argument is the whole feature. Sleeper already has a standings table
+and this project deletes things that duplicate a better tool — the news feed went
+for exactly that reason. So the record is here only as the column everything else
+is read *against*: a 2-4 next to the third-best all-play, forty points left on
+benches and the hardest schedule in the league are four explanations of the same
+two numbers, and none of them exist anywhere else the league can look.
+
+**Learned:**
+
+- **A symmetric fixture tests nothing, and it is the one anybody writes first.**
+  The first cut mirrored week two against week one, which lands every manager on
+  a .500 all-play — so "all-play and the record disagree" passed vacuously, and
+  so did "expected wins is not a whole number", because .500 of two games is
+  exactly one. The replacement is deliberately lopsided and carries the case the
+  page exists for: a manager 0-2 with the second-best all-play in the league, and
+  another 2-0 with the third-worst. Same shape as the `nominatorAt` suite, where
+  the even and mildly-lumpy drafts pass against the broken code and only the
+  realistic skewed one fails.
+- **`throughWeek` is a field on the result, not a caller's responsibility.**
+  Everything here is a rate over a partial season, which is the bug fixed in
+  `records()` this afternoon and the one `player_seasons.avg_points` carries in
+  the Gazette. Returning the qualifier alongside the numbers means no caller can
+  render "2026" where it should say "through week 5" without deleting something.
+- **Derived from `matchups`, never from `season_standings`.** The standings table
+  is rewritten wholesale by every import and holds the *final* shape of a season
+  — the precise source of the backfilled-Gazette bug, where a week-7 issue
+  printed an 11-3 record for a team that was 4-3. Counting the games means the
+  record cannot disagree with the all-play and median columns beside it, because
+  all three read the same rows.
+- **`allPlay()` and `highLowWeeks()` took one season's games unchanged.** Both
+  already grouped by `season:week` and derived the field from the rows they were
+  handed, so scoping them to a year needed no new argument and no second
+  implementation. Two functions that merely agree today are the setup for the two
+  disagreeing later.
+- **Expected wins is deliberately not rounded.** A whole-number expectation makes
+  `luck` read as a count of games somebody was robbed of, which is a stronger
+  claim than an all-play rate supports. There is a test that fails if it is
+  "tidied".
+
+**Watch out for:**
+
+- **The median is per week and over the whole field**, so an incomplete week is
+  skipped and counted exactly as `allPlay` skips it. A median over six of ten
+  scores is not the league median, and averaging it in silently is how the column
+  stops meaning anything.
+- **Efficiency is null, never 1.0, when no lineup is on record.** A season with
+  no lineup data has not been proven perfectly managed; it is unmeasured. Same
+  rule as a null injury status meaning unknown rather than fit.
+- **Nothing here may be ranked against another season.** These are internal
+  rankings within one partial year. The moment one of these numbers is compared
+  to a finished season it is the `records()` bug again, and
+  `completedStandings()` is where that comparison belongs.
+- **`sideBet` null is unknown, never "no bet".** The league has run $10 a week
+  from 2024; earlier years are not on record and printing $0 would invent a fact
+  about money.
