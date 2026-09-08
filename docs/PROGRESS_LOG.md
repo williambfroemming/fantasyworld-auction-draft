@@ -3500,3 +3500,56 @@ two numbers, and none of them exist anywhere else the league can look.
 - **`sideBet` null is unknown, never "no bet".** The league has run $10 a week
   from 2024; earlier years are not on record and printing $0 would invent a fact
   about money.
+
+---
+
+## The season table, and how to look at a page that has no data yet
+
+`SeasonSoFarPanel` on the front page, fed by `getSeasonSoFar()`. Record first,
+then all-play, versus-median, luck, strength of schedule, efficiency and the
+weekly high/low counts. Sorted by all-play rather than by record, because a table
+sorted by record is the table Sleeper already shows and re-sorting it here would
+quietly make the honest columns decoration.
+
+The auction-return and best/worst-buy metrics were dropped before being built:
+they were interesting to me and not to the league, which is the correct reason to
+delete something.
+
+**Learned:**
+
+- **"Can I see it before there is data in it" is a real design question, not a
+  request for a staging environment.** The honest empty state is *nothing*: the
+  panel does not render until a week is complete, because a table of 0-0 records
+  and .000 rates is the exact shape `playedStandings()` exists to reject — it
+  looks official and means nothing. But that leaves no way to review the thing
+  before the night it goes live. `?preview=2025&through=6` stands a finished
+  season in for the one being played, which shows the real layout with real
+  numbers rather than an empty shell, and is strictly more informative than
+  either.
+- **The preview cross-checked the engine for free.** 2025 through week six came
+  back matching the Gazette issue sampled an hour earlier — Eric/Blakey 0-6 with
+  91 percent efficiency and more points than Bolek, Gabes leading the league on
+  points with the hardest schedule. Two separately written code paths agreeing on
+  the same week is worth more than another unit test.
+- **The Eric/Blakey row is the whole feature.** 0-6, .333 all-play, 2-4 against
+  the median, 91 percent efficiency, the fourth-hardest schedule in the league.
+  Every one of those numbers is elsewhere unavailable, and together they say
+  something a standings table cannot: this is a well-managed team that has been
+  sent at the largest thing on the board six weeks running.
+- **Luck is the only coloured column, on purpose.** It is the one number here
+  with a good and a bad direction; everything else is a ranking. Tinting all six
+  would make the table look like it was scoring people on six axes rather than
+  offering six readings of one season.
+
+**Watch out for:**
+
+- **`searchParams` is read after the draft-night redirect, never before it.**
+  `docs/BACKLOG.md` §11's rule is that a landing page must never sit in front of
+  draft night, and the ordering in `page.tsx` is what keeps that true. A preview
+  parameter that got consulted earlier would put a query string on the critical
+  path of a live auction.
+- **The panel takes `throughWeek` from the report, not from its own props.** It
+  cannot be rendered without the qualifier that makes its numbers honest, which
+  is the whole reason that field is on the return type.
+- **Efficiency draws an em dash, never 100%.** A manager with no lineup on record
+  is unmeasured, not perfect.
