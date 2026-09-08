@@ -1,0 +1,110 @@
+name: Preflight — will Tuesday work?
+
+# A dress rehearsal for the weekly run, in the place it will actually run, that
+# writes nothing anywhere. Run it by hand before a season starts, after rotating
+# a key, or any time the answer to "is this still wired up" is a shrug.
+#
+# ## Why this is not just "dispatch the weekly job"
+#
+# Out of season the weekly job is a no-op by design: no week is owed, so the
+# Gazette step exits without ever making a model call and the run goes green
+# having proved only that the database is reachable. Every expensive, credential-
+# dependent thing it does stays untested until the first Tuesday that matters.
+#
+# This exercises those paths deliberately:
+#
+#   1. DATABASE_URL parses and the week-selection query runs      (`--check`)
+#   2. ANTHROPIC_API_KEY authenticates, the prompt compiles, the
+#      model answers, the JSON parses, and the GROUNDING GATE runs (`--sample`)
+#   3. AI_GATEWAY_API_KEY authenticates                            (`--models`)
+#
+# Step 2 is the one worth having. `--sample` is always a dry run — it threads
+# its issues in memory and never calls `store()` — so it puts a real edition
+# through the entire pipeline and throws it away. One model call, and the only
+# untested thing left on a real Tuesday is the database write itself.
+#
+# ⚠️ It costs one model call and one gateway request. That is the point: a
+# preflight that costs nothing is testing nothing.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  preflight:
+    name: rehearse
+    runs-on: ubuntu-latest
+    permissions:
+      # Reads the repo to run the scripts. Writes nothing, commits nothing.
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: 1. The database, and which week is owed
+        id: db
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL is not set."
+            exit 1
+          fi
+          week=$(npx tsx scripts/history/gazette.ts --check)
+          echo "Owed right now: $week"
+          {
+            echo "### Preflight"
+            echo
+            echo "- ✅ **Database** reachable; week owed right now: \`$week\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ⚠️ A real model call, deliberately. Anything cheaper — a token count, a
+      # one-word completion — proves the key and not the pipeline, and the
+      # pipeline is what breaks: a prompt that no longer compiles, a response
+      # that stops parsing as JSON, a grounding gate that rejects every draft.
+      # `--sample` runs all of it against a season already on record and stores
+      # nothing.
+      - name: 2. The model, the prompt, and the grounding gate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY is not set — the Gazette cannot be written."
+            echo "- ❌ **Anthropic key** missing" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          # One edition, dry run, nothing stored. Non-zero if the gate rejects
+          # it twice or the call fails.
+          npx tsx scripts/history/gazette.ts --sample 2025 6 1
+          echo "- ✅ **Anthropic key, prompt, model and grounding gate** all working" >> "$GITHUB_STEP_SUMMARY"
+
+      # The gateway is only ever asked for a picture, and a failed picture is
+      # not a failed edition — so this warns rather than failing the run. Null
+      # art is the normal case for every issue older than the art step.
+      - name: 3. The image gateway
+        continue-on-error: true
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        run: |
+          if [ -z "$AI_GATEWAY_API_KEY" ]; then
+            echo "::warning::AI_GATEWAY_API_KEY is not set — issues will publish without art."
+            echo "- ⚠️ **Gateway key** missing; issues would publish without a picture" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          npx tsx scripts/history/gazette-art.ts --models
+          echo "- ✅ **Gateway key** authenticates" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: What this did not prove
+        if: always()
+        run: |
+          {
+            echo
+            echo "Not covered here, because it cannot be rehearsed without writing:"
+            echo "the database INSERT of a new issue, the commit back to the repo,"
+            echo "and the notification email — run **Test the Gazette email** for that last one."
+          } >> "$GITHUB_STEP_SUMMARY"

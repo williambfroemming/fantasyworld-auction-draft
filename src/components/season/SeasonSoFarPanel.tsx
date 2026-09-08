@@ -30,13 +30,10 @@ import { managerColor } from '@/lib/colors'
 export function SeasonSoFarPanel({
   report,
   members,
-  preview,
   lead,
 }: {
   report: SeasonSoFar
   members: HistoryMember[]
-  /** Set when showing a finished season as a stand-in. See `getSeasonSoFar`. */
-  preview?: boolean
   /**
    * Drawn as the front page's lead rather than a panel within it.
    *
@@ -75,17 +72,21 @@ export function SeasonSoFarPanel({
           <h2 className="mt-3 font-display text-[clamp(2.5rem,9vw,6rem)] leading-[0.86] font-bold tracking-[-0.02em] text-slate-50">
             Through week {report.throughWeek}
           </h2>
-          <p className="mt-5 max-w-prose text-slate-300">
-            The table, and the three columns that argue with it. Sorted by all-play rather
-            than by record.
-            {report.incompleteWeeks > 0 && (
-              <>
-                {' '}
-                {report.incompleteWeeks} week{report.incompleteWeeks === 1 ? '' : 's'} skipped —
-                the whole field did not play.
-              </>
-            )}
-          </p>
+          {/*
+            The ONLY line allowed to appear under the heading, and only when it
+            is not zero. It is a caveat about the figures rather than an
+            explanation of them: a skipped week means these totals are counted
+            over fewer games than the week number implies, which the reader
+            cannot infer from anything else on the page. Everything that merely
+            explained a column has been removed -- the glossary is one click
+            away in the nav and at the foot of this page.
+          */}
+          {report.incompleteWeeks > 0 && (
+            <p className="mt-5 text-sm text-slate-400">
+              {report.incompleteWeeks} week{report.incompleteWeeks === 1 ? '' : 's'} not counted —
+              the whole field did not play.
+            </p>
+          )}
         </div>
       ) : (
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
@@ -103,14 +104,6 @@ export function SeasonSoFarPanel({
             )}
           </p>
         </div>
-      )}
-
-      {preview && (
-        <p className="mb-3 border border-rule bg-slate-900/60 px-3 py-2 text-xs text-slate-400">
-          <span className="font-semibold text-amber-300">Preview.</span> A finished season,
-          truncated, standing in for the one being played — so the layout can be seen before
-          there are real results in it. It is not this year&rsquo;s table.
-        </p>
       )}
 
       <div className="overflow-x-auto">
@@ -206,6 +199,15 @@ export function SeasonSoFarPanel({
         </table>
       </div>
 
+      {/*
+        The one piece of prose kept, and the distinction is worth stating: it
+        defines the columns whose *names* do not define them. "Record" and "PF"
+        need nothing; "Luck" and "Eff" are meaningless without a sentence, and a
+        table with a column nobody can read is worse than a table with a
+        footnote. The standfirst that used to sit under the heading went because
+        it explained the page's argument rather than its columns — the argument
+        is made by the sort order, not by being described.
+      */}
       <p className="mt-3 border-t border-rule pt-3 text-xs text-slate-400">
         <strong className="text-slate-300">All-play</strong> is your record against every
         manager every week — the season without a schedule.{' '}
