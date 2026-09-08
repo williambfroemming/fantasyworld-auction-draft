@@ -19,6 +19,8 @@ import {
   listHistorySeasons,
 } from '@/server/history-service'
 import { listIssues } from '@/server/gazette-service'
+import { getSeasonSoFar } from '@/server/history-service'
+import { SeasonSoFarPanel } from '@/components/season/SeasonSoFarPanel'
 import { currentManagerId } from '@/server/session'
 
 /**
@@ -55,7 +57,18 @@ export const metadata = {
   title: 'FantasyWorld',
 }
 
-export default async function FrontPage() {
+export default async function FrontPage({
+  searchParams,
+}: {
+  /**
+   * Only ever read for the season-table preview, and only after the redirect
+   * above has run. `?preview=2025&through=6` stands a finished season in for
+   * the one being played, so the panel can be looked at before there are real
+   * results in it — see `getSeasonSoFar`. Nothing else on this page takes a
+   * parameter, and draft-night routing deliberately does not consult one.
+   */
+  searchParams: Promise<{ preview?: string; through?: string }>
+}) {
   const [managerId, live] = await Promise.all([currentManagerId(), getLiveSeason()])
 
   // An uninitialised draft has no season to be complete or otherwise. Treat it
@@ -65,10 +78,21 @@ export default async function FrontPage() {
   const to = landingDestination({ complete, signedIn: managerId !== null })
   if (to) redirect(to)
 
-  const [seasons, issues, auctions] = await Promise.all([
+  // Read after the redirect, never before it: draft-night routing must not
+  // depend on a query string.
+  const params = await searchParams
+  const previewSeason = Number(params.preview) || null
+  const previewThrough = Number(params.through) || undefined
+
+  const [seasons, issues, auctions, soFar] = await Promise.all([
     listHistorySeasons(),
     listIssues(),
     listAuctions(),
+    getSeasonSoFar(
+      previewSeason
+        ? { season: previewSeason, throughWeek: previewThrough ?? 6 }
+        : {},
+    ),
   ])
 
   // The reigning champion is the most recent season that has one — not simply
@@ -136,6 +160,23 @@ export default async function FrontPage() {
 
       <div className="mx-auto max-w-6xl px-4 py-12">
         <GazetteTeaser issue={latest} />
+
+        {/*
+          Only drawn once a week has actually been played. Before the opener
+          `seasonSoFar` returns null and this disappears entirely, which is
+          correct: a table of 0-0 records and .000 rates is the shape
+          `playedStandings()` exists to reject -- it looks official and says
+          nothing. `?preview=2025` is how it gets looked at in the meantime.
+        */}
+        {soFar.report && (
+          <div className="mt-14">
+            <SeasonSoFarPanel
+              report={soFar.report}
+              members={soFar.members}
+              preview={previewSeason !== null}
+            />
+          </div>
+        )}
 
         <div className="mt-14">
           <AuctionNumbers auction={auction} />

@@ -223,6 +223,53 @@ function playedStandings(standings: HistoryStanding[]): HistoryStanding[] {
   return standings.filter((s) => played.has(s.season))
 }
 
+/**
+ * Standings rows for seasons whose regular season has actually **finished**.
+ *
+ * ⚠️ {@link playedStandings} is not enough for anything that aggregates a whole
+ * season, and the gap only opens once a week has been played. It rejects the
+ * 0-0 row that exists from the season's first refresh — but the Tuesday after
+ * week one, the season in progress has ten rows with one game each, and those
+ * are "played". A partial season then wins every record that is a **minimum or
+ * a rate**, because one game is a smaller sample than fourteen:
+ *
+ *   - a 1-0 manager is 1.000 and takes "best regular-season record" from a 12-2
+ *   - a 0-1 manager is .000 and takes "worst"
+ *   - a hundred-odd points takes "fewest points in a season" from 1051.92
+ *
+ * Maxima are safe, which is exactly why this is easy to miss: "most points in a
+ * season" reads correctly all year and three records beside it are nonsense
+ * from the second Tuesday of September.
+ *
+ * **Completeness is derived, not read off a flag.** `seasons.is_final` is the
+ * obvious candidate and cannot be trusted — it was `true` for the season in
+ * progress when this was written, against the documented rule that it stays
+ * false until Sleeper says complete. A season is finished here when somebody
+ * has played its full regular season, which is a fact about the games.
+ *
+ * A null `regularSeasonWeeks` means the length is unknown, which resolves to
+ * *not provably complete* and drops the season. That is the safe direction and
+ * is the live behaviour for the current year, whose length Sleeper has not
+ * reported yet.
+ */
+function completedStandings(
+  standings: HistoryStanding[],
+  seasons: HistorySeason[],
+): HistoryStanding[] {
+  const need = new Map(seasons.map((s) => [s.season, s.regularSeasonWeeks]))
+  const played = new Map<number, number>()
+  for (const s of standings) {
+    const games = s.wins + s.losses + s.ties
+    played.set(s.season, Math.max(played.get(s.season) ?? 0, games))
+  }
+  const done = new Set<number>()
+  for (const [season, games] of played) {
+    const weeks = need.get(season)
+    if (weeks !== null && weeks !== undefined && games >= weeks) done.add(season)
+  }
+  return standings.filter((s) => done.has(s.season))
+}
+
 // ---------------------------------------------------------------------------
 // All-play — how you would have done against the whole field, every week
 // ---------------------------------------------------------------------------
@@ -721,13 +768,24 @@ export function longestStreaks(matchups: HistoryMatchup[]): {
 export function records(input: HistoryInput): RecordBook {
   const { seasons, matchups } = input
   const standings = playedStandings(input.standings)
+  /**
+   * Season-level records read this, never `standings`. A season only counts
+   * once its regular season is over — see {@link completedStandings}, and note
+   * that game-level records below deliberately do NOT use it: a week-one score
+   * belongs in "highest score ever" the moment it is played, and a winning
+   * streak running into the current season is a real streak.
+   */
+  const finished = completedStandings(input.standings, seasons)
 
   const gameCoverage = coverageFor(seasons, ['weekly'], 'since Sleeper', playedSeasons(matchups))
+  // The badge has to agree with the rows: it says which years the season
+  // records cover, so it counts finished seasons rather than played ones, or it
+  // claims a year whose numbers were deliberately left out.
   const seasonCoverage = coverageFor(
     seasons,
     ['standings', 'weekly'],
     'all-time',
-    playedSeasons(standings),
+    playedSeasons(finished),
   )
 
   const regular = matchups.filter((m) => !m.isPlayoff)
@@ -783,7 +841,8 @@ export function records(input: HistoryInput): RecordBook {
   ].filter((e): e is RecordEntry => e !== null)
 
   // --- season-level ---------------------------------------------------------
-  const withPoints = standings.filter((s) => s.pointsFor !== null)
+  // `finished`, not `standings`: a season in progress is not a season.
+  const withPoints = finished.filter((s) => s.pointsFor !== null)
   const toExtreme = (s: HistoryStanding, value: number, detail?: string): Extreme => ({
     value,
     managerId: s.managerId,
@@ -804,7 +863,7 @@ export function records(input: HistoryInput): RecordBook {
       seasonCoverage),
     entry('mostPointsAgainstSeason', 'Most points against in a season',
       (() => {
-        const rows = standings.filter((s) => s.pointsAgainst !== null)
+        const rows = finished.filter((s) => s.pointsAgainst !== null)
         const s = best(rows, (r) => r.pointsAgainst!, 'max')
         return s ? toExtreme(s, s.pointsAgainst!) : null
       })(), seasonCoverage),
@@ -813,15 +872,17 @@ export function records(input: HistoryInput): RecordBook {
     // quietly favours the longer seasons: 12-2 (.857) would beat 11-2 (.846) on
     // percentage and also on margin, but 12-3 (.800) would beat 11-2 on margin
     // alone despite being the worse season.
+    // ⚠️ A rate over a finished season only. One game into a new year a 1-0 is
+    // 1.000 and a 0-1 is .000, and both beat anything a full season can do.
     entry('bestRecord', 'Best regular-season record',
       (() => {
-        const rows = standings.filter((r) => r.wins + r.losses + r.ties > 0)
+        const rows = finished.filter((r) => r.wins + r.losses + r.ties > 0)
         const s = best(rows, (r) => r.wins / (r.wins + r.losses + r.ties), 'max')
         return s ? { ...toExtreme(s, s.wins), display: `${s.wins}-${s.losses}` } : null
       })(), seasonCoverage),
     entry('worstRecord', 'Worst regular-season record',
       (() => {
-        const rows = standings.filter((r) => r.wins + r.losses + r.ties > 0)
+        const rows = finished.filter((r) => r.wins + r.losses + r.ties > 0)
         const s = best(rows, (r) => r.wins / (r.wins + r.losses + r.ties), 'min')
         return s ? { ...toExtreme(s, s.wins), display: `${s.wins}-${s.losses}` } : null
       })(), seasonCoverage),

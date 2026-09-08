@@ -3363,3 +3363,249 @@ already recorded above, and one footgun with a fuse on it.
 - **`--sample` is not free and is not a substitute for the real thing.** It
   threads its issues in memory and stores nothing, so it cannot tell you whether
   `store()`, the mirror write or the art step work. Those only run for real.
+
+---
+
+## A season in progress is not a season, and three records said otherwise
+
+Found by asking what changes on the day week one imports, rather than by anything
+going wrong. Every history page has only ever rendered **finished** seasons —
+2020 to 2025, all complete. On the Tuesday after the opener, 2026 becomes a
+season with ten standings rows and one game in each of them, and that is a shape
+none of this code has met.
+
+`playedStandings()` already guards the neighbouring case and its docblock says so:
+a standings row exists from the season's first refresh with a 0-0 record and zero
+points, which would win "fewest points in a season" outright. But it tests
+whether *anybody has played a game*, and one week in, everybody has. The rows go
+straight through, and a one-game sample beats a fourteen-game one at every record
+that is a **minimum or a rate**:
+
+| Record | Before week one | After |
+|---|---|---|
+| Best regular-season record | 2021 · 12-2 (.857) | a 1-0 team (1.000) |
+| Worst regular-season record | the real worst | a 0-1 team (.000) |
+| Fewest points in a season | 2016 · 1051.92 | about 100, one week played |
+
+Season records now read `completedStandings()` — a season counts once somebody
+has played its full regular season. Game records deliberately do not: a week-one
+score belongs in "highest score ever" the moment it is played.
+
+**Learned:**
+
+- **Maxima are safe and minima are not, which is exactly why this survives a
+  read-through.** "Most points in a season" is correct all year with no filter at
+  all. Three records beside it, computed the same way from the same rows, are
+  nonsense from the second Tuesday of September. Anything that scans this file
+  looking for "does it handle the current season" sees the guard, sees a correct
+  record, and moves on.
+- **Completeness had to be derived, because the flag for it is wrong.**
+  `seasons.is_final` is the obvious signal and is `true` for 2026 right now —
+  against the rule `refresh-season.ts` states in its own header, that a season
+  stays false until Sleeper says complete. Had the fix trusted it, it would have
+  passed every test and done nothing. Same reasoning as budgets: derive it from
+  what happened.
+- **`regularSeasonWeeks` is null for the season in progress and populated for
+  every season that has standings** — 13 through 2020, 14 from 2021 — and
+  `max(games played)` equals it exactly in all fifteen. So "unknown length" and
+  "in progress" are the same set today, and treating unknown as *not provably
+  complete* is both the safe direction and the correct one.
+- **The era badge is part of the record, not decoration.** It names the years the
+  numbers beside it cover, so it had to move to the finished set as well.
+  Leaving it on "played" would have printed a span reaching into a year whose
+  numbers were deliberately excluded — the precise disagreement between a table
+  and its own label that the era badges were introduced to stop.
+- **The tests were run against the old code before being trusted.** Six of the
+  seven fail without the filter; the seventh is the game-level control, which
+  must pass both ways. A regression test for a "reads correctly until it doesn't"
+  bug is worth nothing until it has been seen to fail.
+
+**Watch out for:**
+
+- **`seasons.is_final` is `true` for the season in progress in the live
+  database**, which contradicts `refresh-season.ts`. Nothing here depends on it
+  any more, and `draftComplete` is unaffected because the 2026 rosters are full
+  and it checks that directly. But it is wrong, and anything that starts trusting
+  it will be wrong in the same direction.
+- **Career totals still include the season in progress, deliberately.** A career
+  win percentage is a running total and should move when a game is played; it is
+  a season *aggregate* that needs a finished season. The two look similar in the
+  code and are not the same question.
+- **This will recur every August.** It is the third instance of the same shape in
+  this codebase — a value that reads correctly until the thing it summarises is
+  partial. The others were `season_standings` holding the final table in a
+  backfilled Gazette week, and `player_seasons.avg_points` grading a week-seven
+  boom against a full-season average.
+
+---
+
+## The season in progress, measured the ways Sleeper does not
+
+`src/lib/season-so-far.ts` — the record, all-play, a vs-median column, luck,
+strength of schedule, lineup efficiency and the weekly side-bet counts, for the
+year currently being played. Pure, seventeen tests, no page yet.
+
+The framing argument is the whole feature. Sleeper already has a standings table
+and this project deletes things that duplicate a better tool — the news feed went
+for exactly that reason. So the record is here only as the column everything else
+is read *against*: a 2-4 next to the third-best all-play, forty points left on
+benches and the hardest schedule in the league are four explanations of the same
+two numbers, and none of them exist anywhere else the league can look.
+
+**Learned:**
+
+- **A symmetric fixture tests nothing, and it is the one anybody writes first.**
+  The first cut mirrored week two against week one, which lands every manager on
+  a .500 all-play — so "all-play and the record disagree" passed vacuously, and
+  so did "expected wins is not a whole number", because .500 of two games is
+  exactly one. The replacement is deliberately lopsided and carries the case the
+  page exists for: a manager 0-2 with the second-best all-play in the league, and
+  another 2-0 with the third-worst. Same shape as the `nominatorAt` suite, where
+  the even and mildly-lumpy drafts pass against the broken code and only the
+  realistic skewed one fails.
+- **`throughWeek` is a field on the result, not a caller's responsibility.**
+  Everything here is a rate over a partial season, which is the bug fixed in
+  `records()` this afternoon and the one `player_seasons.avg_points` carries in
+  the Gazette. Returning the qualifier alongside the numbers means no caller can
+  render "2026" where it should say "through week 5" without deleting something.
+- **Derived from `matchups`, never from `season_standings`.** The standings table
+  is rewritten wholesale by every import and holds the *final* shape of a season
+  — the precise source of the backfilled-Gazette bug, where a week-7 issue
+  printed an 11-3 record for a team that was 4-3. Counting the games means the
+  record cannot disagree with the all-play and median columns beside it, because
+  all three read the same rows.
+- **`allPlay()` and `highLowWeeks()` took one season's games unchanged.** Both
+  already grouped by `season:week` and derived the field from the rows they were
+  handed, so scoping them to a year needed no new argument and no second
+  implementation. Two functions that merely agree today are the setup for the two
+  disagreeing later.
+- **Expected wins is deliberately not rounded.** A whole-number expectation makes
+  `luck` read as a count of games somebody was robbed of, which is a stronger
+  claim than an all-play rate supports. There is a test that fails if it is
+  "tidied".
+
+**Watch out for:**
+
+- **The median is per week and over the whole field**, so an incomplete week is
+  skipped and counted exactly as `allPlay` skips it. A median over six of ten
+  scores is not the league median, and averaging it in silently is how the column
+  stops meaning anything.
+- **Efficiency is null, never 1.0, when no lineup is on record.** A season with
+  no lineup data has not been proven perfectly managed; it is unmeasured. Same
+  rule as a null injury status meaning unknown rather than fit.
+- **Nothing here may be ranked against another season.** These are internal
+  rankings within one partial year. The moment one of these numbers is compared
+  to a finished season it is the `records()` bug again, and
+  `completedStandings()` is where that comparison belongs.
+- **`sideBet` null is unknown, never "no bet".** The league has run $10 a week
+  from 2024; earlier years are not on record and printing $0 would invent a fact
+  about money.
+
+---
+
+## The season table, and how to look at a page that has no data yet
+
+`SeasonSoFarPanel` on the front page, fed by `getSeasonSoFar()`. Record first,
+then all-play, versus-median, luck, strength of schedule, efficiency and the
+weekly high/low counts. Sorted by all-play rather than by record, because a table
+sorted by record is the table Sleeper already shows and re-sorting it here would
+quietly make the honest columns decoration.
+
+The auction-return and best/worst-buy metrics were dropped before being built:
+they were interesting to me and not to the league, which is the correct reason to
+delete something.
+
+**Learned:**
+
+- **"Can I see it before there is data in it" is a real design question, not a
+  request for a staging environment.** The honest empty state is *nothing*: the
+  panel does not render until a week is complete, because a table of 0-0 records
+  and .000 rates is the exact shape `playedStandings()` exists to reject — it
+  looks official and means nothing. But that leaves no way to review the thing
+  before the night it goes live. `?preview=2025&through=6` stands a finished
+  season in for the one being played, which shows the real layout with real
+  numbers rather than an empty shell, and is strictly more informative than
+  either.
+- **The preview cross-checked the engine for free.** 2025 through week six came
+  back matching the Gazette issue sampled an hour earlier — Eric/Blakey 0-6 with
+  91 percent efficiency and more points than Bolek, Gabes leading the league on
+  points with the hardest schedule. Two separately written code paths agreeing on
+  the same week is worth more than another unit test.
+- **The Eric/Blakey row is the whole feature.** 0-6, .333 all-play, 2-4 against
+  the median, 91 percent efficiency, the fourth-hardest schedule in the league.
+  Every one of those numbers is elsewhere unavailable, and together they say
+  something a standings table cannot: this is a well-managed team that has been
+  sent at the largest thing on the board six weeks running.
+- **Luck is the only coloured column, on purpose.** It is the one number here
+  with a good and a bad direction; everything else is a ranking. Tinting all six
+  would make the table look like it was scoring people on six axes rather than
+  offering six readings of one season.
+
+**Watch out for:**
+
+- **`searchParams` is read after the draft-night redirect, never before it.**
+  `docs/BACKLOG.md` §11's rule is that a landing page must never sit in front of
+  draft night, and the ordering in `page.tsx` is what keeps that true. A preview
+  parameter that got consulted earlier would put a query string on the critical
+  path of a live auction.
+- **The panel takes `throughWeek` from the report, not from its own props.** It
+  cannot be rendered without the qualifier that makes its numbers honest, which
+  is the whole reason that field is on the return type.
+- **Efficiency draws an em dash, never 100%.** A manager with no lineup on record
+  is unmeasured, not perfect.
+
+---
+
+## Telling ten people the paper exists
+
+The pipeline published at noon on a Tuesday into a git repository, and then
+depended on ten men independently remembering to open a website. That is the
+failure every internal publication actually dies of, and it was the largest gap
+left in the Gazette by some distance — larger than anything about the prose.
+
+Gmail, via SMTP and an app password. Composed by `scripts/history/notify-email.ts`,
+sent by `curl` in the workflow.
+
+**Learned:**
+
+- **Composing and sending are split because they need opposite things.**
+  Composing needs the database and no credentials; sending needs credentials and
+  no database. Keeping them apart is what makes `--print` possible — the whole
+  message, checkable locally, with no secret anywhere near it. A script that did
+  both is one nobody can run to check their own wording.
+- **The mail is guarded on the week that was owed, not on the write succeeding.**
+  The Gazette step exits zero when there was nothing to write, which is most
+  Tuesdays of the year — so mailing on success alone would send a "new issue"
+  every week of the offseason, pointing at a months-old edition. `steps.owed`
+  already knew the answer and needed no new query.
+- **It copies strings and computes nothing, deliberately.** Every figure the
+  Gazette prints has been through `ungroundedNumbers()` against its own pack. A
+  number retyped into an email is outside that gate, and an email is the one
+  surface where a wrong figure reaches a reader with nothing checking it.
+  Headline and deck go across verbatim; there is no arithmetic in the script.
+- **Recipients are a secret, not a file.** Ten real people's addresses in a
+  repository is the kind of thing that is fine until the repository is not. They
+  ride in Bcc with an undisclosed To, so a send does not publish the league to
+  itself either.
+- **Header encoding is not the same problem as body encoding.** Gordon writes em
+  dashes, and `Content-Type: charset=UTF-8` governs the body only — a raw em
+  dash in a Subject arrives as mojibake in most clients. Subjects are folded to
+  RFC 2047 base64 when they are not plain ASCII, and left alone when they are.
+
+**Watch out for:**
+
+- **A Gmail app password is invalidated when the account password changes**,
+  which is the most likely reason this starts failing months from now. The
+  failure is reported in the run summary rather than left silent, and it never
+  costs the commit: the step is `continue-on-error` like the two model steps.
+- **An app password grants SMTP send on the entire account.** A dedicated Gmail
+  account for the paper is worth the five minutes if the alternative is a
+  personal one.
+- **`--mail-rcpt` is per address.** Bcc is a header; the SMTP envelope has to
+  name every recipient separately, or only the first one is served the message.
+- **The message is written to `RUNNER_TEMP`, never the workspace**, so ten
+  addresses cannot wander into a commit from a step that runs right after one.
+- **A comment block was orphaned from its step** while inserting the owed-week
+  check: the "Between the import and the commit" note ended up above "What is
+  owed", describing a step three below it. Inserting a step into a heavily
+  commented workflow moves the comment, not just the YAML.

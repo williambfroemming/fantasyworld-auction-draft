@@ -755,3 +755,81 @@ describe('net winnings', () => {
     expect(leagueSummary(input).rows[0].allTime.buyInsPaid).toBe(0)
   })
 })
+
+describe('records and the season in progress', () => {
+  /**
+   * The Tuesday after week one, the current season has a standings row per
+   * manager with a single game in it. Those rows are "played", so the guard
+   * that rejects the 0-0 pre-season row lets them straight through — and a
+   * one-game sample beats a fourteen-game one at every record that is a
+   * minimum or a rate.
+   */
+  const seasons = [
+    season(2021, 'weekly', { regularSeasonWeeks: 14 }),
+    // Sleeper has reported the length, but only one week has been played.
+    season(2026, 'weekly', { regularSeasonWeeks: 14 }),
+  ]
+
+  const input: HistoryInput = {
+    members,
+    seasons,
+    standings: [
+      // A finished season: 12-2 and 11-3, ~1400 points.
+      standing(2021, 1, { wins: 12, losses: 2, pointsFor: 1400, pointsAgainst: 1200 }),
+      standing(2021, 2, { wins: 2, losses: 12, pointsFor: 1100, pointsAgainst: 1500 }),
+      // One week of the season in progress: a 1.000, a .000, and ~100 points.
+      standing(2026, 1, { wins: 1, losses: 0, pointsFor: 120, pointsAgainst: 90 }),
+      standing(2026, 2, { wins: 0, losses: 1, pointsFor: 90, pointsAgainst: 120 }),
+    ],
+    matchups: [...week(2021, 1, [140, 30, 100, 99])],
+    lineups: [],
+  }
+
+  const book = records(input)
+  const season_ = (key: string) => book.seasons.find((s) => s.key === key)
+
+  it('does not hand the best record to a 1-0 team', () => {
+    // 1.000 beats .857, so without the completeness filter this is 2026.
+    expect(season_('bestRecord')).toMatchObject({ season: 2021, display: '12-2' })
+  })
+
+  it('does not hand the worst record to a 0-1 team', () => {
+    expect(season_('worstRecord')).toMatchObject({ season: 2021, display: '2-12' })
+  })
+
+  it('does not hand fewest points in a season to one week of football', () => {
+    // 90 is fewer than 1100, and it is fewer because the season is four days
+    // old rather than because anybody played badly.
+    expect(season_('fewestPointsSeason')).toMatchObject({ season: 2021, value: 1100 })
+  })
+
+  it('keeps the season in progress out of the top scoring seasons', () => {
+    expect(book.topScoringSeasons.every((s) => s.season === 2021)).toBe(true)
+  })
+
+  it('does not let the season badge claim a year it left out', () => {
+    // The badge names the span the records beside it cover. Counting a season
+    // whose numbers were deliberately excluded is the same lie the era badges
+    // exist to prevent.
+    expect(book.seasonCoverage.to).toBe(2021)
+  })
+
+  it('STILL counts the current season for game-level records', () => {
+    // The distinction that makes this a filter rather than a blanket cutoff: a
+    // week-one score belongs in "highest score ever" the moment it is played.
+    // Only season aggregates need a finished season.
+    expect(book.gameCoverage.to).toBe(2021)
+    expect(book.games.find((g) => g.key === 'highScore')).toMatchObject({ value: 140 })
+  })
+
+  it('drops a season whose length is not known yet', () => {
+    // Before Sleeper reports the length, `regularSeasonWeeks` is null. Unknown
+    // resolves to "not provably complete", which is the safe direction.
+    const unknown = records({
+      ...input,
+      seasons: [seasons[0], season(2026, 'weekly', { regularSeasonWeeks: null })],
+    })
+    expect(unknown.seasons.find((s) => s.key === 'bestRecord')).toMatchObject({ season: 2021 })
+    expect(unknown.seasonCoverage.to).toBe(2021)
+  })
+})

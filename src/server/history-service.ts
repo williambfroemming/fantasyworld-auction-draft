@@ -37,6 +37,7 @@ import {
   type HistoryPick,
   type LeagueSummaryReport,
 } from '@/lib/history'
+import { seasonSoFar } from '@/lib/season-so-far'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import type { StatsTrade } from '@/lib/stats'
@@ -1222,4 +1223,45 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
   })
 
   return buildPlayerHistory(sleeperId, rows, drafts)
+}
+
+/**
+ * The season in progress, measured the ways Sleeper does not.
+ *
+ * Defaults to the newest season on record, derived rather than pinned to a
+ * constant that has to be remembered every August.
+ *
+ * ⚠️ `throughWeek` exists to make this **previewable**, and that is a real need
+ * rather than a convenience: before week one the current season has no matchup
+ * rows at all, so `seasonSoFar()` correctly returns null and the panel does not
+ * render — which leaves no way to see the thing you are about to ship until the
+ * night it goes live. Pointing it at a finished season truncated to week five
+ * shows the exact layout with real numbers in it.
+ *
+ * It is deliberately NOT a way to render an empty table of 0-0 records and
+ * 0.000 rates. That shape is what `playedStandings()` exists to reject: it looks
+ * official and means nothing, and it is how "fewest points in a season" ended up
+ * being won by a season that had not started.
+ */
+export async function getSeasonSoFar(opts: { season?: number; throughWeek?: number } = {}) {
+  const input = await getHistoryInput()
+  const season = opts.season ?? Math.max(...input.seasons.map((s) => s.season))
+
+  // `side_bet` is not on HistorySeason -- it is read straight from the row, the
+  // same way the Gazette's Ledger reads it. Null is unknown, never "no bet".
+  const sql = getSql()
+  const [rate] = await sql`SELECT side_bet FROM seasons WHERE season = ${season}`
+  const sideBet =
+    rate?.side_bet === null || rate?.side_bet === undefined ? null : Number(rate.side_bet)
+
+  const matchups =
+    opts.throughWeek === undefined
+      ? input.matchups
+      : input.matchups.filter((m) => m.season !== season || m.week <= opts.throughWeek!)
+
+  return {
+    report: seasonSoFar({ season, matchups, lineups: input.lineups, seasons: input.seasons, sideBet }),
+    members: input.members,
+    season,
+  }
 }

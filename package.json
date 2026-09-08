@@ -57,7 +57,8 @@
     "season:info": "dotenv -e .env.local -- tsx scripts/set-season-info.ts",
     "draft:recap": "dotenv -e .env.local -- tsx scripts/history/draft-recap.ts",
     "gazette": "dotenv -e .env.local -- tsx scripts/history/gazette.ts",
-    "gazette:art": "dotenv -e .env.local -- tsx scripts/history/gazette-art.ts"
+    "gazette:art": "dotenv -e .env.local -- tsx scripts/history/gazette-art.ts",
+    "gazette:notify": "dotenv -e .env.local -- tsx scripts/history/notify-email.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

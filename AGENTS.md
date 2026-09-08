@@ -145,6 +145,7 @@ npm run gazette:art -- --latest           # just the newest issue -- what the cr
 npm run gazette:art -- --all              # backfill every issue that has none
 npm run gazette:art -- 2025 14 --dry-run  # write the art direction, generate nothing
 npm run gazette:art -- --models           # image models this gateway will actually serve
+npm run gazette:notify -- 2026 1 --print  # the "new issue" email, composed, sent to nobody
 ```
 
 > Issues are **ordered**, not independent: each reads the previous one's threads,
