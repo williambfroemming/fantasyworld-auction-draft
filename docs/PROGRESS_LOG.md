@@ -3208,6 +3208,17 @@ weekly newsletter is the entire notification system.
   trace of a missed edition was a collapsed step in a UI nobody opens on a
   Tuesday. Pair it with something that reports, or the workflow is green in
   precisely the weeks it did nothing.
+- **The missing-key path slipped straight back through the reporting step the
+  first time.** The write step warns and `exit 0`s when `ANTHROPIC_API_KEY` is
+  absent, so its outcome is *success* and a report keyed on failure never fires:
+  a dead or rotated key would have published nothing all season behind a green
+  tick, which is the precise failure the reporting step had just been added to
+  prevent. It now records `nokey` and the report treats it as fatal — but only
+  when a week was actually owed, because out of season that condition is true on
+  forty-odd consecutive Tuesdays and a workflow that is red every week is a
+  workflow nobody reads. Answering "was anything owed?" cannot need the key
+  either, which is what `npm run gazette -- --check` is for: it prints the owed
+  week and `none` otherwise, on stdout, from the database alone.
 - **The report step must run after the commit and must not gate it.** Failing
   earlier would strand the pulled Sleeper files and make the following week's
   diff incoherent — which is the exact failure `continue-on-error` was added to
