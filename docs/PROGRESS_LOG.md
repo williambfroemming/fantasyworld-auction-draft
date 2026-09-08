@@ -3696,3 +3696,53 @@ a time, so an empty masked line is a newline inside the value.
   was consistent with the seventeen identical empty pre-season files on disk, and
   wrong. Two explanations fitted the same evidence and the run history, which
   would have separated them, was not visible without `gh`.
+
+---
+
+## `.env.local` quotes its values and a GitHub secret does not
+
+Three failed runs of the same step, three different errors, one cause: the
+secrets had been copied out of `.env.local` **including the quotes**.
+
+`.env.local` stores `DATABASE_URL="postgresql://…"`. Those quotes are dotenv
+*syntax* — dotenv strips them on load, so the value is clean locally and has
+never once been seen with quotes on it. GitHub Actions secrets do no parsing at
+all, so pasting that line's value verbatim makes the quotes part of the string.
+
+**Learned:**
+
+- **The local and deployed paths read the same variable through different
+  parsers, and only one of them strips quotes.** That is the whole bug, and it is
+  invisible from both ends: locally the value is right, and in the secret store
+  nothing can be displayed to compare against.
+- **It was every key, not just the database.** All three values in `.env.local`
+  are quoted, so `ANTHROPIC_API_KEY` would have gone to the provider wrapped in
+  quotes — a 401 that reads exactly like a revoked key. The weekly workflow had
+  most likely been failing since 21 August for this reason, and the absence of
+  commits was read here as the healthy nothing-to-commit path instead.
+- **Each fix uncovered the next layer, because the first error masked them.**
+  Whitespace failed inside `neon()`; trimming got past it and exposed the quotes;
+  the quote message finally named the cause. Three rounds is the going rate for
+  debugging a value nobody is allowed to print, and it is the argument for the
+  guard reporting *shape* rather than for making the exception more precise.
+- **Whitespace and quotes are not the same kind of mistake, and are handled
+  differently on purpose.** Whitespace is invisible and unavoidable, so
+  `readDatabaseUrl()` trims it silently. Quotes are visible and deliberate, so
+  the guard names them and refuses. Silently repairing a quoted secret would
+  leave it wrong everywhere else it is read.
+
+**Watch out for:**
+
+- **A guard must never be stricter than the code it guards.** Got wrong twice in
+  one afternoon: the shape check first judged the untrimmed value, and would have
+  failed runs the application handles fine. Whenever `readDatabaseUrl()` learns
+  to tolerate something, the workflow check learns it in the same commit.
+- **API keys have no equivalent guard.** `ANTHROPIC_API_KEY` and
+  `AI_GATEWAY_API_KEY` are handed straight to a provider, so a malformed one
+  surfaces as an authentication error with no hint the value is the problem.
+  The workflow header now says secrets take raw values; that is documentation,
+  not a check.
+- **The Gmail path is now proven end to end and the model path is not.** The
+  test workflow exercises `DATABASE_URL` and the three Gmail secrets. Nothing has
+  yet made a model call *from CI* — the Anthropic key was only ever verified
+  locally, against a different copy of itself.
