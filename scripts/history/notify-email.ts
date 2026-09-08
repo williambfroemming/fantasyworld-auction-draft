@@ -3,6 +3,7 @@
  *
  *   npm run gazette:notify -- 2026 1 --out mail.txt   # write an RFC822 message
  *   npm run gazette:notify -- 2026 1 --print          # to stdout, send nothing
+ *   npm run gazette:notify -- --latest --print        # whatever the newest issue is
  *
  * ## This composes; it does not send
  *
@@ -37,6 +38,14 @@ const args = process.argv.slice(2).filter((a) => a !== '--')
 const nums = args.filter((a) => /^\d+$/.test(a)).map(Number)
 const season = nums.find((n) => n >= 2000)
 const week = nums.find((n) => n < 2000)
+/**
+ * The newest issue on record, whichever it is.
+ *
+ * Exists so the mail path can be tested without waiting for a Tuesday that owes
+ * an edition. The weekly job never uses it — it names the week it just wrote, so
+ * a race with a concurrent run cannot make it announce the wrong issue.
+ */
+const latest = args.includes('--latest')
 const outIdx = args.indexOf('--out')
 const out = outIdx >= 0 ? args[outIdx + 1] : null
 const print = args.includes('--print')
@@ -59,21 +68,34 @@ function oneLine(value: string): string {
 }
 
 async function main() {
-  if (!season) {
-    console.error('Usage: npm run gazette:notify -- <season> <week> [--out FILE | --print]')
+  if (!season && !latest) {
+    console.error(
+      'Usage: npm run gazette:notify -- <season> <week> [--out FILE | --print]\n' +
+        '       npm run gazette:notify -- --latest [--out FILE | --print]',
+    )
     process.exit(1)
   }
 
   const sql = getSql()
-  const rows = await sql`
-    SELECT season, week, headline, deck, issue_title
-      FROM week_issues
-     WHERE season = ${season} AND week = ${week ?? 0}`
+  const rows = latest
+    ? await sql`
+        SELECT season, week, headline, deck, issue_title
+          FROM week_issues
+         ORDER BY season DESC, week DESC
+         LIMIT 1`
+    : await sql`
+        SELECT season, week, headline, deck, issue_title
+          FROM week_issues
+         WHERE season = ${season} AND week = ${week ?? 0}`
 
   if (rows.length === 0) {
     // Not an error. The workflow calls this after a run that may legitimately
     // have written nothing, and a missing issue means there is no news to send.
-    console.error(`· no issue stored for ${season} week ${week} — nothing to send`)
+    console.error(
+      latest
+        ? '· no issues stored at all — nothing to send'
+        : `· no issue stored for ${season} week ${week} — nothing to send`,
+    )
     process.exit(0)
   }
 
@@ -87,7 +109,19 @@ async function main() {
 
   const url = `${SITE}/history/gazette/${issue.season}/${issue.week}`
   const label = Number(issue.week) === 0 ? 'Season preview' : `Week ${issue.week}`
-  const subject = oneLine(`The FantasyWorld Gazette — ${label}: ${issue.headline}`)
+  /**
+   * Set to `[TEST] ` by the test workflow, empty everywhere else.
+   *
+   * ⚠️ A test send is a real email about a real issue — out of season, the
+   * newest issue is the season preview, which is months old. Without a marker
+   * in the subject the league would get what reads as a fresh edition on a
+   * Thursday in September, which is precisely the confusion the weekly job's
+   * owed-week guard exists to prevent. The body says it too, because subjects
+   * get truncated on a phone.
+   */
+  const prefix = process.env.GAZETTE_SUBJECT_PREFIX ?? ''
+  const isTest = prefix.trim().length > 0
+  const subject = oneLine(`${prefix}The FantasyWorld Gazette — ${label}: ${issue.headline}`)
 
   // Recipients go in Bcc with an undisclosed To, so ten people's addresses are
   // not published to each other on every send.
@@ -99,6 +133,16 @@ async function main() {
     'MIME-Version: 1.0',
     'Content-Type: text/plain; charset=UTF-8',
     '',
+    ...(isTest
+      ? [
+          'This is a TEST of the Gazette notification, sent by hand.',
+          `It points at the newest issue on record (${issue.season} ${label.toLowerCase()}),`,
+          'which is not necessarily a new one. Nothing has been published today.',
+          '',
+          '---',
+          '',
+        ]
+      : []),
     String(issue.issue_title ?? '').trim(),
     '',
     String(issue.headline).trim(),

@@ -1,0 +1,111 @@
+name: Test the Gazette email
+
+# Sends the notification email for the newest issue on record, and does nothing
+# else. Run it by hand: Actions → Test the Gazette email → Run workflow.
+#
+# ## Why this is its own workflow
+#
+# The obvious way to test the mail is to dispatch the weekly job — and it does
+# not work, which is the whole reason this file exists. The mail step there is
+# guarded on a week being *owed*, so out of season, or on any Tuesday whose
+# edition is already written, it is skipped and the run goes green having proved
+# nothing about Gmail. The first time anyone would find out the app password was
+# wrong is the first Tuesday that mattered.
+#
+# Threading a `test` flag through the weekly job instead would put a branch on
+# the path that pulls Sleeper and commits to the repository, so a mistyped input
+# could write data. This one has `contents: read`, touches no files, and cannot
+# import anything.
+#
+# ## What it proves, and what it does not
+#
+# Proves: the three secrets exist and are readable, the app password
+# authenticates against Gmail, the recipients are well formed, and the message
+# composes and arrives looking right.
+#
+# Does not prove: that the weekly job's *guard* fires correctly on a real
+# Tuesday. That is what `steps.owed` and the `--check` flag are for, and it is
+# covered by the unit tests on `nextIssueWeek`.
+#
+# ⚠️ It sends a real email about a real issue — the newest one on record, which
+# out of season is the season preview rather than anything new. Recipients get a
+# note saying so, because a "new issue" mail about a months-old edition is
+# exactly the confusion the weekly guard exists to prevent.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  notify:
+    name: send a test
+    runs-on: ubuntu-latest
+    permissions:
+      # Reads the repo to run the script. It writes nothing, ever.
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Compose and send
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GAZETTE_MAIL_FROM: ${{ secrets.GMAIL_USER }}
+          GAZETTE_MAIL_TO: ${{ secrets.GAZETTE_MAIL_TO }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          # Marks the subject so a test cannot be mistaken for the real thing
+          # landing on the wrong day.
+          GAZETTE_SUBJECT_PREFIX: '[TEST] '
+        run: |
+          missing=""
+          [ -z "$DATABASE_URL" ]       && missing="$missing DATABASE_URL"
+          [ -z "$GMAIL_USER" ]         && missing="$missing GMAIL_USER"
+          [ -z "$GMAIL_APP_PASSWORD" ] && missing="$missing GMAIL_APP_PASSWORD"
+          [ -z "$GAZETTE_MAIL_TO" ]    && missing="$missing GAZETTE_MAIL_TO"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing secret(s):$missing"
+            exit 1
+          fi
+
+          MSG="$RUNNER_TEMP/gazette-test.txt"
+          npx tsx scripts/history/notify-email.ts --latest --out "$MSG"
+          if [ ! -s "$MSG" ]; then
+            echo "::error::No issue on record to send a test about."
+            exit 1
+          fi
+
+          # One --mail-rcpt per address: Bcc is a header, and the SMTP envelope
+          # has to name every recipient or only the first is served.
+          RCPT=()
+          IFS=',' read -ra ADDRS <<< "$GAZETTE_MAIL_TO"
+          for a in "${ADDRS[@]}"; do
+            trimmed="$(echo "$a" | xargs)"
+            [ -n "$trimmed" ] && RCPT+=(--mail-rcpt "$trimmed")
+          done
+
+          # ⚠️ curl exits 67 on a bad username or password, which is what a
+          # revoked or mistyped app password looks like. Naming it here saves
+          # the next person reading an SMTP transcript to find out.
+          set +e
+          curl --silent --show-error --ssl-reqd \
+            --url "smtps://smtp.gmail.com:465" \
+            --mail-from "$GMAIL_USER" \
+            "${RCPT[@]}" \
+            --user "$GMAIL_USER:$GMAIL_APP_PASSWORD" \
+            --upload-file "$MSG"
+          code=$?
+          set -e
+          if [ "$code" -eq 67 ]; then
+            echo "::error::Gmail rejected the login. That is an app password problem, not a"
+            echo "::error::network one: check GMAIL_APP_PASSWORD has no spaces and has not been"
+            echo "::error::revoked -- they die when the account password changes."
+            exit 1
+          fi
+          [ "$code" -ne 0 ] && exit "$code"
+
+          echo "Sent to ${#RCPT[@]} recipient(s)." >> "$GITHUB_STEP_SUMMARY"
