@@ -111,11 +111,19 @@ jobs:
             exit 1
           fi
 
-          # ⚠️ Whitespace is not emptiness, and the check above does not catch it.
-          # A secret holding a stray space or newline is non-empty, sails past
-          # `-z`, and then dies inside `neon()` as "not a valid URL" -- which is
-          # exactly how this failed the first time it ran.
-          if [ -z "$(printf '%s' "$DATABASE_URL" | tr -d '[:space:]')" ]; then
+          # ⚠️ Checked TRIMMED, because the application trims too.
+          #
+          # A stored secret picks up surrounding whitespace very easily -- an
+          # editor adds a trailing newline, a copy starting one line early adds
+          # a leading one -- and `neon()` treats the two differently: it parses
+          # with `new URL()`, which strips trailing C0 whitespace and not
+          # leading. So a newline on the end is harmless and one on the front
+          # throws "not a valid URL" about a value nobody can print. That cost
+          # two failed runs here. `readDatabaseUrl()` now trims, so this guard
+          # must judge the same string the app will actually use, or it fails
+          # runs that would have worked.
+          URL_TRIMMED="$(printf '%s' "$DATABASE_URL" | tr -d '[:space:]')"
+          if [ -z "$URL_TRIMMED" ]; then
             echo "::error::DATABASE_URL is set but contains only whitespace. Note that GitHub"
             echo "::error::always shows a BLANK value box when you edit a secret -- that is not"
             echo "::error::evidence it is empty. Overwrite it with the full connection string."
@@ -126,7 +134,7 @@ jobs:
           # URL" and no indication of what it actually received, which is
           # unhelpful for a value nobody can print. These are the three ways a
           # connection string arrives wrong from a copy-paste, named explicitly.
-          case "$DATABASE_URL" in
+          case "$URL_TRIMMED" in
             postgres://*|postgresql://*) ;;
             \"*|\'*)
               echo "::error::DATABASE_URL starts with a quote. Paste the value without surrounding quotes."
@@ -138,7 +146,7 @@ jobs:
               echo "::error::DATABASE_URL includes the variable name. Paste only the value after the '='."
               exit 1 ;;
             *)
-              echo "::error::DATABASE_URL does not begin with postgres:// or postgresql:// (length ${#DATABASE_URL})."
+              echo "::error::DATABASE_URL does not begin with postgres:// or postgresql:// (length ${#URL_TRIMMED} trimmed)."
               exit 1 ;;
           esac
           npx tsx scripts/history/refresh-season.ts \
