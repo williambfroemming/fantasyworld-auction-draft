@@ -3,6 +3,7 @@
  *
  *   npm run gazette:art -- 2025 14           # one issue
  *   npm run gazette:art -- 2025              # every issue of a season that has none
+ *   npm run gazette:art -- --latest          # just the newest issue -- what the cron runs
  *   npm run gazette:art -- --all             # every issue on record that has none
  *   npm run gazette:art -- 2025 14 --dry-run # write the art direction, generate nothing
  *   npm run gazette:art -- 2025 14 --regenerate
@@ -71,6 +72,22 @@ const has = (f: string) => argv.includes(f)
 const dryRun = has('--dry-run')
 const regenerate = has('--regenerate')
 const all = has('--all')
+/**
+ * Just the newest issue on record — what the weekly workflow runs.
+ *
+ * ⚠️ **Deliberately not `--all`, and the difference is a bill.** `--all` means
+ * every issue that has no picture, which self-heals a failed image but also
+ * re-attempts the entire un-illustrated back catalogue on every run: the nine
+ * 2025 issues written before this script existed would be nine image
+ * generations every Tuesday, forever, for issues nobody is waiting on.
+ *
+ * `--latest` illustrates the issue that was just written and nothing else, so a
+ * scheduled run costs exactly one image. The trade is that an image which fails
+ * is not retried — null art is the normal case and the front page simply runs
+ * the headline without a picture, so that is a cost worth paying to keep the
+ * weekly job predictable. Clear a backlog deliberately with `--all` instead.
+ */
+const latest = has('--latest')
 const positional = argv.filter((a) => !a.startsWith('--')).map(Number)
 
 interface Issue {
@@ -255,9 +272,10 @@ async function main(): Promise<void> {
   if (has('--models')) return listModels()
 
   const [season, week] = positional
-  if (!all && !season) {
+  if (!all && !latest && !season) {
     console.error(
       'Usage: npm run gazette:art -- <season> [week]\n' +
+        '       npm run gazette:art -- --latest\n' +
         '       npm run gazette:art -- --all\n' +
         '       npm run gazette:art -- --models',
     )
@@ -265,12 +283,22 @@ async function main(): Promise<void> {
   }
 
   const sql = getSql()
-  const rows = await sql`
-    SELECT season, week, headline, deck, column_text, facts->>'weekLabel' AS week_label
-      FROM week_issues
-     WHERE (${season ?? null}::int IS NULL OR season = ${season ?? null})
-       AND (${week ?? null}::int IS NULL OR week = ${week ?? null})
-     ORDER BY season DESC, week DESC`
+  // `--latest` takes the newest issue and stops there. It is still passed
+  // through `makeArt`, which skips anything that already has a picture, so a
+  // run that finds the newest issue already illustrated is a clean no-op rather
+  // than a duplicate — that is what makes the weekly job safe to re-run.
+  const rows = latest
+    ? await sql`
+        SELECT season, week, headline, deck, column_text, facts->>'weekLabel' AS week_label
+          FROM week_issues
+         ORDER BY season DESC, week DESC
+         LIMIT 1`
+    : await sql`
+        SELECT season, week, headline, deck, column_text, facts->>'weekLabel' AS week_label
+          FROM week_issues
+         WHERE (${season ?? null}::int IS NULL OR season = ${season ?? null})
+           AND (${week ?? null}::int IS NULL OR week = ${week ?? null})
+         ORDER BY season DESC, week DESC`
 
   const issues: Issue[] = rows.map((r) => ({
     season: Number(r.season),

@@ -54,7 +54,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
   const color = managerColor(member.color)
 
   return (
-    <main className="min-h-dvh bg-slate-950 text-slate-100">
+    <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <SiteNav section="league-history" current="/history/members" />
         <h1 className="flex items-baseline gap-2 font-display text-lg font-bold uppercase tracking-[0.08em]">

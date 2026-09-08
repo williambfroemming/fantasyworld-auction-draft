@@ -40,7 +40,7 @@ function parseView(raw: string | null): View {
 export default function StatsPage() {
   return (
     <Suspense
-      fallback={<main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>}
+      fallback={<main id="main" className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>}
     >
       <StatsView />
     </Suspense>
@@ -118,11 +118,11 @@ function StatsView() {
   const myManager = state?.managers.find((m) => m.id === managerId)
 
   if (!state) {
-    return <main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
+    return <main id="main" className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
   }
 
   return (
-    <main className="flex h-dvh flex-col bg-slate-950 text-slate-100">
+    <main id="main" className="flex h-dvh flex-col bg-slate-950 text-slate-100">
       {/* Row 1 — where you are in the app. Same shape as every history page. */}
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <SiteNav section="draft-history" current="/stats" isCommish={myManager?.isCommish} />

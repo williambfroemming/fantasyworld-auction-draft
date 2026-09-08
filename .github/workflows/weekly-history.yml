@@ -106,6 +106,7 @@ jobs:
       # incoherent. A genuine API failure still shows as a failed step in the
       # Actions UI, which is the visibility we actually want.
       - name: Write the Gazette
+        id: gazette
         continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -124,10 +125,23 @@ jobs:
       # simply runs the headline without a picture. A failed image provider must
       # never cost the league its newsletter, let alone its Sleeper snapshot.
       #
-      # It runs with no season or week argument, which writes art for the newest
-      # issue that has none — so it picks up whatever the step above just wrote,
-      # without the two needing to agree on which week that was.
+      # ⚠️ `--latest`, NOT `--all`, and that is a cost decision rather than a
+      # detail. `--all` illustrates every issue on record that has no picture,
+      # which self-heals a failed image but also re-attempts the whole
+      # un-illustrated back catalogue on every run — the nine 2025 issues
+      # written before this script existed would be nine image generations every
+      # Tuesday, forever, for issues nobody is waiting on.
+      #
+      # `--latest` takes the newest issue and stops, so a scheduled run costs
+      # exactly one image. It needs no argument and so never has to agree with
+      # the step above about which week was just written. Re-running is safe:
+      # an issue that already has a picture is skipped.
+      #
+      # The trade is that a failed image is not retried. Null art is the normal
+      # case — the front page runs the headline without a picture — so that is
+      # cheap. Clear a backlog deliberately with `npm run gazette:art -- --all`.
       - name: Illustrate the issue
+        id: art
         continue-on-error: true
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -138,7 +152,7 @@ jobs:
             echo "::warning::No gateway or Anthropic key — this issue runs without a picture."
             exit 0
           fi
-          npx tsx scripts/history/gazette-art.ts --all
+          npx tsx scripts/history/gazette-art.ts --latest
 
       - name: Commit the snapshot
         run: |
@@ -159,3 +173,43 @@ jobs:
           .github/workflows/weekly-history.yml, alongside that week's Gazette
           issue. Data only — no code changes."
           git push
+
+      # ⚠️ This is what stops a missed edition being silent, and it has to run
+      # AFTER the commit rather than instead of it.
+      #
+      # The two steps above carry `continue-on-error` so that a dead model
+      # provider cannot strand the Sleeper files that were just pulled. The cost
+      # of that, until this step existed, was a GREEN tick on a week that
+      # published nothing: the only trace was a collapsed step in a UI nobody
+      # opens on a Tuesday, so the failure surfaced whenever somebody next
+      # wondered why the paper had stopped.
+      #
+      # Failing the job here restores the signal without touching the commit —
+      # GitHub emails the repository owner when a SCHEDULED run fails, which for
+      # a weekly newsletter is the whole notification system. The recovery is
+      # already automatic: `nextIssueWeek` resumes from the last issue on record,
+      # so the missed week is retried on the next run rather than skipped.
+      # This step exists so somebody knows to look before then.
+      - name: Report what did not get written
+        if: steps.gazette.outcome == 'failure' || steps.art.outcome == 'failure'
+        run: |
+          {
+            echo "### The weekly run did not finish cleanly"
+            echo
+            echo "The Sleeper pull and import succeeded and have been committed."
+            echo
+            if [ "${{ steps.gazette.outcome }}" = "failure" ]; then
+              echo "- ❌ **The Gazette issue was not written.** It will be retried on the"
+              echo "  next run, which resumes from the last issue on record."
+            fi
+            if [ "${{ steps.art.outcome }}" = "failure" ]; then
+              echo "- ⚠️ **The artwork failed.** An issue with no picture is the normal"
+              echo "  case, not a fault; it is retried next week."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Art alone is not worth a red run -- null art is normal. A missing
+          # issue is.
+          if [ "${{ steps.gazette.outcome }}" = "failure" ]; then
+            echo "::error::The Gazette issue was not written this week."
+            exit 1
+          fi

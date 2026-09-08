@@ -72,7 +72,31 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
       </head>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {/*
+          The first focusable thing on every page, and invisible until it is
+          focused. Every header opens with the wordmark and three section
+          menus, so reaching the actual content by keyboard costs four tab
+          stops on every single navigation — and the Gazette and the history
+          tables are long enough that the cost is paid repeatedly.
+
+          `sr-only focus:not-sr-only` is the standard shape: it stays in the
+          accessibility tree and the tab order at all times and only takes up
+          space once focused, so it is never a stray blank row above the
+          header for everybody else.
+
+          It targets `#main`, which is on the `<main>` of every page. Several
+          pages have more than one — a loading fallback and the real thing —
+          but they are alternate branches, so only one is ever in the document.
+        */}
+        <a
+          href="#main"
+          className="sr-only rounded-md focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:bg-amber-300 focus:px-3 focus:py-2 focus:font-display focus:text-xs focus:font-bold focus:uppercase focus:tracking-[0.08em] focus:text-slate-950"
+        >
+          Skip to content
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

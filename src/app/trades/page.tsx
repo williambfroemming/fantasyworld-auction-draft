@@ -36,14 +36,14 @@ export default function TradesPage() {
 
   if (!state) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
+      <main id="main" className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
     )
   }
 
   const myManager = state.managers.find((m) => m.id === me)
 
   return (
-    <main className="min-h-dvh bg-slate-950 text-slate-100">
+    <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <SiteNav section="draft" current="/trades" isCommish={myManager?.isCommish} />
         {state.lot && (

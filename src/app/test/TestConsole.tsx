@@ -81,7 +81,7 @@ export function TestConsole() {
     await refresh()
   }
 
-  if (!state) return <main className="p-8 text-slate-400">Loading…</main>
+  if (!state) return <main id="main" className="p-8 text-slate-400">Loading…</main>
 
   const lot = state.lot
   const onClock = state.managers.find((m) => m.id === state.onTheClock?.managerId)
@@ -90,7 +90,7 @@ export function TestConsole() {
   )
 
   return (
-    <main className="min-h-dvh bg-slate-950 p-4 text-slate-100">
+    <main id="main" className="min-h-dvh bg-slate-950 p-4 text-slate-100">
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-center gap-3">
           <h1 className="text-xl font-bold">Test Console</h1>

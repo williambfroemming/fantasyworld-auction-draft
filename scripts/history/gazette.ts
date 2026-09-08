@@ -1,7 +1,7 @@
 /**
  * The FantasyWorld Gazette — write one week's edition.
  *
- *   npm run gazette                        # newest unwritten week of this season
+ *   npm run gazette                        # oldest unpublished played week, this season
  *   npm run gazette -- 2025 7              # one specific issue
  *   npm run gazette -- 2025 7 --facts      # print the pack, call nothing
  *   npm run gazette -- 2025 7 --dry-run    # generate, print, store nothing
@@ -53,6 +53,7 @@ import { getSql } from '../../src/server/sql'
 import { getPreviewFacts, getWeekFacts } from '../../src/server/gazette-service'
 import {
   misattributedNumbers,
+  nextIssueWeek,
   ungroundedNumbers,
   type GazetteFacts,
   type PreviewFacts,
@@ -724,14 +725,21 @@ async function main() {
   const season = years[0] ?? (await currentSeason())
   let week = weeks[0]
   if (week === undefined) {
-    const [row] = await sql`SELECT max(week)::int AS week FROM season_matchups WHERE season = ${season}`
-    if (row?.week === null || row?.week === undefined) {
-      // The cron fires 52 weeks a year. Out of season this is a no-op, not a
-      // failure -- a red workflow every week is a workflow nobody reads.
-      console.log(`· ${season} has no played weeks yet — nothing to write.\n`)
+    // The oldest played week this season has not published yet -- NOT the
+    // newest one played. See `nextIssueWeek`, which carries the reasoning and
+    // the regression tests: the difference only shows itself after a failure,
+    // and getting it wrong puts a permanent hole in an ordered publication.
+    const [pub] = await sql`SELECT max(week)::int AS week FROM week_issues WHERE season = ${season}`
+    const lastPublished = pub?.week === null || pub?.week === undefined ? null : Number(pub.week)
+    const next = nextIssueWeek(await playedWeeks(season), lastPublished)
+    if (next === null) {
+      // The cron fires 52 weeks a year. Out of season -- and in the gap between
+      // the last issue and the next game -- this is a no-op, not a failure: a
+      // red workflow every week is a workflow nobody reads.
+      console.log(`· ${season} has no unpublished played weeks — nothing to write.\n`)
       return
     }
-    week = Number(row.week)
+    week = next
   }
 
   if (regenerate && !forward) {

@@ -7,6 +7,7 @@ import {
   type GazetteFacts,
   isPreview,
   misattributedNumbers,
+  nextIssueWeek,
   numbersIn,
   rarity,
   seasonPreview,
@@ -926,5 +927,54 @@ describe('continuity', () => {
     expect(facts.priorThreads).toEqual([{ id: 't', note: 'the running bit' }])
     expect(facts.priorColumns).toEqual(['first', 'second'])
     expect(facts.priorHeadlines).toEqual(['one', 'two'])
+  })
+})
+
+describe('nextIssueWeek', () => {
+  it('picks the next week up when the last one published cleanly', () => {
+    expect(nextIssueWeek([1, 2, 3, 4], 3)).toBe(4)
+  })
+
+  it('starts at the earliest played week for a season with no issues at all', () => {
+    // Null is not zero: a season that has published nothing must not skip its
+    // opener, and 2025's backfill starts at week six rather than week one.
+    expect(nextIssueWeek([6, 7, 8], null)).toBe(6)
+  })
+
+  it('resumes at week one when only the season preview has been published', () => {
+    // The preview is stored at week ZERO, which is falsy and is a real value.
+    // Treating it as "nothing published" would rewrite the preview's slot.
+    expect(nextIssueWeek([1, 2, 3], 0)).toBe(1)
+  })
+
+  it('returns null when every played week is already published', () => {
+    // The normal state on 51 Tuesdays of the year. A no-op, never a failure.
+    expect(nextIssueWeek([1, 2, 3], 3)).toBeNull()
+  })
+
+  it('returns null out of season, when no week has been played', () => {
+    expect(nextIssueWeek([], null)).toBeNull()
+  })
+
+  /**
+   * The regression this function exists for, and the one a high-water mark
+   * passes: it only fails once something upstream has already failed.
+   */
+  it('RETRIES a week whose issue failed, instead of skipping to the newest', () => {
+    // Week 7 failed to write, so the last issue on record is still week 6.
+    // A week later week 8 has also been played. The newest played week is 8;
+    // the week actually owed is 7.
+    expect(nextIssueWeek([5, 6, 7, 8], 6)).toBe(7)
+    expect(nextIssueWeek([5, 6, 7, 8], 6)).not.toBe(8)
+  })
+
+  it('never reaches past an owed week even when later weeks are also played', () => {
+    // Ordering is load-bearing: each issue reads the previous one's notebook,
+    // belt holder and used stat ids, so week 9 cannot be written before week 7.
+    expect(nextIssueWeek([7, 8, 9, 10], 6)).toBe(7)
+  })
+
+  it('does not assume the played weeks arrive in order', () => {
+    expect(nextIssueWeek([10, 7, 9, 8], 6)).toBe(7)
   })
 })

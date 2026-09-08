@@ -19,16 +19,14 @@ August costs the draft.
 
 | # | Item | Size | Where |
 |---|---|---|---|
-| §8 | Mobile layout · push to Sleeper · accessibility pass | Unspecified | — |
+| §8 | Accessibility — the rest of it | A session | `BACKLOG.md` §8 |
+| §8 | Push rosters to Sleeper | Unspecified | — |
 
 **Everything else in this file has shipped.** §2, §3, §4, §5, §6, §7, §11 and all
 three of §9's items are closed; those sections are stubs pointing at
-`PROGRESS_LOG.md`. Steps 21–24 (2026-08-17) cleared most of them, and step 31
-(2026-08-20) closed §11.
-
-⚠️ §8's **mobile layout** item is the live one of the three: the nav header
-overflows below roughly 700px on *every* page, which was confirmed while
-building §11 and deliberately left alone there.
+`PROGRESS_LOG.md`. Steps 21–24 (2026-08-17) cleared most of them, step 31
+(2026-08-20) closed §11, and step 35 (2026-09-07) closed §8's mobile item and
+started its accessibility one.
 
 §1 is now **materially cheaper than it was written**: its "the hard part is
 player identity" problem was solved by §2's `players.sleeper_id`, and its UI
@@ -314,11 +312,52 @@ deuteranopia. Re-sorting it to `SPEND_COLUMNS` order reintroduces the defect.
 
 ## 8. Also raised, not yet specified
 
+**PARTLY BUILT 2026-09-07** — `PROGRESS_LOG.md` step 35. The nav is fixed and the
+accessibility pass has started. What is left is listed below.
+
+⚠️ **The mobile item was described wrongly here for months, and the wrong
+description is what kept it alive.** This file said "the nav header overflows
+below roughly 700px on *every* page, which was confirmed while building §11".
+That is not true and was not true then: every header is `flex-wrap`, the draft
+page stacks at `lg:`, and the wide tables are inside `overflow-x-auto`. The real
+fault was in the same component — the section menus opened on hover only, so on
+a phone they could not be opened at all — and it was invisible to the obvious
+test, because narrowing a desktop window leaves you a mouse. **A backlog note
+specific enough to sound verified will not get re-checked.**
+
 | Item | Note |
 |---|---|
-| Mobile / tablet layout | Explicitly out of scope for 2026 (`UAT.md`) because everyone drafts on a laptop. If that changes, the League grid and the award controls are the two things to re-check. |
+| ~~Mobile / tablet layout~~ | ✅ **CLOSED** for the nav — `<details>` menus, reachable on touch, plus the panel positioning that stops the rightmost menu opening off-screen. The rest of the app was checked while doing it and is in better shape than this file implied. If the *draft room* is ever used on a tablet, the League grid and the award controls are still the two things to re-check — that page is built for a laptop on purpose. |
 | Push rosters to Sleeper | Today the draft ends at a CSV (`/api/export`). Pushing results into Sleeper directly would need league write auth — a much bigger ask than the read-only pool sync. Note this is *not* the archive: §2 supersedes exporting-as-preservation. |
-| Accessibility pass | Never audited. Worth doing before anyone drafts on something other than a laptop. |
+| Accessibility pass | 🟡 **STARTED.** Shipped: a skip link on every page (`id="main"` on all 28 `<main>` elements), and `scope` on the three tables read as reference — head to head, the all-time table, and the Gazette's four. Still open below. |
+
+### What is left of the accessibility pass
+
+Ten components still have `<th>` with no `scope`:
+`stats/ValuePanel`, `stats/PacePanel`, `stats/NominationsPanel`,
+`stats/TeamSpendPanel`, `history/DraftDnaPanel`, `history/members/[id]`,
+`history/players/[playerId]`, `MarketPanel`, `SidePanel`, `LeagueBoard`.
+
+They were left deliberately rather than missed. The live draft panels
+(`SidePanel`, `LeagueBoard`, `MarketPanel`) are a different job from a reference
+table — they update several times a second and are watched rather than read — so
+they want thinking about as a group, not a blanket `scope="col"`. The `/stats`
+and member panels are straightforward and just were not in this pass.
+
+Also never done, and worth a session of its own rather than being smuggled into
+another step:
+
+- **Nothing has been run through an actual audit tool**, on any page. Everything
+  above was found by reading. axe or Lighthouse will find things reading does not.
+- **Focus visibility has never been checked** against the Broadsheet palette in
+  either theme. The app relies on the browser default outline throughout.
+- **Colour contrast has never been measured**, and `managers.color` is ten hues
+  constrained four ways already (`src/lib/colors.ts`) — that is the one place a
+  contrast fix could collide with an existing constraint rather than just being
+  applied.
+- **The `title` attribute is doing real work in several places** (the head-to-head
+  cells, the Draft DNA bar) and is not available to keyboard or touch users at
+  all. That is a pattern to replace, not a single fix.
 
 **Removed from this table:** the draft recap page. `/stats` (§7) plus the `/board`
 year picker (§2) are that feature — every past season is browsable and scored,

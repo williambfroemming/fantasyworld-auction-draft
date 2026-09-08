@@ -92,13 +92,13 @@ export default function SetupPage() {
   }, [order])
 
   if (!state || !order) {
-    return <main className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
+    return <main id="main" className="grid min-h-dvh place-items-center bg-slate-950 text-slate-400">Loading…</main>
   }
 
   const amCommish = state.managers.find((m) => m.id === me)?.isCommish
   if (!amCommish) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-slate-950 px-6 text-center text-slate-400">
+      <main id="main" className="grid min-h-dvh place-items-center bg-slate-950 px-6 text-center text-slate-400">
         <div>
           <p>Setup is commissioner-only.</p>
         <SiteNav section="draft" current="/setup" isCommish />
@@ -108,7 +108,7 @@ export default function SetupPage() {
   }
 
   return (
-    <main className="min-h-dvh bg-slate-950 px-4 py-6 text-slate-100">
+    <main id="main" className="min-h-dvh bg-slate-950 px-4 py-6 text-slate-100">
       <div className="mx-auto max-w-3xl">
         <header className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold">Draft setup</h1>
