@@ -325,8 +325,22 @@ const SEASON_ONE: Record<number, string> = {
  * it got the first time.
  */
 export const GENRE_CALENDARS: Record<number, Record<number, string>> = {
-  // The shakedown year. 2025 is already played, so it is what the frame was
-  // tested against; delete this entry once season one is under way.
+  // 2025 is the backfilled shakedown year and 2026 is the season being played.
+  // They share one calendar deliberately: the 2025 archive was written under
+  // this exact list, which is why week eight is the horror issue in both years
+  // and why the two read as one publication rather than two.
+  //
+  // ⚠️ **Do not delete the 2025 entry**, which an earlier note here suggested
+  // doing "once season one is under way". Its nine issues are published and the
+  // calendar is part of what they *were*; dropping the key does not change the
+  // stored `lens` on those rows, but it silently strips the frame from any
+  // `--regenerate` of them, which is how an issue comes back as a different
+  // thing than it went in. Same reason `AGENTS.md` forbids editing a past
+  // season's list at all.
+  //
+  // ⚠️ And note both keys point at the **same object**. That is correct today
+  // and is a trap tomorrow: editing `SEASON_ONE` to plan 2027 would relabel two
+  // published seasons at once. Next year gets its own object, always.
   2025: SEASON_ONE,
   2026: SEASON_ONE,
 }

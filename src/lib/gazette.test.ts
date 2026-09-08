@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  GENRE_CALENDARS,
   MIN_SURPRISE,
   groundedKeys,
   type GazetteFacts,
@@ -976,5 +977,33 @@ describe('nextIssueWeek', () => {
 
   it('does not assume the played weeks arrive in order', () => {
     expect(nextIssueWeek([10, 7, 9, 8], 6)).toBe(7)
+  })
+})
+
+describe('GENRE_CALENDARS', () => {
+  /**
+   * The calendar is an assignment, not a suggestion, and a season that is
+   * missing a week silently falls back to no lens at all — `genreFor` returns
+   * null, which is the correct answer for a season the Gazette never covered
+   * and a silent downgrade for one it is currently publishing. A new season
+   * added with a partial list would not fail anywhere; it would just start
+   * filing unlensed editions in whatever week the list ran out.
+   */
+  it('assigns a genre to every week of a full season, in every calendar', () => {
+    for (const [season, calendar] of Object.entries(GENRE_CALENDARS)) {
+      const missing = Array.from({ length: 17 }, (_, i) => i + 1).filter((w) => !calendar[w])
+      expect(missing, `${season} has no genre for week(s) ${missing.join(', ')}`).toEqual([])
+    }
+  })
+
+  it('never assigns the same genre to two weeks of one season', () => {
+    // The whole point of a house calendar is that a season reads as a
+    // publication rather than a pile of generated text. Two weeks sharing a
+    // lens is the failure v14 and v15 were written to stop, and it is much
+    // easier to introduce by editing a list than by prompting.
+    for (const [season, calendar] of Object.entries(GENRE_CALENDARS)) {
+      const genres = Object.values(calendar)
+      expect(new Set(genres).size, `${season} repeats a genre`).toBe(genres.length)
+    }
   })
 })

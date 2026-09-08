@@ -2,6 +2,7 @@
  * The FantasyWorld Gazette — write one week's edition.
  *
  *   npm run gazette                        # oldest unpublished played week, this season
+ *   npm run gazette -- --check             # which week that is, or `none`. No API key
  *   npm run gazette -- 2025 7              # one specific issue
  *   npm run gazette -- 2025 7 --facts      # print the pack, call nothing
  *   npm run gazette -- 2025 7 --dry-run    # generate, print, store nothing
@@ -92,6 +93,23 @@ const audit = has('--audit')
 const backfill = has('--backfill')
 const sample = has('--sample')
 const preview = has('--preview')
+/**
+ * Print the week this run *would* write, and stop. One line on stdout: the week
+ * number, or `none`.
+ *
+ * ⚠️ It needs the database and **not** an API key, which is the entire point.
+ * The weekly workflow warns and exits zero when `ANTHROPIC_API_KEY` is missing,
+ * so that a dead key cannot strand the Sleeper files pulled in the step before
+ * it — but that leaves the run green in a week where no issue was written, which
+ * is the silence the whole failure-reporting step exists to break. The workflow
+ * cannot tell "no key, and nothing was owed anyway" from "no key, and we just
+ * missed week seven" without asking, and asking must not itself need the key.
+ *
+ * So the answer is computed here, before any of that: if a week is owed and the
+ * key is absent, the job now fails loudly instead of quietly publishing nothing
+ * until somebody notices in November.
+ */
+const check = has('--check')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -668,6 +686,23 @@ async function currentSeason(): Promise<number> {
 
 async function main() {
   const sql = getSql()
+
+  // --- what would this run write? ------------------------------------------
+  // Before the banner, and writing exactly one machine-readable line, because
+  // the workflow reads this on stdout. Everything human goes to stderr.
+  if (check) {
+    const season = years[0] ?? (await currentSeason())
+    const [pub] = await sql`SELECT max(week)::int AS week FROM week_issues WHERE season = ${season}`
+    const lastPublished = pub?.week === null || pub?.week === undefined ? null : Number(pub.week)
+    const next = nextIssueWeek(await playedWeeks(season), lastPublished)
+    console.error(
+      `\nThe FantasyWorld Gazette · ${season} · last published ` +
+        `${lastPublished ?? 'nothing'} · owed ${next ?? 'nothing'}\n`,
+    )
+    console.log(next ?? 'none')
+    return
+  }
+
   const [{ current_database: dbName }] = await sql`SELECT current_database()`
   console.log(`\nThe FantasyWorld Gazette · "${dbName}"\n`)
 

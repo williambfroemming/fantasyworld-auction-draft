@@ -105,6 +105,25 @@ jobs:
       # Sleeper files that were just pulled and making next week's diff
       # incoherent. A genuine API failure still shows as a failed step in the
       # Actions UI, which is the visibility we actually want.
+      # Which week this run owes, asked BEFORE the key is needed.
+      #
+      # ⚠️ Without this the missing-key path is indistinguishable from a quiet
+      # week: the step below warns and exits zero so a dead key cannot strand
+      # the Sleeper files, which leaves the run green having published nothing.
+      # Out of season that is correct and desirable. During the season it is the
+      # exact silence the reporting step at the end exists to break, and the
+      # workflow cannot tell the two apart without asking something that does
+      # not itself need the key.
+      - name: What is owed
+        id: owed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          week=$(npx tsx scripts/history/gazette.ts --check \
+            ${{ inputs.season && inputs.season || '' }})
+          echo "Owed: $week"
+          echo "week=$week" >> "$GITHUB_OUTPUT"
+
       - name: Write the Gazette
         id: gazette
         continue-on-error: true
@@ -114,6 +133,10 @@ jobs:
         run: |
           if [ -z "$ANTHROPIC_API_KEY" ]; then
             echo "::warning::ANTHROPIC_API_KEY is not set — no issue written this week."
+            # Recorded rather than acted on here: failing now would skip the
+            # commit and strand the pull. The reporting step decides, and only
+            # treats it as fatal when a week was actually owed.
+            echo "nokey=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           npx tsx scripts/history/gazette.ts \
@@ -191,25 +214,47 @@ jobs:
       # so the missed week is retried on the next run rather than skipped.
       # This step exists so somebody knows to look before then.
       - name: Report what did not get written
-        if: steps.gazette.outcome == 'failure' || steps.art.outcome == 'failure'
+        if: >-
+          steps.gazette.outcome == 'failure' || steps.art.outcome == 'failure'
+          || steps.gazette.outputs.nokey == 'true'
+        env:
+          OWED: ${{ steps.owed.outputs.week }}
+          NOKEY: ${{ steps.gazette.outputs.nokey }}
+          GAZETTE: ${{ steps.gazette.outcome }}
+          ART: ${{ steps.art.outcome }}
         run: |
           {
             echo "### The weekly run did not finish cleanly"
             echo
             echo "The Sleeper pull and import succeeded and have been committed."
+            echo "Week owed at the start of this run: \`$OWED\`."
             echo
-            if [ "${{ steps.gazette.outcome }}" = "failure" ]; then
+            if [ "$GAZETTE" = "failure" ]; then
               echo "- ❌ **The Gazette issue was not written.** It will be retried on the"
               echo "  next run, which resumes from the last issue on record."
             fi
-            if [ "${{ steps.art.outcome }}" = "failure" ]; then
+            if [ "$NOKEY" = "true" ]; then
+              echo "- ❌ **ANTHROPIC_API_KEY is not set**, so no issue could be written."
+              echo "  Settings → Secrets and variables → Actions."
+            fi
+            if [ "$ART" = "failure" ]; then
               echo "- ⚠️ **The artwork failed.** An issue with no picture is the normal"
-              echo "  case, not a fault; it is retried next week."
+              echo "  case, not a fault."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          # Art alone is not worth a red run -- null art is normal. A missing
-          # issue is.
-          if [ "${{ steps.gazette.outcome }}" = "failure" ]; then
+
+          # Art alone is never worth a red run -- null art is normal, and the
+          # front page just runs the headline. A missing ISSUE is.
+          if [ "$GAZETTE" = "failure" ]; then
             echo "::error::The Gazette issue was not written this week."
+            exit 1
+          fi
+
+          # A missing key only matters if there was something to write. Out of
+          # season this fires 40-odd Tuesdays running and a workflow that is red
+          # every week is a workflow nobody reads -- which is how the real one
+          # gets missed.
+          if [ "$NOKEY" = "true" ] && [ "$OWED" != "none" ]; then
+            echo "::error::Week $OWED was owed and ANTHROPIC_API_KEY is not set."
             exit 1
           fi
