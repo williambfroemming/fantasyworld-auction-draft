@@ -3696,3 +3696,98 @@ a time, so an empty masked line is a newline inside the value.
   was consistent with the seventeen identical empty pre-season files on disk, and
   wrong. Two explanations fitted the same evidence and the run history, which
   would have separated them, was not visible without `gh`.
+
+---
+
+## `.env.local` quotes its values and a GitHub secret does not
+
+Three failed runs of the same step, three different errors, one cause: the
+secrets had been copied out of `.env.local` **including the quotes**.
+
+`.env.local` stores `DATABASE_URL="postgresql://…"`. Those quotes are dotenv
+*syntax* — dotenv strips them on load, so the value is clean locally and has
+never once been seen with quotes on it. GitHub Actions secrets do no parsing at
+all, so pasting that line's value verbatim makes the quotes part of the string.
+
+**Learned:**
+
+- **The local and deployed paths read the same variable through different
+  parsers, and only one of them strips quotes.** That is the whole bug, and it is
+  invisible from both ends: locally the value is right, and in the secret store
+  nothing can be displayed to compare against.
+- **It was every key, not just the database.** All three values in `.env.local`
+  are quoted, so `ANTHROPIC_API_KEY` would have gone to the provider wrapped in
+  quotes — a 401 that reads exactly like a revoked key. The weekly workflow had
+  most likely been failing since 21 August for this reason, and the absence of
+  commits was read here as the healthy nothing-to-commit path instead.
+- **Each fix uncovered the next layer, because the first error masked them.**
+  Whitespace failed inside `neon()`; trimming got past it and exposed the quotes;
+  the quote message finally named the cause. Three rounds is the going rate for
+  debugging a value nobody is allowed to print, and it is the argument for the
+  guard reporting *shape* rather than for making the exception more precise.
+- **Whitespace and quotes are not the same kind of mistake, and are handled
+  differently on purpose.** Whitespace is invisible and unavoidable, so
+  `readDatabaseUrl()` trims it silently. Quotes are visible and deliberate, so
+  the guard names them and refuses. Silently repairing a quoted secret would
+  leave it wrong everywhere else it is read.
+
+**Watch out for:**
+
+- **A guard must never be stricter than the code it guards.** Got wrong twice in
+  one afternoon: the shape check first judged the untrimmed value, and would have
+  failed runs the application handles fine. Whenever `readDatabaseUrl()` learns
+  to tolerate something, the workflow check learns it in the same commit.
+- **API keys have no equivalent guard.** `ANTHROPIC_API_KEY` and
+  `AI_GATEWAY_API_KEY` are handed straight to a provider, so a malformed one
+  surfaces as an authentication error with no hint the value is the problem.
+  The workflow header now says secrets take raw values; that is documentation,
+  not a check.
+- **The Gmail path is now proven end to end and the model path is not.** The
+  test workflow exercises `DATABASE_URL` and the three Gmail secrets. Nothing has
+  yet made a model call *from CI* — the Anthropic key was only ever verified
+  locally, against a different copy of itself.
+
+---
+
+## The front page stops leading with last year's champion in November
+
+`/` led with the reigning champion at `12vw` for twelve months of the year. That
+is right for eight of them and wrong for the four that matter: from the opener to
+the bracket, the largest thing on the page was the one fact about the league that
+could not change until January, while the thing that changed this morning sat
+below the fold.
+
+The lead now swaps for the duration of the season and swaps back on its own.
+
+**Learned:**
+
+- **The switch is "has the newest season got a champion", not "is it the newest
+  season".** Both halves earn their place: a week must have been completed, or
+  before the opener there is nothing to lead with; and the newest season must
+  have no champion, which is what makes the monument return automatically the
+  moment one is crowned rather than being a thing somebody has to remember every
+  January. `ChampionLead` could already render a season in progress — the page
+  simply never handed it one, because `reigning` deliberately searches for the
+  most recent season *with* a champion.
+- **The champion is demoted, not deleted.** He keeps the ribbon immediately
+  below, which is the roll of honour and never changed. Removing the monument for
+  four months is a change of emphasis; removing the man is a different thing and
+  was not what was asked for.
+- **A lead needs the monument's type scale or the page visibly downgrades.** The
+  panel's section heading is `text-sm uppercase`, which reads as furniture. As
+  the lead it takes the same eyebrow, `clamp()` display size and rhythm the
+  champion had, so the top of the page does not look thinner in September than it
+  did in August.
+- **`?preview=` has to force the lead on.** Every finished season the preview
+  could stand in for has a champion by definition, so the honest condition would
+  render nothing and the lead would be unreviewable until the day it went live.
+
+**Watch out for:**
+
+- **The panel is drawn in exactly one place at a time.** It used to sit below the
+  Gazette teaser as well; leaving both would put the same table on the page
+  twice for the whole season.
+- **Verified by rendering, not by reading.** `next start` plus two requests: `/`
+  gives the champion and no table, `?preview=2025&through=6` gives the season
+  lead and zero champion-lead occurrences. The condition has four states and
+  reasoning about them from the source is how the wrong one ships.

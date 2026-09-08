@@ -67,6 +67,14 @@ name: Weekly refresh and Gazette
 # ⚠️ GAZETTE_MAIL_TO is a secret rather than a file in the repository because it
 # is ten real people's email addresses. They ride in Bcc so a send does not
 # publish the league to itself.
+#
+# ⚠️ **Secrets take RAW values. No quotes.** `.env.local` stores every one of
+# these quoted — `DATABASE_URL="postgresql://…"` — because that is dotenv
+# syntax, and dotenv strips the quotes when it loads the file. GitHub does no
+# parsing whatsoever, so copying that line's value verbatim stores the quotes as
+# part of the secret. The database URL then fails to parse, and an API key is
+# sent to its provider wrapped in quotes — a 401 that reads exactly like a
+# revoked key. Copy from after the `=` and INSIDE the quotes.
 
 on:
   schedule:

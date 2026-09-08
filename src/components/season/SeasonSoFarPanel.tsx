@@ -31,11 +31,26 @@ export function SeasonSoFarPanel({
   report,
   members,
   preview,
+  lead,
 }: {
   report: SeasonSoFar
   members: HistoryMember[]
   /** Set when showing a finished season as a stand-in. See `getSeasonSoFar`. */
   preview?: boolean
+  /**
+   * Drawn as the front page's lead rather than a panel within it.
+   *
+   * From the first completed week until a champion is crowned, this **replaces**
+   * the reigning-champion monument at the top of `/`. The monument is right for
+   * ten months of the year and wrong for the four that matter: a front page
+   * still leading with last season's winner in November is showing the reader
+   * the one thing about the league that cannot change until January.
+   *
+   * The champion is not deleted, only demoted — he keeps his place in the
+   * ribbon directly below, and reclaims the lead automatically the moment the
+   * new season has a champion of its own.
+   */
+  lead?: boolean
 }) {
   const byId = new Map(members.map((m) => [m.managerId, m]))
   const pct = (n: number) => n.toFixed(3).replace(/^0/, '')
@@ -44,21 +59,51 @@ export function SeasonSoFarPanel({
 
   return (
     <section>
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
-        <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
-          {report.season} · through week {report.throughWeek}
-        </h2>
-        <p className="text-xs text-slate-400">
-          Sorted by all-play, not by record.
-          {report.incompleteWeeks > 0 && (
-            <>
-              {' '}
-              {report.incompleteWeeks} week{report.incompleteWeeks === 1 ? '' : 's'} skipped —
-              the whole field did not play.
-            </>
-          )}
-        </p>
-      </div>
+      {/*
+        Two headings for two jobs. As the lead it takes the monument's type
+        scale and rhythm so the top of the page does not visibly downgrade when
+        the season starts; as a panel it is a section head like any other.
+
+        Both say the week. The qualifier is never the optional half — see the
+        note on `throughWeek` in the file header.
+      */}
+      {lead ? (
+        <div className="mb-8">
+          <p className="font-display text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-slate-400">
+            {report.season} season
+          </p>
+          <h2 className="mt-3 font-display text-[clamp(2.5rem,9vw,6rem)] leading-[0.86] font-bold tracking-[-0.02em] text-slate-50">
+            Through week {report.throughWeek}
+          </h2>
+          <p className="mt-5 max-w-prose text-slate-300">
+            The table, and the three columns that argue with it. Sorted by all-play rather
+            than by record.
+            {report.incompleteWeeks > 0 && (
+              <>
+                {' '}
+                {report.incompleteWeeks} week{report.incompleteWeeks === 1 ? '' : 's'} skipped —
+                the whole field did not play.
+              </>
+            )}
+          </p>
+        </div>
+      ) : (
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
+          <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
+            {report.season} · through week {report.throughWeek}
+          </h2>
+          <p className="text-xs text-slate-400">
+            Sorted by all-play, not by record.
+            {report.incompleteWeeks > 0 && (
+              <>
+                {' '}
+                {report.incompleteWeeks} week{report.incompleteWeeks === 1 ? '' : 's'} skipped —
+                the whole field did not play.
+              </>
+            )}
+          </p>
+        </div>
+      )}
 
       {preview && (
         <p className="mb-3 border border-rule bg-slate-900/60 px-3 py-2 text-xs text-slate-400">
