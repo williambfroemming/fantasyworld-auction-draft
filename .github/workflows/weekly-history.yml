@@ -40,15 +40,33 @@ name: Weekly refresh and Gazette
 # ## Setup
 #
 #   Settings → Secrets and variables → Actions → New repository secret
-#     DATABASE_URL       = the Neon connection string
-#     ANTHROPIC_API_KEY  = an Anthropic API key, for the Gazette
-#     AI_GATEWAY_API_KEY = a Vercel AI Gateway key, for the issue's artwork
+#     DATABASE_URL        = the Neon connection string
+#     ANTHROPIC_API_KEY   = an Anthropic API key, for the Gazette
+#     AI_GATEWAY_API_KEY  = a Vercel AI Gateway key, for the issue's artwork
+#     GMAIL_USER          = the sending Gmail address
+#     GMAIL_APP_PASSWORD  = a Gmail APP PASSWORD, not the account password
+#     GAZETTE_MAIL_TO     = comma-separated recipients
 #
 # Without DATABASE_URL the job fails loudly on the first step rather than
 # silently importing nothing. Without ANTHROPIC_API_KEY it warns and skips the
 # newsletter — see the note on that step. Without AI_GATEWAY_API_KEY the issue
 # is written and simply runs without a picture, which is the normal case for
-# every issue in the archive older than the art step.
+# every issue in the archive older than the art step. Without the Gmail secrets
+# the issue is published and nobody is told, which warns.
+#
+# ⚠️ **Gmail needs an app password and will not accept the account password.**
+# Turn on 2-Step Verification, then Google Account → Security → App passwords.
+# The value is a 16-character string; store it with the spaces stripped. It is
+# revocable on its own, and it is invalidated when the account password changes
+# — which is the most likely reason this step starts failing months from now.
+#
+# ⚠️ An app password grants SMTP send on that whole account. A dedicated Gmail
+# account for the paper is worth the five minutes if the alternative is a
+# personal one.
+#
+# ⚠️ GAZETTE_MAIL_TO is a secret rather than a file in the repository because it
+# is ten real people's email addresses. They ride in Bcc so a send does not
+# publish the league to itself.
 
 on:
   schedule:
@@ -95,16 +113,6 @@ jobs:
           npx tsx scripts/history/refresh-season.ts \
             ${{ inputs.season && format('--season {0}', inputs.season) || '' }}
 
-      # Between the import and the commit, deliberately: the script writes
-      # data/history/gazette/<season>.json, and the commit step below is what
-      # gets that into the repo.
-      #
-      # ⚠️ This step warns rather than failing, and carries continue-on-error.
-      # The import is the load-bearing job; the newsletter is not. A hard failure
-      # here would stop the workflow before "Commit the snapshot", stranding the
-      # Sleeper files that were just pulled and making next week's diff
-      # incoherent. A genuine API failure still shows as a failed step in the
-      # Actions UI, which is the visibility we actually want.
       # Which week this run owes, asked BEFORE the key is needed.
       #
       # ⚠️ Without this the missing-key path is indistinguishable from a quiet
@@ -124,6 +132,16 @@ jobs:
           echo "Owed: $week"
           echo "week=$week" >> "$GITHUB_OUTPUT"
 
+      # Between the import and the commit, deliberately: the script writes
+      # data/history/gazette/<season>.json, and the commit step below is what
+      # gets that into the repo.
+      #
+      # ⚠️ This step warns rather than failing, and carries continue-on-error.
+      # The import is the load-bearing job; the newsletter is not. A hard failure
+      # here would stop the workflow before "Commit the snapshot", stranding the
+      # Sleeper files that were just pulled and making next week's diff
+      # incoherent. A genuine API failure still shows as a failed step in the
+      # Actions UI, which is the visibility we actually want.
       - name: Write the Gazette
         id: gazette
         continue-on-error: true
@@ -197,6 +215,77 @@ jobs:
           issue. Data only — no code changes."
           git push
 
+      # Tell ten people the paper exists.
+      #
+      # The whole pipeline publishes at noon into a git repository, which nobody
+      # is watching. Without this the newsletter depends on ten men
+      # independently remembering to open a website on a Tuesday, which is the
+      # failure every internal publication actually dies of.
+      #
+      # ⚠️ Guarded on `steps.owed.outputs.week`, not on the gazette step
+      # succeeding. That step exits zero when there was nothing to write, which
+      # is most Tuesdays of the year — mailing on success alone would send a
+      # "new issue" every week of the offseason pointing at a months-old
+      # edition. It sends only when a week was genuinely owed and then written.
+      #
+      # ⚠️ `continue-on-error`, like the two model steps: a bounced email must
+      # never cost the league its Sleeper snapshot. The issue is published
+      # either way; this is a notification, not the product.
+      #
+      # Composed by a script that has the database and no credentials, sent by
+      # curl which has credentials and no database. The message is written to
+      # RUNNER_TEMP rather than the workspace so ten people's addresses cannot
+      # wander into a commit.
+      #
+      # Setup: Gmail requires an APP PASSWORD (2FA on the account, then
+      # Google Account → Security → App passwords). A normal password will not
+      # authenticate. Secrets: GMAIL_USER, GMAIL_APP_PASSWORD, GAZETTE_MAIL_TO
+      # (comma-separated). Recipients ride in Bcc so the league is not published
+      # to itself on every send.
+      - name: Email the league
+        id: mail
+        if: steps.owed.outputs.week != 'none' && steps.gazette.outcome == 'success'
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GAZETTE_MAIL_FROM: ${{ secrets.GMAIL_USER }}
+          GAZETTE_MAIL_TO: ${{ secrets.GAZETTE_MAIL_TO }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          OWED: ${{ steps.owed.outputs.week }}
+        run: |
+          if [ -z "$GMAIL_USER" ] || [ -z "$GMAIL_APP_PASSWORD" ] || [ -z "$GAZETTE_MAIL_TO" ]; then
+            echo "::warning::Gmail secrets are not set — the issue was published but nobody was told."
+            exit 0
+          fi
+
+          MSG="$RUNNER_TEMP/gazette-mail.txt"
+          npx tsx scripts/history/notify-email.ts \
+            ${{ inputs.season && inputs.season || '' }} "$OWED" --out "$MSG"
+          # The script exits 0 having written nothing when the issue is not
+          # there, which is the same "nothing to say" case as everywhere else.
+          if [ ! -s "$MSG" ]; then
+            echo "No message composed — nothing to send."
+            exit 0
+          fi
+
+          # One --mail-rcpt per address: Bcc is a header, and the SMTP envelope
+          # has to name every recipient separately or only the first is served.
+          RCPT=()
+          IFS=',' read -ra ADDRS <<< "$GAZETTE_MAIL_TO"
+          for a in "${ADDRS[@]}"; do
+            trimmed="$(echo "$a" | xargs)"
+            [ -n "$trimmed" ] && RCPT+=(--mail-rcpt "$trimmed")
+          done
+
+          curl --silent --show-error --ssl-reqd \
+            --url "smtps://smtp.gmail.com:465" \
+            --mail-from "$GMAIL_USER" \
+            "${RCPT[@]}" \
+            --user "$GMAIL_USER:$GMAIL_APP_PASSWORD" \
+            --upload-file "$MSG"
+          echo "Sent to ${#RCPT[@]} recipient(s)."
+
       # ⚠️ This is what stops a missed edition being silent, and it has to run
       # AFTER the commit rather than instead of it.
       #
@@ -216,12 +305,13 @@ jobs:
       - name: Report what did not get written
         if: >-
           steps.gazette.outcome == 'failure' || steps.art.outcome == 'failure'
-          || steps.gazette.outputs.nokey == 'true'
+          || steps.gazette.outputs.nokey == 'true' || steps.mail.outcome == 'failure'
         env:
           OWED: ${{ steps.owed.outputs.week }}
           NOKEY: ${{ steps.gazette.outputs.nokey }}
           GAZETTE: ${{ steps.gazette.outcome }}
           ART: ${{ steps.art.outcome }}
+          MAIL: ${{ steps.mail.outcome }}
         run: |
           {
             echo "### The weekly run did not finish cleanly"
@@ -240,6 +330,11 @@ jobs:
             if [ "$ART" = "failure" ]; then
               echo "- ⚠️ **The artwork failed.** An issue with no picture is the normal"
               echo "  case, not a fault."
+            fi
+            if [ "$MAIL" = "failure" ]; then
+              echo "- ⚠️ **The email did not go out.** The issue is published and readable;"
+              echo "  nobody was told about it. Check the Gmail app password has not been"
+              echo "  revoked — they expire when the account password changes."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 

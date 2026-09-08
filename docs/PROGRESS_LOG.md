@@ -3553,3 +3553,59 @@ delete something.
   is the whole reason that field is on the return type.
 - **Efficiency draws an em dash, never 100%.** A manager with no lineup on record
   is unmeasured, not perfect.
+
+---
+
+## Telling ten people the paper exists
+
+The pipeline published at noon on a Tuesday into a git repository, and then
+depended on ten men independently remembering to open a website. That is the
+failure every internal publication actually dies of, and it was the largest gap
+left in the Gazette by some distance — larger than anything about the prose.
+
+Gmail, via SMTP and an app password. Composed by `scripts/history/notify-email.ts`,
+sent by `curl` in the workflow.
+
+**Learned:**
+
+- **Composing and sending are split because they need opposite things.**
+  Composing needs the database and no credentials; sending needs credentials and
+  no database. Keeping them apart is what makes `--print` possible — the whole
+  message, checkable locally, with no secret anywhere near it. A script that did
+  both is one nobody can run to check their own wording.
+- **The mail is guarded on the week that was owed, not on the write succeeding.**
+  The Gazette step exits zero when there was nothing to write, which is most
+  Tuesdays of the year — so mailing on success alone would send a "new issue"
+  every week of the offseason, pointing at a months-old edition. `steps.owed`
+  already knew the answer and needed no new query.
+- **It copies strings and computes nothing, deliberately.** Every figure the
+  Gazette prints has been through `ungroundedNumbers()` against its own pack. A
+  number retyped into an email is outside that gate, and an email is the one
+  surface where a wrong figure reaches a reader with nothing checking it.
+  Headline and deck go across verbatim; there is no arithmetic in the script.
+- **Recipients are a secret, not a file.** Ten real people's addresses in a
+  repository is the kind of thing that is fine until the repository is not. They
+  ride in Bcc with an undisclosed To, so a send does not publish the league to
+  itself either.
+- **Header encoding is not the same problem as body encoding.** Gordon writes em
+  dashes, and `Content-Type: charset=UTF-8` governs the body only — a raw em
+  dash in a Subject arrives as mojibake in most clients. Subjects are folded to
+  RFC 2047 base64 when they are not plain ASCII, and left alone when they are.
+
+**Watch out for:**
+
+- **A Gmail app password is invalidated when the account password changes**,
+  which is the most likely reason this starts failing months from now. The
+  failure is reported in the run summary rather than left silent, and it never
+  costs the commit: the step is `continue-on-error` like the two model steps.
+- **An app password grants SMTP send on the entire account.** A dedicated Gmail
+  account for the paper is worth the five minutes if the alternative is a
+  personal one.
+- **`--mail-rcpt` is per address.** Bcc is a header; the SMTP envelope has to
+  name every recipient separately, or only the first one is served the message.
+- **The message is written to `RUNNER_TEMP`, never the workspace**, so ten
+  addresses cannot wander into a commit from a step that runs right after one.
+- **A comment block was orphaned from its step** while inserting the owed-week
+  check: the "Between the import and the commit" note ended up above "What is
+  owed", describing a step three below it. Inserting a step into a heavily
+  commented workflow moves the comment, not just the YAML.
