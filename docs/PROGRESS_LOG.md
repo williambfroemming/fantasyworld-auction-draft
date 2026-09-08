@@ -3648,3 +3648,51 @@ issue on record and does nothing else.
   the button is missing.
 - **`--latest` is for the test path only.** The weekly job names the week it just
   wrote, so a concurrent run cannot make it announce the wrong issue.
+
+---
+
+## `neon()` strips trailing whitespace and not leading, which cost two runs
+
+The first real run of the email test failed with "Database connection string
+provided to `neon()` is not a valid URL. Connection string: ***" — an error that
+names a value nobody is allowed to print.
+
+The tell was in the step's env dump rather than the stack trace: `DATABASE_URL:
+***` followed by a **blank line**. GitHub masks a multi-line secret one line at
+a time, so an empty masked line is a newline inside the value.
+
+**Learned:**
+
+- **`neon()` parses with `new URL()`, which strips trailing C0 whitespace and
+  not leading.** Reproduced across five shapes: a trailing newline, a trailing
+  space and a trailing CRLF all work; a **leading** newline throws. So a secret
+  can be broken or fine on a difference invisible in every UI that displays it,
+  and the two cases are equally easy to create — an editor adds a trailing
+  newline, a copy that starts one line early adds a leading one.
+- **The fix belongs in the code, not in a paste instruction.** The secret was
+  re-entered once and came back with whitespace again. There is no connection
+  string for which surrounding whitespace is meaningful, so `readDatabaseUrl()`
+  trims, and both `getSql()` and `getDb()` go through it. Six unit tests, and the
+  leading-newline case is the one that names why it exists.
+- **A guard that is stricter than the code fails runs that would have worked.**
+  The workflow's shape check originally judged the raw value, which after the
+  trim would have rejected a secret the application accepts perfectly well. It
+  now checks `URL_TRIMMED` — the same string the app will use.
+- **"Set but empty" deserves its own message from "not set at all."** A
+  whitespace-only secret is non-empty, so every `-z` check upstream passes it
+  through and the failure surfaces much later, somewhere with no idea what it
+  received.
+
+**Watch out for:**
+
+- **GitHub always renders a blank value box when you edit a secret.** Secrets are
+  write-only — not readable by the UI, the API or the owner — so a blank field is
+  not evidence the secret is empty, and "I'll just look at it" is not available
+  as a debugging step. The masked env dump in a run log is the only view of its
+  *shape* you get, and a stray blank line in it is the signal.
+- **This very likely broke the weekly workflow too, silently, since 21 August.**
+  It reads the same secret on its first step. The absence of "Weekly history
+  refresh" commits was read here as the healthy nothing-to-commit path — which
+  was consistent with the seventeen identical empty pre-season files on disk, and
+  wrong. Two explanations fitted the same evidence and the run history, which
+  would have separated them, was not visible without `gh`.

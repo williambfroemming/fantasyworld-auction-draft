@@ -1,6 +1,7 @@
 import { neon } from '@neondatabase/serverless'
 import { drizzle } from 'drizzle-orm/neon-http'
 import './neon-local'
+import { readDatabaseUrl } from '@/server/sql'
 import * as schema from './schema'
 
 /**
@@ -14,9 +15,10 @@ import * as schema from './schema'
  * client object, and the failure mode is a silent hang rather than an error.
  */
 function createDb() {
-  const url = process.env.DATABASE_URL
-  if (!url) throw new Error('DATABASE_URL is not set. Run `vercel env pull .env.local`.')
-  return drizzle(neon(url), { schema })
+  // Trimmed, via the one helper -- see `readDatabaseUrl`. `neon()` strips
+  // trailing whitespace when it parses and not leading, so a secret with a
+  // newline on the front fails here and an otherwise identical one does not.
+  return drizzle(neon(readDatabaseUrl()), { schema })
 }
 
 let _db: ReturnType<typeof createDb> | null = null
