@@ -100,6 +100,25 @@ export default async function FrontPage({
   // yet won.
   const reigning = seasons.find((s) => s.champion !== null) ?? seasons[0] ?? null
 
+  /**
+   * Is a season actually being played right now?
+   *
+   * ⚠️ This decides what the page *leads* with, and the two halves of the test
+   * are both load-bearing. A week must have been completed — before the opener
+   * there is nothing to show and the champion is still the news. And the newest
+   * season must have **no champion yet**: the moment one is crowned the table
+   * stops being live and the monument is the right lead again, which is what
+   * makes the swap back automatic every January rather than a thing somebody has
+   * to remember.
+   *
+   * `previewSeason` forces it on so the lead can be looked at out of season.
+   * Without that the preview would render nothing at all, because every finished
+   * season it could stand in for has a champion by definition.
+   */
+  const newest = seasons[0] ?? null
+  const seasonUnderway =
+    soFar.report !== null && (previewSeason !== null || newest?.champion == null)
+
   // Depends on which season is reigning, so it cannot join the batch above.
   // Null for 2006–2019, which have a champion's name and no week-by-week record.
   const lineup = reigning?.champion ? await getChampionshipLineup(reigning.season) : null
@@ -154,29 +173,35 @@ export default async function FrontPage({
         every pixel for sixteen columns of roster, and a front page stretched
         that wide just puts a lake of empty ground between its columns.
       */}
-      <ChampionLead season={reigning} titles={titles} lineup={lineup} />
+      {/*
+        The lead swaps for the duration of the season. A front page still
+        leading with last season's champion in November is showing the reader
+        the one fact about the league that cannot change until January, while
+        the thing that changed this morning sits below the fold.
+
+        The champion is demoted rather than deleted — the ribbon underneath is
+        unchanged, and he takes the lead back on his own as soon as the new
+        season has a champion of its own.
+      */}
+      {seasonUnderway && soFar.report ? (
+        <section className="px-4 pt-10 pb-8">
+          <div className="mx-auto max-w-6xl">
+            <SeasonSoFarPanel
+              report={soFar.report}
+              members={soFar.members}
+              preview={previewSeason !== null}
+              lead
+            />
+          </div>
+        </section>
+      ) : (
+        <ChampionLead season={reigning} titles={titles} lineup={lineup} />
+      )}
 
       <ChampionRibbon seasons={seasons} />
 
       <div className="mx-auto max-w-6xl px-4 py-12">
         <GazetteTeaser issue={latest} />
-
-        {/*
-          Only drawn once a week has actually been played. Before the opener
-          `seasonSoFar` returns null and this disappears entirely, which is
-          correct: a table of 0-0 records and .000 rates is the shape
-          `playedStandings()` exists to reject -- it looks official and says
-          nothing. `?preview=2025` is how it gets looked at in the meantime.
-        */}
-        {soFar.report && (
-          <div className="mt-14">
-            <SeasonSoFarPanel
-              report={soFar.report}
-              members={soFar.members}
-              preview={previewSeason !== null}
-            />
-          </div>
-        )}
 
         <div className="mt-14">
           <AuctionNumbers auction={auction} />

@@ -3746,3 +3746,48 @@ all, so pasting that line's value verbatim makes the quotes part of the string.
   test workflow exercises `DATABASE_URL` and the three Gmail secrets. Nothing has
   yet made a model call *from CI* — the Anthropic key was only ever verified
   locally, against a different copy of itself.
+
+---
+
+## The front page stops leading with last year's champion in November
+
+`/` led with the reigning champion at `12vw` for twelve months of the year. That
+is right for eight of them and wrong for the four that matter: from the opener to
+the bracket, the largest thing on the page was the one fact about the league that
+could not change until January, while the thing that changed this morning sat
+below the fold.
+
+The lead now swaps for the duration of the season and swaps back on its own.
+
+**Learned:**
+
+- **The switch is "has the newest season got a champion", not "is it the newest
+  season".** Both halves earn their place: a week must have been completed, or
+  before the opener there is nothing to lead with; and the newest season must
+  have no champion, which is what makes the monument return automatically the
+  moment one is crowned rather than being a thing somebody has to remember every
+  January. `ChampionLead` could already render a season in progress — the page
+  simply never handed it one, because `reigning` deliberately searches for the
+  most recent season *with* a champion.
+- **The champion is demoted, not deleted.** He keeps the ribbon immediately
+  below, which is the roll of honour and never changed. Removing the monument for
+  four months is a change of emphasis; removing the man is a different thing and
+  was not what was asked for.
+- **A lead needs the monument's type scale or the page visibly downgrades.** The
+  panel's section heading is `text-sm uppercase`, which reads as furniture. As
+  the lead it takes the same eyebrow, `clamp()` display size and rhythm the
+  champion had, so the top of the page does not look thinner in September than it
+  did in August.
+- **`?preview=` has to force the lead on.** Every finished season the preview
+  could stand in for has a champion by definition, so the honest condition would
+  render nothing and the lead would be unreviewable until the day it went live.
+
+**Watch out for:**
+
+- **The panel is drawn in exactly one place at a time.** It used to sit below the
+  Gazette teaser as well; leaving both would put the same table on the page
+  twice for the whole season.
+- **Verified by rendering, not by reading.** `next start` plus two requests: `/`
+  gives the champion and no table, `?preview=2025&through=6` gives the season
+  lead and zero champion-lead occurrences. The condition has four states and
+  reasoning about them from the source is how the wrong one ships.
