@@ -3316,3 +3316,50 @@ and `scope` on the tables where the header association is the content.
   Older browsers ignore it and allow two menus open at once, which is untidy and
   not broken — but it is the one part of this that is not universally supported,
   and it is doing real work rather than decoration.
+
+---
+
+## Three days before the opener, checking the things that only run once a year
+
+Not a build step so much as a dress rehearsal. The weekly pipeline had never
+executed its happy path, and the two model calls in it are the parts you cannot
+test by reading. What the rehearsal found was mostly reassurance, one real hole
+already recorded above, and one footgun with a fuse on it.
+
+**Learned:**
+
+- **The expensive path works, and `--sample` is how you prove it without
+  publishing.** One dry-run edition of 2025 week six exercised the API key,
+  PROMPT_VERSION 15, the assigned lens, the JSON parse and the grounding gate,
+  and stored nothing. That is the whole risky half of Tuesday, provable in a
+  minute for one model call, and it should be the thing anybody runs before a
+  season rather than waiting to see what the cron does.
+- **Week one of 2026 is a shape that has never run**, and it is worth naming: it
+  is the first week edition whose only prior issue is a **season preview**. The
+  2025 backfill began at week six with nothing behind it. Checked against the
+  live row rather than reasoned about — `getPriorIssues(2026, 1)` returns the
+  preview, carries its **eight** threads across the New Year, and degrades
+  `beltManagerId` to null and `statIds` to `[]` because a preview pack has
+  neither. The optional chaining that makes that work was already there; what
+  was missing was anybody having confirmed it.
+- **A comment can instruct a future editor to break a non-negotiable.** The note
+  on `GENRE_CALENDARS` said to "delete this entry once season one is under way"
+  of the 2025 key. Deleting it does not touch the stored `lens` on those nine
+  published issues, so nothing visibly breaks — but it strips the frame from any
+  `--regenerate` of them, which is exactly the silent relabelling `AGENTS.md`
+  forbids. The instruction predated the rule and quietly outlived it.
+
+**Watch out for:**
+
+- **`GENRE_CALENDARS[2025]` and `[2026]` are the same object, not two copies.**
+  Correct today, and a trap the moment somebody edits `SEASON_ONE` to plan 2027:
+  it would relabel two published seasons at once. Next year gets its own object.
+- **A partial calendar fails silently and looks fine.** `genreFor` returns null
+  for a missing week, which is the *right* answer for a season the Gazette never
+  covered and a silent downgrade for one being published — the edition just
+  files with no lens. There are now two tests over every calendar: every week
+  1–17 assigned, and no genre used twice in a season. The second encodes the
+  rule v14 and v15 were written to enforce, which until now lived only in prose.
+- **`--sample` is not free and is not a substitute for the real thing.** It
+  threads its issues in memory and stores nothing, so it cannot tell you whether
+  `store()`, the mirror write or the art step work. Those only run for real.
