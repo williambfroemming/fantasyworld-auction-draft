@@ -3363,3 +3363,76 @@ already recorded above, and one footgun with a fuse on it.
 - **`--sample` is not free and is not a substitute for the real thing.** It
   threads its issues in memory and stores nothing, so it cannot tell you whether
   `store()`, the mirror write or the art step work. Those only run for real.
+
+---
+
+## A season in progress is not a season, and three records said otherwise
+
+Found by asking what changes on the day week one imports, rather than by anything
+going wrong. Every history page has only ever rendered **finished** seasons —
+2020 to 2025, all complete. On the Tuesday after the opener, 2026 becomes a
+season with ten standings rows and one game in each of them, and that is a shape
+none of this code has met.
+
+`playedStandings()` already guards the neighbouring case and its docblock says so:
+a standings row exists from the season's first refresh with a 0-0 record and zero
+points, which would win "fewest points in a season" outright. But it tests
+whether *anybody has played a game*, and one week in, everybody has. The rows go
+straight through, and a one-game sample beats a fourteen-game one at every record
+that is a **minimum or a rate**:
+
+| Record | Before week one | After |
+|---|---|---|
+| Best regular-season record | 2021 · 12-2 (.857) | a 1-0 team (1.000) |
+| Worst regular-season record | the real worst | a 0-1 team (.000) |
+| Fewest points in a season | 2016 · 1051.92 | about 100, one week played |
+
+Season records now read `completedStandings()` — a season counts once somebody
+has played its full regular season. Game records deliberately do not: a week-one
+score belongs in "highest score ever" the moment it is played.
+
+**Learned:**
+
+- **Maxima are safe and minima are not, which is exactly why this survives a
+  read-through.** "Most points in a season" is correct all year with no filter at
+  all. Three records beside it, computed the same way from the same rows, are
+  nonsense from the second Tuesday of September. Anything that scans this file
+  looking for "does it handle the current season" sees the guard, sees a correct
+  record, and moves on.
+- **Completeness had to be derived, because the flag for it is wrong.**
+  `seasons.is_final` is the obvious signal and is `true` for 2026 right now —
+  against the rule `refresh-season.ts` states in its own header, that a season
+  stays false until Sleeper says complete. Had the fix trusted it, it would have
+  passed every test and done nothing. Same reasoning as budgets: derive it from
+  what happened.
+- **`regularSeasonWeeks` is null for the season in progress and populated for
+  every season that has standings** — 13 through 2020, 14 from 2021 — and
+  `max(games played)` equals it exactly in all fifteen. So "unknown length" and
+  "in progress" are the same set today, and treating unknown as *not provably
+  complete* is both the safe direction and the correct one.
+- **The era badge is part of the record, not decoration.** It names the years the
+  numbers beside it cover, so it had to move to the finished set as well.
+  Leaving it on "played" would have printed a span reaching into a year whose
+  numbers were deliberately excluded — the precise disagreement between a table
+  and its own label that the era badges were introduced to stop.
+- **The tests were run against the old code before being trusted.** Six of the
+  seven fail without the filter; the seventh is the game-level control, which
+  must pass both ways. A regression test for a "reads correctly until it doesn't"
+  bug is worth nothing until it has been seen to fail.
+
+**Watch out for:**
+
+- **`seasons.is_final` is `true` for the season in progress in the live
+  database**, which contradicts `refresh-season.ts`. Nothing here depends on it
+  any more, and `draftComplete` is unaffected because the 2026 rosters are full
+  and it checks that directly. But it is wrong, and anything that starts trusting
+  it will be wrong in the same direction.
+- **Career totals still include the season in progress, deliberately.** A career
+  win percentage is a running total and should move when a game is played; it is
+  a season *aggregate* that needs a finished season. The two look similar in the
+  code and are not the same question.
+- **This will recur every August.** It is the third instance of the same shape in
+  this codebase — a value that reads correctly until the thing it summarises is
+  partial. The others were `season_standings` holding the final table in a
+  backfilled Gazette week, and `player_seasons.avg_points` grading a week-seven
+  boom against a full-season average.
