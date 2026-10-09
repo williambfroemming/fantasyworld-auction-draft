@@ -578,3 +578,21 @@ Shape of the options, cheapest first:
 the monument returns the moment `champion_manager_id` is set by the import that
 reads the completed bracket. Nothing here should introduce a fourth state that
 has to be turned off by hand in January.
+
+---
+
+## 13. Folding the record-by-week history into the playoff odds
+
+The odds are a model of the current season; `/history/by-week` is what past
+teams at the same record actually did. They are shown side by side and **not**
+blended, on evidence: in October 2026, over 2020–2025, the model scored a Brier
+of 0.159 and the history alone (leave-one-season-out) 0.192. Six seasons is too
+thin — four 0-4 teams would overrule the model for everybody.
+
+The model *is* too generous to the very worst starts (it gave the four 0-4 teams
+10–29%; none made it), which is where a blend would help first.
+
+**Trigger:** run `npm run odds:backtest` each offseason. When the history line
+beats the model, or once there are 8–10 weekly seasons, try a blend — e.g. use
+the history cell as the prior instead of `PRIOR_WEEKS` of league average — and
+keep it only if the backtest says so. Do not tune `PRIOR_WEEKS` by eye.

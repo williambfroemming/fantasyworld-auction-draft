@@ -39,6 +39,7 @@ import {
 } from '@/lib/history'
 import { completeWeeks, seasonSoFar } from '@/lib/season-so-far'
 import { playoffOdds, type ScheduledGame } from '@/lib/playoff-odds'
+import { recordPaths } from '@/lib/record-paths'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import type { StatsTrade } from '@/lib/stats'
@@ -1289,7 +1290,42 @@ export async function getSeasonSoFar(opts: { season?: number; throughWeek?: numb
         })
       : null
 
-  return { report, odds, members: input.members, season }
+  // History never includes the season being shown -- in preview that is a
+  // finished season standing in for the live one, and counting it would put
+  // its own outcome into the numbers drawn beside it.
+  const paths = recordPaths({
+    matchups,
+    standings: input.standings,
+    seasons: input.seasons,
+    currentSeason: season,
+  })
+
+  return { report, odds, paths, members: input.members, season }
+}
+
+/**
+ * Every record after every week, from every finished weekly season, with this
+ * season's managers placed on it. See `src/lib/record-paths.ts`.
+ *
+ * The season in progress is the newest one without a champion; out of season
+ * there is none, and the grid is drawn as pure history.
+ */
+export async function getRecordPaths() {
+  const input = await getHistoryInput()
+  const newest = input.seasons.reduce<HistorySeason | null>(
+    (best, s) => (best === null || s.season > best.season ? s : best),
+    null,
+  )
+  const currentSeason = newest && newest.championManagerId === null ? newest.season : null
+  return {
+    paths: recordPaths({
+      matchups: input.matchups,
+      standings: input.standings,
+      seasons: input.seasons,
+      currentSeason,
+    }),
+    members: input.members,
+  }
 }
 
 /**

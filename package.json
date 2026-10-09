@@ -41,6 +41,7 @@
     "db:migrate-history": "dotenv -e .env.local -- tsx scripts/migrate-history.ts",
     "db:migrate-gazette": "dotenv -e .env.local -- tsx scripts/migrate-gazette.ts",
     "db:migrate-schedule": "dotenv -e .env.local -- tsx scripts/migrate-schedule.ts",
+    "odds:backtest": "dotenv -e .env.local -- tsx scripts/odds-backtest.ts",
     "db:local:up": "docker compose up -d --wait",
     "db:local:down": "docker compose down",
     "db:local:reset": "docker compose down -v && docker compose up -d --wait",

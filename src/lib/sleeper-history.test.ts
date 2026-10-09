@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   combinePoints,
   hasBeenPlayed,
+  isScoredWeek,
   optimalLineup,
   pairWeek,
   playerWeeks,
@@ -357,6 +358,34 @@ describe.runIf(hasData)('against the real committed seasons', () => {
     expect(exact, `${exact}/${total} exact`).toBeGreaterThanOrEqual(40)
     // The largest residual seen is ~1.9% of a season total.
     expect(worst).toBeLessThan(0.03)
+  })
+})
+
+describe('isScoredWeek', () => {
+  const entry = (points: number): RawMatchup => ({
+    roster_id: 1,
+    matchup_id: 1,
+    points,
+    starters: ['a'],
+    players: ['a'],
+    players_points: { a: points },
+  })
+
+  it('refuses the week in progress even though somebody has scored', () => {
+    // Thursday night of week 5: half the league on points, Sleeper on week 4.
+    expect(isScoredWeek(5, [entry(0), entry(34)], 4)).toBe(false)
+  })
+
+  it('accepts a week Sleeper has finished scoring', () => {
+    expect(isScoredWeek(4, [entry(110), entry(98)], 4)).toBe(true)
+  })
+
+  it('still refuses an unplayed week', () => {
+    expect(isScoredWeek(3, [entry(0), entry(0)], 4)).toBe(false)
+  })
+
+  it('falls back to hasBeenPlayed without last_scored_leg', () => {
+    expect(isScoredWeek(5, [entry(0), entry(34)], undefined)).toBe(true)
   })
 })
 

@@ -134,6 +134,7 @@ npm run season:info -- 2025 --side-bet 10          # low scorer pays high scorer
 ### The FantasyWorld Gazette — the weekly newsletter
 npm run db:migrate-gazette                # the week_issues table + seasons.side_bet
 npm run db:migrate-schedule               # season_schedule, for playoff odds. Then history:refresh
+npm run odds:backtest                     # score the playoff odds against every finished season. EVERY OFFSEASON
 npm run gazette                           # newest unwritten week of this season
 npm run gazette -- 2025 7 --facts         # print the pack, call nothing
 npm run gazette -- --sample 2025 6 3      # 3 CONSECUTIVE weeks, dry-run, for tuning the voice

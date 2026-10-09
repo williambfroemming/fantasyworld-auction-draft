@@ -30,7 +30,7 @@ import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
 import '../src/db/neon-local'
 import {
   combinePoints,
-  hasBeenPlayed,
+  isScoredWeek,
   pairWeek,
   playerWeeks,
   playoffRound,
@@ -159,10 +159,10 @@ function load(season: number): Loaded {
     if (!existsSync(file)) continue
     const entries = read<RawMatchup[]>(file)
     if (entries.length && w < playoffStart) schedule.set(w, entries)
-    // Skip weeks Sleeper has scheduled but nobody has played yet. See
-    // `hasBeenPlayed` — importing them writes a season of 0-0 ties that become
-    // the lowest score on record.
-    if (entries.length && hasBeenPlayed(entries)) weeks.set(w, entries)
+    // Skip weeks nobody has played yet, and the week still in progress. See
+    // `isScoredWeek` — the first writes a season of 0-0 ties, the second a
+    // half-played week counted as a whole one.
+    if (isScoredWeek(w, entries, league.settings.last_scored_leg)) weeks.set(w, entries)
   }
 
   return { season, league, rosters, bracket, weeks, schedule, slots, playoffStart, owner }
