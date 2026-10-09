@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { HistoryMember } from '@/lib/history'
 import { formatOdds, type PlayoffOdds } from '@/lib/playoff-odds'
 import type { SeasonSoFar } from '@/lib/season-so-far'
+import { MIN_SAMPLE, recordCell, type RecordPaths } from '@/lib/record-paths'
 import { managerColor } from '@/lib/colors'
 
 /**
@@ -19,12 +20,16 @@ import { managerColor } from '@/lib/colors'
 export function PlayoffOddsPanel({
   odds,
   report,
+  paths,
   members,
 }: {
   odds: PlayoffOdds
   report: SeasonSoFar
+  /** History for the "Since" column. Null draws no column. */
+  paths: RecordPaths | null
   members: HistoryMember[]
 }) {
+  const since = paths && paths.seasons.length ? paths.seasons[0] : null
   const byId = new Map(members.map((m) => [m.managerId, m]))
   const record = new Map(report.rows.map((r) => [r.managerId, r]))
   const pct = (p: number) => formatOdds(p, odds.remainingWeeks)
@@ -33,6 +38,11 @@ export function PlayoffOddsPanel({
     <section>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
         <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">Playoff odds</h2>
+        {since !== null && (
+          <Link href="/history/by-week" className="text-xs text-amber-300 hover:underline">
+            How have teams at this record done? →
+          </Link>
+        )}
         <p className="text-xs text-slate-400">
           {odds.remainingWeeks === 0
             ? 'Regular season complete.'
@@ -54,6 +64,15 @@ export function PlayoffOddsPanel({
               <th scope="col" className="px-2 py-2 text-right font-display">Record</th>
               <th scope="col" className="px-2 py-2 text-right font-display">Proj W</th>
               <th scope="col" className="px-2 py-2 text-right font-display">Rem SOS</th>
+              {since !== null && (
+                <th
+                  scope="col"
+                  className="px-2 py-2 text-right font-display"
+                  title={`Teams with this record after week ${odds.throughWeek} since ${since}: how many made the playoffs`}
+                >
+                  Since {since}
+                </th>
+              )}
               {odds.byes > 0 && (
                 <th scope="col" className="border-l border-rule px-2 py-2 text-right font-display">Bye</th>
               )}
@@ -88,6 +107,17 @@ export function PlayoffOddsPanel({
                   <td className="px-2 py-1.5 text-right font-mono text-xs tabular-nums text-slate-400">
                     {r.remainingSos === null ? <span className="text-slate-600">—</span> : r.remainingSos.toFixed(1)}
                   </td>
+                  {since !== null && (
+                    <td className="px-2 py-1.5 text-right font-mono text-xs tabular-nums">
+                      <HistoryCount
+                        cell={
+                          rec && !rec.ties && paths
+                            ? recordCell(paths, odds.throughWeek, rec.wins, rec.losses)
+                            : undefined
+                        }
+                      />
+                    </td>
+                  )}
                   {odds.byes > 0 && (
                     <td className="border-l border-rule px-2 py-1.5 text-right font-mono text-xs tabular-nums">
                       {pct(r.byePct)}
@@ -120,7 +150,27 @@ export function PlayoffOddsPanel({
         <strong className="text-slate-300">Rem SOS</strong> is the expected weekly score of the
         opponents still to play — higher is harder. The median game is not counted: it does not
         decide a seed.
+        {since !== null && (
+          <>
+            {' '}
+            <strong className="text-slate-300">Since {since}</strong> is how many teams with the same
+            record after the same week made it — grey under {MIN_SAMPLE} teams.
+          </>
+        )}
       </p>
     </section>
+  )
+}
+
+/**
+ * "6/15" — made it over teams. Grey below `MIN_SAMPLE`, and a dot when nobody
+ * has ever been here: a record with no history is news, not a zero.
+ */
+function HistoryCount({ cell }: { cell: ReturnType<typeof recordCell> }) {
+  if (!cell || cell.teams === 0) return <span className="text-slate-600">·</span>
+  return (
+    <span className={cell.teams < MIN_SAMPLE ? 'text-slate-500' : 'text-slate-300'}>
+      {cell.made}/{cell.teams}
+    </span>
   )
 }

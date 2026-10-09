@@ -3868,3 +3868,38 @@ now also requires `week <= league.settings.last_scored_leg` (`isScoredWeek`).
 **Watch out for:**
 
 - The schedule is still written for every week. Only results wait for scoring.
+
+---
+
+## Record by week, and a backtest for the odds
+
+`/history/by-week` is a grid of every record after every regular-season week
+since 2020 — rows are weeks, columns are wins — with how many teams held it and
+how many made the playoffs, and this season's managers drawn in the cell they
+are standing in. The front-page odds gain a "Since 2020" column reading the same
+cell, and `npm run odds:backtest` scores the model against every finished season.
+
+**Learned:**
+
+- **Counts, never rates.** Six seasons put four teams in the 0-4 cell. "0/4"
+  says how thin that is; "0%" says it is a law. Cells under `MIN_SAMPLE` (3) are
+  greyed and untinted, and the tint is centred on the league's own 60% playoff
+  rate rather than 50%, so a typical cell is neutral.
+- **The season shown is never history.** Its teams have not made or missed
+  anything; counting them as misses would drag every cell they touch toward
+  zero. In preview, the finished season standing in for the live one is excluded
+  too, so the 2025-through-week-6 preview reads 5-1 as 7/8, not the full 9/10.
+- **Leave one season out, or the history grades its own homework.** Scoring
+  2024's 0-4 team against a cell containing 2024's 0-4 team would always flatter
+  the history.
+- **The backtest settled the blend question with a number:** model Brier 0.159,
+  history 0.192, flat 60% 0.240. Kept separate; BACKLOG §13 says when to revisit.
+- **Ties drop a team from the grid from that week on** (`tiesExcluded`). A
+  2-1-1 has no cell, and folding a tie into either side invents a result.
+
+**Watch out for:**
+
+- Everything here derives from `season_standings.made_playoffs` for 2020+. If the
+  importer's definition of "made playoffs" ever changes, the grid moves with it.
+- The grid page revalidates hourly, so this season's names move within an hour
+  of Tuesday's import, not instantly.

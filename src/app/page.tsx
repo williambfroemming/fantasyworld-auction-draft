@@ -200,7 +200,12 @@ export default async function FrontPage({
             */}
             {soFar.odds && (
               <div className="mt-12">
-                <PlayoffOddsPanel odds={soFar.odds} report={soFar.report} members={soFar.members} />
+                <PlayoffOddsPanel
+                  odds={soFar.odds}
+                  report={soFar.report}
+                  paths={soFar.paths}
+                  members={soFar.members}
+                />
               </div>
             )}
           </div>
