@@ -3794,6 +3794,66 @@ The lead now swaps for the duration of the season and swaps back on its own.
 
 ---
 
+## The paper now lands overnight, and the push that publishes it is blocked
+
+Two separate things, found together because forcing week 1 by hand is what
+surfaced the second.
+
+The weekly job moved from 16:00 UTC (noon Eastern) to **07:30 UTC — 12:30am
+Pacific**, so the issue is waiting when the league wakes up instead of arriving
+mid-afternoon. Week 1 of 2026 was published by running the pipeline locally:
+`history:refresh`, `gazette`, `gazette:art --latest`.
+
+And in trying to commit that snapshot: **`main` carries a ruleset requiring a
+pull request, so the workflow's own `git push` cannot land.** No scheduled run
+has ever committed anything to this repository.
+
+**Learned:**
+
+- **The timezone choice is correctness, not taste, because GitHub cron does not
+  observe DST.** Whatever slot we pick drifts an hour earlier in local time on
+  the first Sunday in November, with most of the season still to play. Eastern
+  midnight (04:30 UTC) becomes 11:30pm Monday *Eastern* — inside the Monday
+  night game. The pull would import a half-played week, and a week counts as
+  played the moment it has points, so the Gazette would publish an issue about
+  it. Pacific midnight (07:30 UTC) becomes 2:30am Eastern, still clear of the
+  football in both halves of the season. `nextIssueWeek` recovers a *missed*
+  week on the next run; nothing recovers a premature one.
+- **A protected `main` silently disables the entire weekly pipeline, and the
+  workflow cannot tell.** "Commit the snapshot" has no `continue-on-error`, so a
+  rejected push fails the job — after the issue is written to Postgres, and
+  *before* "Email the league". The site would still update, because pages read
+  the database; the artwork would not, because `issueArt()` reads
+  `public/gazette/` off disk and the runner's copy dies with it. So the visible
+  symptom is a pictureless issue nobody was told about, which reads like an art
+  bug rather than a permissions one.
+- **`--check` answers a different question before and after the import.** It
+  reported `owed nothing` on a Tuesday with a completed week 1, because
+  `nextIssueWeek` reads played weeks out of `season_matchups` and nothing had
+  imported them yet. The Gazette owes what the *database* has played, not what
+  the NFL has.
+- **Sleeper still reported `leg 1` on the Tuesday after week 1.** The refresh
+  does not care — it pulls every week file and the importer skips the unplayed
+  ones — but any future code that takes `leg` as "the week we are in now" will
+  be a week behind on exactly the morning this job runs.
+
+**Watch out for:**
+
+- **The ruleset needs a bypass for `github-actions[bot]`, or the job needs to
+  stop pushing to `main`.** Those are the only two fixes, and the second one is
+  worse: a pull request per week is a pull request nobody merges, and the
+  snapshot is the artifact that makes every import reproducible.
+- **This branch is where week 1's data lives.** The issue and its `facts` are
+  already in Neon and readable on the site; `data/history/gazette/2026.json` and
+  `public/gazette/2026-1.png` are not on `main` until it merges. The committed
+  archive drives the grounding audit, so a long-lived gap there means
+  `npm run gazette -- --audit` and the vitest test are judging an archive that
+  is missing the newest issue.
+- **Running the pipeline locally does not email anybody.** `GMAIL_USER` and
+  `GMAIL_APP_PASSWORD` live only in Actions secrets, which is correct — but it
+  means a hand-forced issue is published silently unless
+  `npm run gazette:notify` is run deliberately.
+
 ## The median column counts both games, and the front page gets playoff odds
 
 Two changes to the season-in-progress lead on `/`.
@@ -3843,3 +3903,70 @@ teams that finished top four its four favourites, in ~40ms.
 - **`formatOdds` caps at >99% / <1% while games remain.** Real clinch and
   elimination detection is arithmetic over every outcome, not a sample; if it is
   ever wanted, it is a separate function, not a rounding rule.
+
+## Gordon is let go, Dale Brennan takes the column, and the art can finally be seen
+
+The league read weeks 1–4 of 2026 and the verdict was that the short stories
+had stopped making sense. Making the genre the *plot* (v13) meant every number
+had to become an object inside the world — twenty points of men in a tithe barn,
+a duffel weighing thirty-two — and the reader had to translate each one back into
+football. Under the costume it was one piece four times: the world's rule, the
+high scorer, the bench as a locked room with the light on, the belt, Justin three
+wins short, a closing image of the room nobody opened.
+
+PROMPT_VERSION 16 replaces the persona rather than the dial. Dale Brennan is a
+bar-stool Bill Simmons — first person, mean, specific, grudging with praise — and
+his brief came from the league almost word for word. His first issue opens with a
+note from "Gazette management" announcing Gordon's departure; it fires
+automatically because no notebook entry starts `dale-` yet. Weeks 1–4 stay as
+Gordon wrote them, on purpose: the firing reads better with his columns still up.
+
+The pack gained **`rosters`**: each team's three best starters and its most
+expensive auction buy, with prices, attributed to the drafter. And
+`next.config.ts` traces `public/gazette/**` into `/`, because `issueArt()` could
+never see a committed image on Vercel.
+
+**Learned:**
+
+- **The prose followed the pack.** Before `rosters`, a week was described almost
+  entirely by margins and bench points — the belt is a bench award, every game
+  carried `loserBenchPoints`, and the only player-level material was one boom,
+  one bust and one benching. Four editions in a row turned on the bench because
+  the bench was most of what the model had. Prices turned out to be the best
+  material in the database: a $38 receiver scoring 3.2, a $1 player Daniel
+  bought beating Daniel from Mario's lineup.
+- **Any fiction wrapped around a number turns the number into a prop.** Two
+  intermediate drafts were tried. A cold open with players and points kept
+  literal still produced "he came out holding D'Andre Swift and 6.9"; a
+  genre-free Ringer/Atlantic column read cleanly but too politely for this
+  league. What works is the theme dressing up the *people* and never the
+  numbers, in two to four sentences, and then dropped.
+- **The perfect-lineup stat could see the future.** It counted every row in
+  `history.lineups` instead of `upTo(...)` the week being written, so a week-4
+  pack built after week 5 was imported counted week 5's unplayed rows — 0 started
+  of 0 possible — as ten more perfect lineups: "76 times in 1060" instead of "66
+  in 1050". Fixed with a test. It is the same rule-one leak the file header
+  warns about, in a generator nobody had re-read since it was written.
+- **`public/` is not in a Vercel server trace.** The Next docs say so in
+  passing; `existsSync` on it returns false in production and true locally, so
+  it can only be caught by reading `.next/server/app/page.js.nft.json` after a
+  build.
+- **The number check cannot catch a claim made in words.** A sample said Nate
+  "never won anything flashy" — he won 2024. The prompt now forbids claims about
+  anybody's past that no field states, because the gate only sees digits.
+
+**Watch out for:**
+
+- **The art still needs the ruleset bypass from the previous entry.** The trace
+  fix is necessary and not sufficient: the runner's image dies until
+  `github-actions[bot]` can push to `main`.
+- **`PRIORCOLUMNS` for Dale's first issue are Gordon's.** The prompt tells him to
+  use them for facts only. If week 5 comes back sounding like a tithe barn, that
+  is where it came from.
+- **`boughtBy` is set for a dropped-and-claimed player, not only a traded one.**
+  It means "somebody else paid that price", which is true either way; do not
+  describe it as a trade.
+- **Retiring the genre from the prose did not retire the calendar.**
+  `GENRE_CALENDARS`, `reservedGenres` and `priorLenses` still ship in the pack and
+  the 2025 archive was written under them. Dale uses the genre for the headline
+  and cold open only and ignores the other two.

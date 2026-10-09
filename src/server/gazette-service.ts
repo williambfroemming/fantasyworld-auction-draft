@@ -130,10 +130,11 @@ export async function getPriorIssues(
  */
 export async function getWeekFacts(season: number, week: number): Promise<GazetteFacts | null> {
   const sql = getSql()
-  const [history, playersToDate, rate] = await Promise.all([
+  const [history, playersToDate, rate, picks] = await Promise.all([
     getHistoryInput(),
     getPlayersToDate(season, week),
     sql`SELECT side_bet FROM seasons WHERE season = ${season}`,
+    getPreviewPicks(),
   ])
   const nameToId = new Map(history.members.map((m) => [m.displayName, m.managerId]))
   const priorIssues = await getPriorIssues(season, week, nameToId)
@@ -146,6 +147,11 @@ export async function getWeekFacts(season: number, week: number): Promise<Gazett
     priorIssues,
     // Null is unknown, never zero. Most seasons predate the side bet.
     sideBet: rate[0]?.side_bet === null || rate[0]?.side_bet === undefined ? null : Number(rate[0].side_bet),
+    // This season only. Prices are attributed to the drafter, never the current
+    // owner -- a trade moves the player, not the salary.
+    auction: picks
+      .filter((p) => p.season === season)
+      .map((p) => ({ sleeperId: p.sleeperId, player: p.player, price: p.price, drafterId: p.drafter })),
   }
   return weekInReview(input)
 }

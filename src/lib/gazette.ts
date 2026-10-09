@@ -131,6 +131,21 @@ export interface GazetteInput {
   sideBet: number | null
   /** Published issues of this season before this week, oldest first. */
   priorIssues: PriorIssue[]
+  /**
+   * This season's auction, one row per pick. Optional so a season the app never
+   * drafted (every year before 2026) simply has no prices, rather than zeroes.
+   */
+  auction?: AuctionPrice[]
+}
+
+/** What one player went for at this season's auction, and who paid it. */
+export interface AuctionPrice {
+  /** Stable across pool re-imports. Null when the matcher would not guess. */
+  sleeperId: string | null
+  player: string
+  price: number
+  /** Who actually BOUGHT him, after rewinding trades. See `draftersByPick`. */
+  drafterId: number
 }
 
 // ---------------------------------------------------------------------------
@@ -254,6 +269,36 @@ export interface RecordNote {
   claim: string
   detail: string
   nearMiss: boolean
+}
+
+/** One player's week, with what he cost in August when that is known. */
+export interface PlayerLine {
+  player: string
+  position: string | null
+  points: number
+  started: boolean
+  /** Auction price. Null means he was not bought at this season's auction. */
+  price: number | null
+  /** Set only when somebody OTHER than his current manager paid that price. */
+  boughtBy?: string
+}
+
+/**
+ * Who actually carried a team this week, and how its money did.
+ *
+ * Exists because the pack used to describe a week almost entirely through
+ * margins and bench points, and the column described it the same way: four
+ * editions in a row turned on what somebody left on the bench. The things a
+ * league member actually talks about -- who went off, who you paid forty dollars
+ * for and got nothing from -- were not in the pack at all.
+ */
+export interface RosterNote {
+  manager: string
+  points: number
+  /** The three best starters, best first. */
+  carriedBy: PlayerLine[]
+  /** His most expensive auction buy on the roster, whatever he did. */
+  biggestBuy: PlayerLine | null
 }
 
 /**
@@ -423,6 +468,11 @@ export interface GazetteFacts {
   recordBook: RecordNote[]
   rivalry: RivalryNote[]
   stats: StatCandidate[]
+  /**
+   * One row per team, in this week's scoring order. Optional because every issue
+   * stored before v16 lacks it, and the archive renders from stored packs.
+   */
+  rosters?: RosterNote[]
 
   /**
    * Genres the calendar has assigned to OTHER weeks of this season.
@@ -851,6 +901,9 @@ export function weekInReview(input: GazetteInput): GazetteFacts | null {
     .sort((a, b) => b.surprise - a.surprise)
     .slice(0, 10)
 
+  // --- Rosters: who carried whom, and what they cost ------------------------
+  const rosters = buildRosters(byPoints, playersToDate, input.auction ?? [], season, week, name)
+
   const notes: string[] = []
   if (teamsPlaying < history.members.length) {
     notes.push(
@@ -885,6 +938,7 @@ export function weekInReview(input: GazetteInput): GazetteFacts | null {
     recordBook,
     rivalry,
     stats,
+    rosters,
     priorThreads: priorIssues[priorIssues.length - 1]?.threads ?? [],
     priorColumns: recent.map((i) => i.columnText),
     priorHeadlines: priorIssues.slice(-4).map((i) => i.headline),
@@ -896,6 +950,57 @@ export function weekInReview(input: GazetteInput): GazetteFacts | null {
 // ---------------------------------------------------------------------------
 // Section builders
 // ---------------------------------------------------------------------------
+
+/**
+ * Each team's week through its players rather than its bench.
+ *
+ * Prices match on Sleeper id first and fall back to an exact name match, which
+ * is what `sleeper_id` being nullable on purpose costs us. A player with no
+ * match was a waiver pickup, and his price is null -- never zero, because "he
+ * cost nothing" and "we do not know" read the same in a column and are not.
+ */
+function buildRosters(
+  byPoints: HistoryMatchup[],
+  playersToDate: GazettePlayerWeek[],
+  auction: AuctionPrice[],
+  season: number,
+  week: number,
+  name: (id: number) => string,
+): RosterNote[] {
+  const bySleeper = new Map(auction.filter((a) => a.sleeperId).map((a) => [a.sleeperId!, a]))
+  const byName = new Map(auction.map((a) => [a.player.toLowerCase(), a]))
+  const pick = (p: GazettePlayerWeek) =>
+    bySleeper.get(p.playerId) ?? (p.player ? byName.get(p.player.toLowerCase()) : undefined)
+
+  const line = (p: GazettePlayerWeek): PlayerLine => {
+    const bought = pick(p)
+    return {
+      player: p.player ?? 'Unknown',
+      position: p.position,
+      points: r2(p.points),
+      started: p.isStarter,
+      price: bought?.price ?? null,
+      ...(bought && bought.drafterId !== p.managerId ? { boughtBy: name(bought.drafterId) } : {}),
+    }
+  }
+
+  return byPoints.map((m) => {
+    const mine = playersToDate.filter(
+      (p) => p.season === season && p.week === week && p.managerId === m.managerId,
+    )
+    const starters = mine.filter((p) => p.isStarter).sort((a, b) => b.points - a.points)
+    const priced = mine
+      .map((p) => ({ p, price: pick(p)?.price ?? null }))
+      .filter((x): x is { p: GazettePlayerWeek; price: number } => x.price !== null)
+      .sort((a, b) => b.price - a.price)
+    return {
+      manager: name(m.managerId),
+      points: r2(m.points),
+      carriedBy: starters.slice(0, 3).map(line),
+      biggestBuy: priced[0] ? line(priced[0].p) : null,
+    }
+  })
+}
 
 function placesAsOf(
   history: HistoryInput,
@@ -1318,8 +1423,13 @@ export const STAT_GENERATORS: Generator[] = [
     const lin = history.lineups.filter((l) => l.season === season && l.week === week)
     const perfect = lin.filter((l) => Math.abs(l.optimal - l.actual) < 0.01)
     if (!perfect.length) return []
-    const all = history.lineups.filter((l) => Math.abs(l.optimal - l.actual) < 0.01).length
-    const total = history.lineups.length
+    // ⚠️ As of THIS week. Counting every lineup on record leaked the future: a
+    // week-four pack built after week five was imported counted week five's
+    // unplayed rows -- nought started of nought possible -- as ten more perfect
+    // lineups, and the column printed "76 times in 1060" instead of "66 in 1050".
+    const asOf = upTo(history.lineups, season, week)
+    const all = asOf.filter((l) => Math.abs(l.optimal - l.actual) < 0.01).length
+    const total = asOf.length
     return perfect.map((l) => ({
       id: `perfect:${season}:${week}:${l.managerId}`,
       category: 'start-sit',

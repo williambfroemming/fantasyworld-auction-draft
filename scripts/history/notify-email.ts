@@ -15,7 +15,7 @@
  *
  * ## Why an email at all
  *
- * The paper publishes at noon on a Tuesday into a repository. Ten people then
+ * The paper publishes overnight on a Tuesday into a repository. Ten people then
  * have to independently remember to go and look at a website, which is the
  * failure mode every internal newsletter dies of. This is a nudge with a link,
  * deliberately short: the subject is the headline, the body is the standfirst
