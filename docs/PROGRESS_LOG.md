@@ -3794,6 +3794,66 @@ The lead now swaps for the duration of the season and swaps back on its own.
 
 ---
 
+## The paper now lands overnight, and the push that publishes it is blocked
+
+Two separate things, found together because forcing week 1 by hand is what
+surfaced the second.
+
+The weekly job moved from 16:00 UTC (noon Eastern) to **07:30 UTC — 12:30am
+Pacific**, so the issue is waiting when the league wakes up instead of arriving
+mid-afternoon. Week 1 of 2026 was published by running the pipeline locally:
+`history:refresh`, `gazette`, `gazette:art --latest`.
+
+And in trying to commit that snapshot: **`main` carries a ruleset requiring a
+pull request, so the workflow's own `git push` cannot land.** No scheduled run
+has ever committed anything to this repository.
+
+**Learned:**
+
+- **The timezone choice is correctness, not taste, because GitHub cron does not
+  observe DST.** Whatever slot we pick drifts an hour earlier in local time on
+  the first Sunday in November, with most of the season still to play. Eastern
+  midnight (04:30 UTC) becomes 11:30pm Monday *Eastern* — inside the Monday
+  night game. The pull would import a half-played week, and a week counts as
+  played the moment it has points, so the Gazette would publish an issue about
+  it. Pacific midnight (07:30 UTC) becomes 2:30am Eastern, still clear of the
+  football in both halves of the season. `nextIssueWeek` recovers a *missed*
+  week on the next run; nothing recovers a premature one.
+- **A protected `main` silently disables the entire weekly pipeline, and the
+  workflow cannot tell.** "Commit the snapshot" has no `continue-on-error`, so a
+  rejected push fails the job — after the issue is written to Postgres, and
+  *before* "Email the league". The site would still update, because pages read
+  the database; the artwork would not, because `issueArt()` reads
+  `public/gazette/` off disk and the runner's copy dies with it. So the visible
+  symptom is a pictureless issue nobody was told about, which reads like an art
+  bug rather than a permissions one.
+- **`--check` answers a different question before and after the import.** It
+  reported `owed nothing` on a Tuesday with a completed week 1, because
+  `nextIssueWeek` reads played weeks out of `season_matchups` and nothing had
+  imported them yet. The Gazette owes what the *database* has played, not what
+  the NFL has.
+- **Sleeper still reported `leg 1` on the Tuesday after week 1.** The refresh
+  does not care — it pulls every week file and the importer skips the unplayed
+  ones — but any future code that takes `leg` as "the week we are in now" will
+  be a week behind on exactly the morning this job runs.
+
+**Watch out for:**
+
+- **The ruleset needs a bypass for `github-actions[bot]`, or the job needs to
+  stop pushing to `main`.** Those are the only two fixes, and the second one is
+  worse: a pull request per week is a pull request nobody merges, and the
+  snapshot is the artifact that makes every import reproducible.
+- **This branch is where week 1's data lives.** The issue and its `facts` are
+  already in Neon and readable on the site; `data/history/gazette/2026.json` and
+  `public/gazette/2026-1.png` are not on `main` until it merges. The committed
+  archive drives the grounding audit, so a long-lived gap there means
+  `npm run gazette -- --audit` and the vitest test are judging an archive that
+  is missing the newest issue.
+- **Running the pipeline locally does not email anybody.** `GMAIL_USER` and
+  `GMAIL_APP_PASSWORD` live only in Actions secrets, which is correct — but it
+  means a hand-forced issue is published silently unless
+  `npm run gazette:notify` is run deliberately.
+
 ## The median column counts both games, and the front page gets playoff odds
 
 Two changes to the season-in-progress lead on `/`.

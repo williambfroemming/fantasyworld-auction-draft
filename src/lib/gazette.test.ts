@@ -408,6 +408,70 @@ describe('milestones', () => {
   })
 })
 
+describe('rosters', () => {
+  // Week 2 of the fixture: manager 2 tops it with 130, so M2's row comes first.
+  const players: GazettePlayerWeek[] = [
+    player({ week: 2, managerId: 2, playerId: 's-star', player: 'Star', points: 40 }),
+    player({ week: 2, managerId: 2, playerId: 'x', player: 'Waiver Guy', points: 30 }),
+    player({ week: 2, managerId: 2, playerId: 'renamed-id', player: 'Old Pool Id', points: 20 }),
+    player({ week: 2, managerId: 2, playerId: 'traded', player: 'Traded', points: 5, isStarter: false }),
+    // Last week's line must not leak into this week's carriers.
+    player({ week: 1, managerId: 2, playerId: 's-star', player: 'Star', points: 99 }),
+  ]
+  const auction = [
+    { sleeperId: 's-star', player: 'Star', price: 30, drafterId: 2 },
+    // No Sleeper id: the matcher refused to guess, so the name has to carry it.
+    { sleeperId: null, player: 'Old Pool Id', price: 4, drafterId: 2 },
+    // Bought by M1, now on M2's roster. The price is M1's money.
+    { sleeperId: 'traded', player: 'Traded', price: 45, drafterId: 1 },
+  ]
+  const facts = weekInReview(input({ week: 2, playersToDate: players, auction }))!
+  const m2 = facts.rosters!.find((r) => r.manager === 'M2')!
+
+  it('names the three best starters of THIS week, best first', () => {
+    expect(facts.rosters![0].manager).toBe('M2')
+    expect(m2.carriedBy.map((p) => [p.player, p.points])).toEqual([
+      ['Star', 40],
+      ['Waiver Guy', 30],
+      ['Old Pool Id', 20],
+    ])
+  })
+
+  it('prices by Sleeper id, falls back to name, and leaves a waiver pickup NULL rather than free', () => {
+    expect(m2.carriedBy.map((p) => p.price)).toEqual([30, null, 4])
+  })
+
+  it('charges a traded player to the man who bought him', () => {
+    expect(m2.biggestBuy).toMatchObject({ player: 'Traded', price: 45, started: false, boughtBy: 'M1' })
+    expect(m2.carriedBy[0].boughtBy).toBeUndefined()
+  })
+
+  it('is present but empty-handed for a season with no auction on record', () => {
+    const none = weekInReview(input({ week: 2, playersToDate: players }))!
+    expect(none.rosters!.find((r) => r.manager === 'M2')!.biggestBuy).toBeNull()
+  })
+})
+
+describe('perfect lineup', () => {
+  it('counts only lineups up to this week, never a later week already imported', () => {
+    // Week 3 of the fixture has manager 1 perfect (777/777). Week 4 is imported
+    // but not played: every row is 0 of 0, which reads as "perfect" if counted.
+    // Weeks 1-3: twelve lineups and exactly one perfect (manager 1, week 3). Week
+    // 4's four 0/0 rows would make it five in sixteen.
+    const h = history({
+      lineups: [
+        ...lineups(2025, 1, [[100, 101], [90, 95], [80, 81], [70, 120]]),
+        ...lineups(2025, 2, [[60, 61], [130, 131], [80, 82], [70, 71]]),
+        ...lineups(2025, 3, [[777, 777], [40, 140], [80, 81], [70, 72]]),
+        ...lineups(2025, 4, [[0, 0], [0, 0], [0, 0], [0, 0]]),
+      ],
+    })
+    const facts = weekInReview(input({ week: 3, history: h }))!
+    const perfect = facts.stats.find((s) => s.id === 'perfect:2025:3:1')
+    expect(perfect?.detail).toContain('1 times in 12 manager-weeks')
+  })
+})
+
 describe('stat of the week', () => {
   it('judges a boom against form BEFORE this week, never the final season average', () => {
     // player_seasons.avg_points is the FINAL average, so judging a week-2

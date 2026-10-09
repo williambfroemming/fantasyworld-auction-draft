@@ -11,8 +11,9 @@ name: Weekly refresh and Gazette
 # moving.
 #
 # That is a deliberate trade. A recap is worth reading while the week is still
-# worth talking about, and Tuesday noon Eastern also lands it before Wednesday
-# waivers, when it is actually useful.
+# worth talking about, and a Tuesday run also lands it before Wednesday waivers,
+# when it is actually useful. It fires in the small hours so the issue is waiting
+# when the league wakes up rather than arriving mid-afternoon.
 #
 # The mitigation is that **every Gazette issue snapshots the exact fact pack it
 # was written from**, and the page renders its tables from that snapshot rather
@@ -78,9 +79,28 @@ name: Weekly refresh and Gazette
 
 on:
   schedule:
-    # 16:00 UTC Tuesday — noon Eastern through the season, 11am once the clocks
-    # go back in November. The NFL season runs almost entirely in EDT.
-    - cron: '0 16 * * 2'
+    # 07:30 UTC Tuesday — 12:30am Pacific, 3:30am Eastern, so the issue is
+    # already there when people wake up.
+    #
+    # ⚠️ **Pacific midnight, not Eastern midnight, and the difference is
+    # correctness rather than taste.** GitHub cron is fixed UTC and does not
+    # observe DST, so whatever we pick drifts an hour earlier in local time on
+    # the first Sunday in November — with most of the season still to play.
+    # This slot becomes 11:30pm Monday Pacific, which is 2:30am Tuesday Eastern
+    # and still comfortably after the football. The Eastern-midnight slot
+    # (04:30 UTC) would become 11:30pm Monday EASTERN, which is inside the
+    # Monday night game: the pull would import a half-played week, and because
+    # a week counts as played the moment it has points, the Gazette would then
+    # publish an issue about it. `nextIssueWeek` recovers a *missed* week on the
+    # next run; it cannot un-publish a premature one.
+    #
+    # The cost of the early slot is that it pulls further ahead of Tuesday's
+    # stat corrections than the old noon run did. That is the trade the header
+    # note above describes, and the fact-pack snapshot is what makes it safe:
+    # an issue renders from what was known at press time, so a Tuesday
+    # afternoon correction becomes next week's joke rather than this week's
+    # contradiction. The history pages self-heal on the following import.
+    - cron: '30 7 * * 2'
   # So it can be run by hand mid-week, and to test it without waiting.
   workflow_dispatch:
     inputs:
@@ -264,8 +284,8 @@ jobs:
 
       # Tell ten people the paper exists.
       #
-      # The whole pipeline publishes at noon into a git repository, which nobody
-      # is watching. Without this the newsletter depends on ten men
+      # The whole pipeline publishes overnight into a git repository, which
+      # nobody is watching. Without this the newsletter depends on ten men
       # independently remembering to open a website on a Tuesday, which is the
       # failure every internal publication actually dies of.
       #
