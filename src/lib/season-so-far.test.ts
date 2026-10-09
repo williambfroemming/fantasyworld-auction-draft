@@ -122,6 +122,24 @@ describe('seasonSoFar', () => {
     expect([m4.medianWins, m4.medianLosses]).toEqual([0, 2])
   })
 
+  it('adds the median game to the real one, two results a week', () => {
+    // The column the table draws. M2 lost both real games and cleared the
+    // median both weeks, so 1-1 twice; M1 swept both, M3 lost both.
+    const r = seasonSoFar(input())!
+    const rec = (id: number) => {
+      const x = r.rows.find((row) => row.managerId === id)!
+      return [x.combinedWins, x.combinedLosses]
+    }
+    expect(rec(1)).toEqual([4, 0])
+    expect(rec(2)).toEqual([2, 2])
+    expect(rec(3)).toEqual([0, 4])
+    expect(rec(4)).toEqual([2, 2])
+    // Every manager has exactly two results per week played.
+    for (const x of r.rows) {
+      expect(x.combinedWins + x.combinedLosses + x.combinedTies).toBe(2 * r.weeksPlayed)
+    }
+  })
+
   it('separates how well a team played from what its record says', () => {
     // M2 is 0-2 and the second-best team in the league; M4 is 2-0 and the
     // third-worst. The records are exactly backwards from the performances,

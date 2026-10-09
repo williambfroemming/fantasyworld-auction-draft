@@ -21,6 +21,7 @@ import {
 import { listIssues } from '@/server/gazette-service'
 import { getSeasonSoFar } from '@/server/history-service'
 import { SeasonSoFarPanel } from '@/components/season/SeasonSoFarPanel'
+import { PlayoffOddsPanel } from '@/components/season/PlayoffOddsPanel'
 import { currentManagerId } from '@/server/session'
 
 /**
@@ -191,6 +192,17 @@ export default async function FrontPage({
               members={soFar.members}
               lead
             />
+            {/*
+              Directly under the table rather than further down the page: the
+              table says how each team has played, and this is the same rows
+              read forward. Absent, not empty, when the schedule is not on
+              record -- see `getSchedule`.
+            */}
+            {soFar.odds && (
+              <div className="mt-12">
+                <PlayoffOddsPanel odds={soFar.odds} report={soFar.report} members={soFar.members} />
+              </div>
+            )}
           </div>
         </section>
       ) : (

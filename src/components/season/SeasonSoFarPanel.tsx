@@ -110,7 +110,7 @@ export function SeasonSoFarPanel({
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">
             The {report.season} season through week {report.throughWeek}: record, all-play
-            record, record against the weekly league median, luck, strength of schedule and
+            record, record with a weekly game against the league median, luck, strength of schedule and
             lineup efficiency, one row per manager.
           </caption>
           <thead>
@@ -120,7 +120,7 @@ export function SeasonSoFarPanel({
               <th scope="col" className="px-2 py-2 text-right font-display">PF</th>
               <th scope="col" className="border-l border-rule px-2 py-2 text-right font-display">All-play</th>
               <th scope="col" className="px-2 py-2 text-right font-display">Pct</th>
-              <th scope="col" className="px-2 py-2 text-right font-display">vs Median</th>
+              <th scope="col" className="px-2 py-2 text-right font-display">w/ Median</th>
               <th scope="col" className="border-l border-rule px-2 py-2 text-right font-display">Luck</th>
               <th scope="col" className="px-2 py-2 text-right font-display">Opp PPG</th>
               <th scope="col" className="border-l border-rule px-2 py-2 text-right font-display">Eff</th>
@@ -159,7 +159,8 @@ export function SeasonSoFarPanel({
                     {pct(r.allPlayPct)}
                   </td>
                   <td className="px-2 py-1.5 text-right font-mono text-xs tabular-nums">
-                    {r.medianWins}-{r.medianLosses}
+                    {r.combinedWins}-{r.combinedLosses}
+                    {r.combinedTies ? `-${r.combinedTies}` : ''}
                   </td>
                   {/*
                     The only coloured column, deliberately. Luck is the one
@@ -211,6 +212,8 @@ export function SeasonSoFarPanel({
       <p className="mt-3 border-t border-rule pt-3 text-xs text-slate-400">
         <strong className="text-slate-300">All-play</strong> is your record against every
         manager every week — the season without a schedule.{' '}
+        <strong className="text-slate-300">w/ Median</strong> adds a second game each week
+        against the league&rsquo;s median score, so every week is 2-0, 1-1 or 0-2.{' '}
         <strong className="text-slate-300">Luck</strong> is wins minus what that all-play rate
         expected, so a positive number is a kind schedule rather than a good team.{' '}
         <strong className="text-slate-300">Eff</strong> is points started over points startable.{' '}
