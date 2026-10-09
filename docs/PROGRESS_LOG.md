@@ -3904,69 +3904,27 @@ teams that finished top four its four favourites, in ~40ms.
   elimination detection is arithmetic over every outcome, not a sample; if it is
   ever wanted, it is a separate function, not a rounding rule.
 
-## Gordon is let go, Dale Brennan takes the column, and the art can finally be seen
+---
 
-The league read weeks 1–4 of 2026 and the verdict was that the short stories
-had stopped making sense. Making the genre the *plot* (v13) meant every number
-had to become an object inside the world — twenty points of men in a tithe barn,
-a duffel weighing thirty-two — and the reader had to translate each one back into
-football. Under the costume it was one piece four times: the world's rule, the
-high scorer, the bench as a locked room with the light on, the belt, Justin three
-wins short, a closing image of the room nobody opened.
+## A Thursday refresh imported half of week 5
 
-PROMPT_VERSION 16 replaces the persona rather than the dial. Dale Brennan is a
-bar-stool Bill Simmons — first person, mean, specific, grudging with praise — and
-his brief came from the league almost word for word. His first issue opens with a
-note from "Gazette management" announcing Gordon's departure; it fires
-automatically because no notebook entry starts `dale-` yet. Weeks 1–4 stay as
-Gordon wrote them, on purpose: the firing reads better with his columns still up.
-
-The pack gained **`rosters`**: each team's three best starters and its most
-expensive auction buy, with prices, attributed to the drafter. And
-`next.config.ts` traces `public/gazette/**` into `/`, because `issueArt()` could
-never see a committed image on Vercel.
+A manual `history:refresh` on Thursday night imported week 5 with five teams on
+points from the Thursday game and five on zero, and the front page counted it as
+a full week: every record, the median column and the playoff odds. The importer
+now also requires `week <= league.settings.last_scored_leg` (`isScoredWeek`).
 
 **Learned:**
 
-- **The prose followed the pack.** Before `rosters`, a week was described almost
-  entirely by margins and bench points — the belt is a bench award, every game
-  carried `loserBenchPoints`, and the only player-level material was one boom,
-  one bust and one benching. Four editions in a row turned on the bench because
-  the bench was most of what the model had. Prices turned out to be the best
-  material in the database: a $38 receiver scoring 3.2, a $1 player Daniel
-  bought beating Daniel from Mario's lineup.
-- **Any fiction wrapped around a number turns the number into a prop.** Two
-  intermediate drafts were tried. A cold open with players and points kept
-  literal still produced "he came out holding D'Andre Swift and 6.9"; a
-  genre-free Ringer/Atlantic column read cleanly but too politely for this
-  league. What works is the theme dressing up the *people* and never the
-  numbers, in two to four sentences, and then dropped.
-- **The perfect-lineup stat could see the future.** It counted every row in
-  `history.lineups` instead of `upTo(...)` the week being written, so a week-4
-  pack built after week 5 was imported counted week 5's unplayed rows — 0 started
-  of 0 possible — as ten more perfect lineups: "76 times in 1060" instead of "66
-  in 1050". Fixed with a test. It is the same rule-one leak the file header
-  warns about, in a generator nobody had re-read since it was written.
-- **`public/` is not in a Vercel server trace.** The Next docs say so in
-  passing; `existsSync` on it returns false in production and true locally, so
-  it can only be caught by reading `.next/server/app/page.js.nft.json` after a
-  build.
-- **The number check cannot catch a claim made in words.** A sample said Nate
-  "never won anything flashy" — he won 2024. The prompt now forbids claims about
-  anybody's past that no field states, because the gate only sees digits.
+- **`hasBeenPlayed` answers "has this week started", not "is it over".** It was
+  only ever safe because the weekly job runs after Monday night.
+- **`last_scored_leg` is already on the finished week by Tuesday.** The 2026-09-15
+  snapshot has `leg 1, last_scored_leg 1`, so the Tuesday job and the Gazette
+  lose nothing. Every finished season has it covering the whole bracket (16 for
+  2020, 17 since).
+- **The Gazette's `weekIsComplete` would not have caught it.** Every manager has
+  a lineup row on a Thursday, so "a lineup per manager and no unpaired game"
+  passes for a half-played week.
 
 **Watch out for:**
 
-- **The art still needs the ruleset bypass from the previous entry.** The trace
-  fix is necessary and not sufficient: the runner's image dies until
-  `github-actions[bot]` can push to `main`.
-- **`PRIORCOLUMNS` for Dale's first issue are Gordon's.** The prompt tells him to
-  use them for facts only. If week 5 comes back sounding like a tithe barn, that
-  is where it came from.
-- **`boughtBy` is set for a dropped-and-claimed player, not only a traded one.**
-  It means "somebody else paid that price", which is true either way; do not
-  describe it as a trade.
-- **Retiring the genre from the prose did not retire the calendar.**
-  `GENRE_CALENDARS`, `reservedGenres` and `priorLenses` still ship in the pack and
-  the 2025 archive was written under them. Dale uses the genre for the headline
-  and cold open only and ignores the other two.
+- The schedule is still written for every week. Only results wait for scoring.

@@ -70,10 +70,12 @@ async function main() {
   const league = (await res.json()) as {
     name: string
     status?: string
-    settings: { leg?: number; playoff_week_start?: number }
+    settings: { leg?: number; last_scored_leg?: number; playoff_week_start?: number }
   }
 
   const week = league.settings.leg ?? 0
+  // What the import will actually contain -- `leg` is the week in progress.
+  const scored = league.settings.last_scored_leg ?? week
   console.log(
     `\n${season} · ${league.name} · status ${league.status ?? 'unknown'} · week ${week}\n`,
   )
@@ -107,7 +109,7 @@ async function main() {
   ])
 
   console.log(
-    `\n✓ ${season} refreshed through week ${week}.` +
+    `\n✓ ${season} refreshed through week ${scored} (Sleeper is on week ${week}).` +
       (league.status === 'complete'
         ? ' Season complete — marked final.\n'
         : ' Season still in progress.\n'),
