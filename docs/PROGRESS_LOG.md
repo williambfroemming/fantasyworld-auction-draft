@@ -3843,3 +3843,28 @@ teams that finished top four its four favourites, in ~40ms.
 - **`formatOdds` caps at >99% / <1% while games remain.** Real clinch and
   elimination detection is arithmetic over every outcome, not a sample; if it is
   ever wanted, it is a separate function, not a rounding rule.
+
+---
+
+## A Thursday refresh imported half of week 5
+
+A manual `history:refresh` on Thursday night imported week 5 with five teams on
+points from the Thursday game and five on zero, and the front page counted it as
+a full week: every record, the median column and the playoff odds. The importer
+now also requires `week <= league.settings.last_scored_leg` (`isScoredWeek`).
+
+**Learned:**
+
+- **`hasBeenPlayed` answers "has this week started", not "is it over".** It was
+  only ever safe because the weekly job runs after Monday night.
+- **`last_scored_leg` is already on the finished week by Tuesday.** The 2026-09-15
+  snapshot has `leg 1, last_scored_leg 1`, so the Tuesday job and the Gazette
+  lose nothing. Every finished season has it covering the whole bracket (16 for
+  2020, 17 since).
+- **The Gazette's `weekIsComplete` would not have caught it.** Every manager has
+  a lineup row on a Thursday, so "a lineup per manager and no unpaired game"
+  passes for a half-played week.
+
+**Watch out for:**
+
+- The schedule is still written for every week. Only results wait for scoring.

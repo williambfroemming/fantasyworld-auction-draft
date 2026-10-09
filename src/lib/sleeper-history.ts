@@ -20,7 +20,12 @@ export interface RawLeague {
   total_rosters: number
   roster_positions: string[]
   status?: string
-  settings: { playoff_week_start?: number; playoff_teams?: number }
+  settings: {
+    playoff_week_start?: number
+    playoff_teams?: number
+    /** The last week Sleeper has finished scoring. See `isScoredWeek`. */
+    last_scored_leg?: number
+  }
 }
 
 export interface RawRoster {
@@ -194,6 +199,28 @@ export interface MatchupSide {
  */
 export function hasBeenPlayed(entries: RawMatchup[]): boolean {
   return entries.some((e) => e.points > 0)
+}
+
+/**
+ * A week the importer may treat as a result: somebody has scored, AND Sleeper
+ * has finished scoring it.
+ *
+ * ⚠️ `hasBeenPlayed` alone is not enough. A refresh on a Thursday night imported
+ * week 5 with half the league on 0 and the rest on a Thursday-night game's
+ * worth of points, and every record, median and playoff odd on the front page
+ * counted it as a full week. `last_scored_leg` is Sleeper's own word for the
+ * last finished week; checked against the Tuesday snapshots, it has already
+ * moved on to the week just played by the time the weekly job runs, so the
+ * Gazette loses nothing. Absent on very old payloads, where `hasBeenPlayed`
+ * is the only test available.
+ */
+export function isScoredWeek(
+  week: number,
+  entries: RawMatchup[],
+  lastScoredLeg: number | null | undefined,
+): boolean {
+  if (!entries.length || !hasBeenPlayed(entries)) return false
+  return lastScoredLeg == null || week <= lastScoredLeg
 }
 
 /**
