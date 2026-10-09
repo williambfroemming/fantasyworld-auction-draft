@@ -125,6 +125,12 @@ interface Loaded {
   rosters: RawRoster[]
   bracket: RawBracketGame[]
   weeks: Map<number, RawMatchup[]>
+  /**
+   * Every regular-season week Sleeper has published, played or not — the
+   * pairings only. See `season_schedule`: an unplayed week is a schedule, never
+   * a result, so it lives here and not in `weeks`.
+   */
+  schedule: Map<number, RawMatchup[]>
   slots: string[]
   playoffStart: number
   /** roster_id -> managers.id */
@@ -147,17 +153,19 @@ function load(season: number): Loaded {
   }
 
   const weeks = new Map<number, RawMatchup[]>()
+  const schedule = new Map<number, RawMatchup[]>()
   for (let w = 1; w <= playoffStart + 2; w++) {
     const file = join(dir, `matchups-${String(w).padStart(2, '0')}.json`)
     if (!existsSync(file)) continue
     const entries = read<RawMatchup[]>(file)
+    if (entries.length && w < playoffStart) schedule.set(w, entries)
     // Skip weeks Sleeper has scheduled but nobody has played yet. See
     // `hasBeenPlayed` — importing them writes a season of 0-0 ties that become
     // the lowest score on record.
     if (entries.length && hasBeenPlayed(entries)) weeks.set(w, entries)
   }
 
-  return { season, league, rosters, bracket, weeks, slots, playoffStart, owner }
+  return { season, league, rosters, bracket, weeks, schedule, slots, playoffStart, owner }
 }
 
 // ---------------------------------------------------------------------------
@@ -194,7 +202,7 @@ function workbookStandings(): Map<string, { wins: number; losses: number; pf: nu
 // ---------------------------------------------------------------------------
 
 async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStandings>) {
-  const { season, league, rosters, bracket, weeks, slots, playoffStart, owner } = data
+  const { season, league, rosters, bracket, weeks, schedule, slots, playoffStart, owner } = data
   const mgr = (rosterId: number) => owner.get(rosterId)!
 
   // --- seasons -------------------------------------------------------------
@@ -261,6 +269,16 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
         isPlayoffWeek, isPlayoffWeek ? playoffRound(week, playoffStart) : null, side.result,
         isPlayoffWeek ? (placementOf.get(`${week}:${side.rosterId}`) ?? null) : null,
       ])
+    }
+  }
+
+  // --- schedule ------------------------------------------------------------
+  // Pairings only, for every regular-season week Sleeper has published. The
+  // points on an unplayed week are zeros and are never read from here.
+  const scheduleRows: unknown[][] = []
+  for (const [week, entries] of [...schedule].sort((a, b) => a[0] - b[0])) {
+    for (const side of pairWeek(week, entries)) {
+      scheduleRows.push([season, week, mgr(side.rosterId), mgr(side.opponentRosterId)])
     }
   }
 
@@ -337,7 +355,7 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
 
   if (dryRun) {
     console.log(
-      `  ${season}  standings ${standingRows.length} · matchups ${matchupRows.length} · ` +
+      `  ${season}  schedule ${scheduleRows.length} · standings ${standingRows.length} · matchups ${matchupRows.length} · ` +
         `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length}`,
     )
   } else {
@@ -361,8 +379,20 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
     await insertBatch('player_seasons',
       ['season','player_id','player_name','position','nfl_team','weeks_played','total_points','avg_points'],
       playerSeasonRows, upsert(['season','player_id'], ['player_name','position','nfl_team','weeks_played','total_points','avg_points']))
+    // Guarded rather than assumed: the weekly job must not fail on a database
+    // that has not had `db:migrate-schedule` yet. Without the table the front
+    // page shows no odds, which is the honest state for a missing schedule.
+    const [{ exists }] = await sql`SELECT to_regclass('season_schedule') IS NOT NULL AS exists`
+    if (exists) {
+      await sql.query('DELETE FROM season_schedule WHERE season = $1', [season])
+      await insertBatch('season_schedule',
+        ['season','week','manager_id','opponent_manager_id'],
+        scheduleRows, upsert(['season','week','manager_id'], ['opponent_manager_id']))
+    } else {
+      console.warn(`  ${season}  ⚠ season_schedule missing — run npm run db:migrate-schedule. Schedule skipped.`)
+    }
     console.log(
-      `  ${season}  ✓ standings ${standingRows.length} · matchups ${matchupRows.length} · ` +
+      `  ${season}  ✓ schedule ${scheduleRows.length} · standings ${standingRows.length} · matchups ${matchupRows.length} · ` +
         `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length}`,
     )
   }

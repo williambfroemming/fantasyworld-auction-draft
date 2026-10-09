@@ -3854,6 +3854,56 @@ has ever committed anything to this repository.
   means a hand-forced issue is published silently unless
   `npm run gazette:notify` is run deliberately.
 
+## The median column counts both games, and the front page gets playoff odds
+
+Two changes to the season-in-progress lead on `/`.
+
+**"vs Median" became "w/ Median".** It showed the record against the weekly
+league median *alone*, which read as wrong: the league thinks of the median as a
+second game played alongside the real one, so every week is 2-0, 1-1 or 0-2. The
+row now carries `combinedWins/Losses/Ties` (real result + median result) and the
+table draws that. `medianWins` is kept on the row; nothing draws it on its own.
+
+**Playoff odds** (`src/lib/playoff-odds.ts`, `PlayoffOddsPanel`) sit directly
+under the table: the rest of the regular season simulated 10,000 times against
+the real remaining schedule, seeded by wins then points for, top six in and top
+two on a bye. Each team scores from a normal around a rating that is its average
+so far shrunk toward the league mean by three phantom weeks, with the rating
+itself redrawn per simulation. Against 2025 frozen at week six it made the four
+teams that finished top four its four favourites, in ~40ms.
+
+**Learned:**
+
+- **The remaining schedule was never stored.** Sleeper publishes all fourteen
+  weeks on day one, and the importer correctly drops unplayed weeks from
+  `season_matchups` (`hasBeenPlayed`) — so "strength of the remaining schedule"
+  had no source at all. It now goes into a separate `season_schedule` table of
+  pairings with no points, written by the same import. A finished season
+  imported before the table existed falls back to the pairings of its own played
+  games, which is exactly its schedule, so `?preview=2025&through=6` works.
+- **Shrinkage and rating uncertainty are both needed.** Either alone still
+  printed 99%/1% at week two in testing. A three-week average is not a known
+  quantity, and treating it as one is the standard way a Monte Carlo becomes
+  overconfident.
+- **The median game does not seed.** `league_average_match` is 0 in Sleeper,
+  so the odds use the head-to-head record and the footnote says so.
+- **Deterministic seeding** (season × 100 + week) so a reload does not move a
+  41% to a 43%.
+
+**Watch out for:**
+
+- **Production needs `npm run db:migrate-schedule`, then a refresh.** Until then
+  `getSchedule` swallows the missing-table error (42P01) and the panel simply
+  does not render, and the importer warns and skips rather than failing
+  Tuesday's job. Both guards are deliberate; neither is a substitute for running
+  the migration.
+- **`completeWeeks()` is shared** between the table and the odds so the record
+  in the odds panel cannot disagree with the record above it. Do not give the
+  odds their own week filter.
+- **`formatOdds` caps at >99% / <1% while games remain.** Real clinch and
+  elimination detection is arithmetic over every outcome, not a sample; if it is
+  ever wanted, it is a separate function, not a rounding rule.
+
 ## Gordon is let go, Dale Brennan takes the column, and the art can finally be seen
 
 The league read weeks 1–4 of 2026 and the verdict was that the short stories

@@ -37,7 +37,8 @@ import {
   type HistoryPick,
   type LeagueSummaryReport,
 } from '@/lib/history'
-import { seasonSoFar } from '@/lib/season-so-far'
+import { completeWeeks, seasonSoFar } from '@/lib/season-so-far'
+import { playoffOdds, type ScheduledGame } from '@/lib/playoff-odds'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import type { StatsTrade } from '@/lib/stats'
@@ -1250,7 +1251,10 @@ export async function getSeasonSoFar(opts: { season?: number; throughWeek?: numb
   // `side_bet` is not on HistorySeason -- it is read straight from the row, the
   // same way the Gazette's Ledger reads it. Null is unknown, never "no bet".
   const sql = getSql()
-  const [rate] = await sql`SELECT side_bet FROM seasons WHERE season = ${season}`
+  const [[rate], schedule] = await Promise.all([
+    sql`SELECT side_bet, playoff_teams, regular_season_weeks FROM seasons WHERE season = ${season}`,
+    getSchedule(season),
+  ])
   const sideBet =
     rate?.side_bet === null || rate?.side_bet === undefined ? null : Number(rate.side_bet)
 
@@ -1259,9 +1263,56 @@ export async function getSeasonSoFar(opts: { season?: number; throughWeek?: numb
       ? input.matchups
       : input.matchups.filter((m) => m.season !== season || m.week <= opts.throughWeek!)
 
-  return {
-    report: seasonSoFar({ season, matchups, lineups: input.lineups, seasons: input.seasons, sideBet }),
-    members: input.members,
-    season,
+  const report = seasonSoFar({ season, matchups, lineups: input.lineups, seasons: input.seasons, sideBet })
+
+  // The stored schedule, or -- for a season imported before the schedule was
+  // stored -- the pairings of its own played games, which for a finished season
+  // standing in as a preview are exactly the schedule it had.
+  const pairings: ScheduledGame[] = schedule.length
+    ? schedule
+    : input.matchups
+        .filter((m) => m.season === season && !m.isPlayoff)
+        .map((m) => ({ week: m.week, managerId: m.managerId, opponentManagerId: m.opponentManagerId }))
+
+  // Null whenever the inputs are not on record, and the panel then draws
+  // nothing: no playoff size, no schedule, or no complete week to rate from.
+  const playoffTeams = numOrNull(rate?.playoff_teams)
+  const regularSeasonWeeks = numOrNull(rate?.regular_season_weeks)
+  const odds =
+    report && playoffTeams && regularSeasonWeeks
+      ? playoffOdds({
+          season,
+          played: completeWeeks(matchups, season).complete.flatMap(([, rows]) => rows),
+          schedule: pairings,
+          regularSeasonWeeks,
+          playoffTeams,
+        })
+      : null
+
+  return { report, odds, members: input.members, season }
+}
+
+/**
+ * One season's regular-season pairings, played or not.
+ *
+ * ⚠️ Tolerates the table not existing. The front page is the one page every
+ * manager opens, and a deploy that reaches production before
+ * `db:migrate-schedule` has run must cost the odds, not the page.
+ */
+async function getSchedule(season: number): Promise<ScheduledGame[]> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT week, manager_id, opponent_manager_id
+        FROM season_schedule
+       WHERE season = ${season}`
+    return rows.map((r) => ({
+      week: num(r.week),
+      managerId: num(r.manager_id),
+      opponentManagerId: num(r.opponent_manager_id),
+    }))
+  } catch (err) {
+    if ((err as { code?: string }).code === '42P01') return []
+    throw err
   }
 }
