@@ -69,6 +69,17 @@ export interface SeasonSoFarRow {
   medianWins: number
   medianLosses: number
   medianTies: number
+  /**
+   * The record with a median game added: two results a week, the real game and
+   * one against the league median, so every week is 2-0, 1-1 or 0-2.
+   *
+   * ⚠️ This is the column the table draws, not `medianWins` alone. The median
+   * by itself was shown first and read as wrong — the league counts it as a
+   * second game alongside the head-to-head, not as a replacement for it.
+   */
+  combinedWins: number
+  combinedLosses: number
+  combinedTies: number
 
   // --- what the gap between those two means --------------------------------
   /**
@@ -126,6 +137,34 @@ export function median(values: number[]): number {
 const round = (n: number, dp = 2) => Number(n.toFixed(dp))
 
 /**
+ * One season's regular-season weeks in which the whole field played, in week
+ * order, plus how many were dropped for being partial.
+ *
+ * Exported so the playoff odds count exactly the games this table counts — a
+ * projection built on a different set of weeks than the record drawn beside it
+ * would disagree with that record in the first column.
+ */
+export function completeWeeks(matchups: HistoryMatchup[], season: number) {
+  const regular = matchups.filter((m) => m.season === season && !m.isPlayoff)
+  // The field is the set of managers who have played at all this season, which
+  // is how `allPlay` defines it too. Taking it from `managers` instead would
+  // break every week for a league that has not filled its seats yet.
+  const field = new Set(regular.map((m) => m.managerId)).size
+
+  const byWeek = new Map<number, HistoryMatchup[]>()
+  for (const m of regular) {
+    const list = byWeek.get(m.week) ?? []
+    list.push(m)
+    byWeek.set(m.week, list)
+  }
+
+  const complete = [...byWeek.entries()]
+    .filter(([, rows]) => rows.length === field)
+    .sort((a, b) => a[0] - b[0])
+  return { regular, complete, incomplete: byWeek.size - complete.length }
+}
+
+/**
  * Everything above, for one season, from the games actually played.
  *
  * Returns null when no regular-season week is complete — which is the state for
@@ -147,28 +186,10 @@ export function seasonSoFar(input: {
   sideBet: number | null
 }): SeasonSoFar | null {
   const { season, seasons, sideBet } = input
-  const mine = input.matchups.filter((m) => m.season === season)
-  const regular = mine.filter((m) => !m.isPlayoff)
+  const { regular, complete, incomplete: incompleteWeeks } = completeWeeks(input.matchups, season)
   if (regular.length === 0) return null
-
-  // The field is the set of managers who have played at all this season, which
-  // is how `allPlay` defines it too. Taking it from `managers` instead would
-  // break every week for a league that has not filled its seats yet.
-  const field = new Set(regular.map((m) => m.managerId)).size
-
-  const byWeek = new Map<number, HistoryMatchup[]>()
-  for (const m of regular) {
-    const list = byWeek.get(m.week) ?? []
-    list.push(m)
-    byWeek.set(m.week, list)
-  }
-
-  const complete = [...byWeek.entries()]
-    .filter(([, rows]) => rows.length === field)
-    .sort((a, b) => a[0] - b[0])
   if (complete.length === 0) return null
 
-  const incompleteWeeks = byWeek.size - complete.length
   const throughWeek = complete[complete.length - 1][0]
 
   // --- the record, and the schedule that produced it -------------------------
@@ -247,6 +268,9 @@ export function seasonSoFar(input: {
       medianWins: t.medianWins,
       medianLosses: t.medianLosses,
       medianTies: t.medianTies,
+      combinedWins: t.wins + t.medianWins,
+      combinedLosses: t.losses + t.medianLosses,
+      combinedTies: t.ties + t.medianTies,
       expectedWins: round(expectedWins),
       luck: round(t.wins - expectedWins),
       strengthOfSchedule: t.opponents.length

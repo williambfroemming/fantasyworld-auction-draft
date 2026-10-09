@@ -649,6 +649,36 @@ export const seasonMatchups = pgTable(
 )
 
 /**
+ * The regular-season schedule, played or not: who meets whom, each week.
+ *
+ * **Separate from `season_matchups` because an unplayed game is not a result.**
+ * Sleeper publishes the whole schedule in week one, every game 0–0, and putting
+ * those rows in `season_matchups` is the bug `hasBeenPlayed` exists to stop — a
+ * season of zero-point ties that becomes the lowest score on record. Here there
+ * are no points to misread, only pairings.
+ *
+ * Read only by the playoff odds, which need the games still to come; that is
+ * the entire reason it exists. Rewritten with the season by every import, and
+ * written by `scripts/migrate-schedule.ts` on Neon. Both, or neither.
+ */
+export const seasonSchedule = pgTable(
+  'season_schedule',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    opponentManagerId: integer('opponent_manager_id')
+      .notNull()
+      .references(() => managers.id),
+  },
+  (t) => [primaryKey({ columns: [t.season, t.week, t.managerId] })],
+)
+
+/**
  * What a manager scored against the best they could have scored, per week.
  *
  * **Kept separate from `season_matchups` despite the identical grain.** In the
