@@ -421,7 +421,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 
 **E. How the roster was built**
 - [x] **52.** `roster-origin.ts` — drafted, traded at the draft, added later, unknown
-- [ ] **53.** The stacked bars
+- [x] **53.** The stacked bars
 
 **F. Deeper record book**
 - [ ] **54.** Top-ten lists behind every record

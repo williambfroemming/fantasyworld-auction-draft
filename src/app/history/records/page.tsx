@@ -4,7 +4,7 @@ import { SeasonReviewCard } from '@/components/history/SeasonReviewCard'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
-import { getBestPickups, getRecordBook, getSeasonReviews } from '@/server/history-service'
+import { getBestPickups, getRecordBook, getRosterOrigins, getSeasonReviews } from '@/server/history-service'
 
 /**
  * The record book, and a card for every season.
@@ -38,10 +38,11 @@ const FORMAT: Record<string, (n: number) => string> = {
 }
 
 export default async function RecordsPage() {
-  const [{ book, members }, { reviews }, pickups] = await Promise.all([
+  const [{ book, members }, { reviews }, pickups, origins] = await Promise.all([
     getRecordBook(),
     getSeasonReviews(),
     getBestPickups(3),
+    getRosterOrigins(),
   ])
 
   return (
@@ -154,6 +155,7 @@ export default async function RecordsPage() {
                 review={r}
                 members={members}
                 pickups={pickups.get(r.season) ?? []}
+                origin={origins.find((o) => o.season === r.season)?.rows ?? []}
               />
             ))}
           </div>
