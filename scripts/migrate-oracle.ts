@@ -27,6 +27,10 @@
  * ⚠️ `npm run db:local:setup` drops and recreates `public`, which cascades away every
  * view below. Re-run this script after any local setup.
  *
+ * ⚠️ Run `db:migrate-player-stats` before this on a database that has never had it:
+ * `oracle.player_week_stats` is a view over that table, and CREATE VIEW on a missing
+ * table fails the whole script.
+ *
  * ⚠️ No backticks inside the SQL strings. Every statement is a plain string rather than
  * a tagged template so a stray `${` cannot interpolate either.
  */
@@ -109,6 +113,20 @@ const VIEWS: OracleView[] = [
     select: `season, player_id, player_name, position, nfl_team, weeks_played,
       total_points, avg_points`,
     comment: 'A player season totals, league-wide. player_id is the Sleeper id.',
+  },
+  {
+    // Explicit columns, kept equal to STAT_KEYS by oracle-schema.test.ts.
+    // Needs db:migrate-player-stats FIRST: a view over a missing table fails.
+    name: 'player_week_stats',
+    from: 'public.player_week_stats',
+    select: `season, week, player_id, gp,
+      pass_att, pass_cmp, pass_yd, pass_td, pass_int, pass_sack, pass_2pt,
+      rush_att, rush_yd, rush_td, rush_2pt,
+      rec_tgt, rec, rec_yd, rec_td, rec_2pt,
+      fum, fum_lost,
+      sack, def_int, fum_rec, def_td, def_st_td, safe, pts_allow, yds_allow, blk_kick`,
+    comment:
+      'NFL stat lines for rostered players per week, 2020 on. NULL means did not play; 0 is a real zero. Not fantasy points: use player_weeks.points. Join to player_weeks on season, week, player_id.',
   },
   {
     name: 'auction_picks',

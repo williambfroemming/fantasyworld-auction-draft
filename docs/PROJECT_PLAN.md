@@ -443,5 +443,5 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 **J. Player stats** — added 2026-11-11. **Build instructions: `docs/PLAYER_STATS_ROADMAP.md`**
 - [x] **63.** Pull Sleeper's weekly stats, trimmed to rostered players and the whitelist, into `data/sleeper/{season}/stats-NN.json`
 - [x] **64.** `player_week_stats` and the importer
-- [ ] **65.** The Oracle learns about stats
+- [x] **65.** The Oracle learns about stats
 - [ ] **66.** Show the stat line

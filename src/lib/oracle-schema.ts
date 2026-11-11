@@ -117,6 +117,43 @@ export const ORACLE_VIEWS: OracleViewNote[] = [
     note: 'A player season totals, league-wide. player_id is the Sleeper id and joins to player_weeks and auction_picks.',
   },
   {
+    name: 'player_week_stats',
+    columns: [
+      'season',
+      'week',
+      'player_id',
+      'gp',
+      'pass_att',
+      'pass_cmp',
+      'pass_yd',
+      'pass_td',
+      'pass_int',
+      'pass_sack',
+      'pass_2pt',
+      'rush_att',
+      'rush_yd',
+      'rush_td',
+      'rush_2pt',
+      'rec_tgt',
+      'rec',
+      'rec_yd',
+      'rec_td',
+      'rec_2pt',
+      'fum',
+      'fum_lost',
+      'sack',
+      'def_int',
+      'fum_rec',
+      'def_td',
+      'def_st_td',
+      'safe',
+      'pts_allow',
+      'yds_allow',
+      'blk_kick',
+    ],
+    note: 'NFL stat lines (yards, touchdowns, targets, sacks) for rostered players, one row per player per week, 2020 on. A row exists ONLY for a week that player was on a roster in this league, so this is not an NFL-wide table and not career totals; a player on a bye or not with his NFL team that week has no row. A NULL stat means the player did not play that week (gp is NULL too); 0 is a real zero. Offensive columns are NULL for a team defense and defensive columns are NULL for a player, so filter on position before ranking. These are raw NFL stats and NOT this league fantasy points: for fantasy points use player_weeks.points. Join to player_weeks ON season, week AND player_id: player_name, position and manager_id (who rostered him) come from there. A player is on at most one roster per week, so that join never duplicates a stat line.pass_int is interceptions thrown by a quarterback; def_int is interceptions made by a team defense. pts_allow and yds_allow are points and yards a defense allowed. def_st_td is a defense special-teams touchdown. No kicking stats are stored.',
+  },
+  {
     name: 'auction_picks',
     columns: [
       'season',
@@ -165,7 +202,8 @@ Rules:
 9. Match player and manager names with ILIKE. If a name matches more than one player, say so and list them rather than adding them together.
 10. If the rows do not answer the question, say that plainly. Never use a figure that did not come back from a query. Use no NFL knowledge from memory.
 11. Compare players within a position, never across positions: this is a superflex league, so quarterbacks cost and score differently from everyone else.
-12. Answer in one to three sentences, lead with the number, plain text, no markdown tables.`
+12. Yards, touchdowns, targets and sacks are in player_week_stats and are NFL stats, not fantasy points. Fantasy points are player_weeks.points. A NULL stat means the player did not play; leave those weeks out rather than counting them as zero.
+13. Answer in one to three sentences, lead with the number, plain text, no markdown tables.`
 
 /** One block per view, for the system prompt. */
 export function oracleSchemaText(): string {

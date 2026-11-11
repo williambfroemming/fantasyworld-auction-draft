@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { ORACLE_RULES, ORACLE_VIEWS, oracleSchemaText } from './oracle-schema'
+import { STAT_KEYS } from './player-stats'
 
 /**
  * Parse the VIEWS table out of scripts/migrate-oracle.ts as text. The script runs its
@@ -27,7 +28,7 @@ function migrationViews(): Array<{ name: string; columns: string[] }> {
 
 describe('oracle schema notes', () => {
   it('parses the migration (guards the parser itself)', () => {
-    expect(migrationViews().length).toBe(10)
+    expect(migrationViews().length).toBe(11)
   })
 
   it('names exactly the views the migration creates', () => {
@@ -43,6 +44,21 @@ describe('oracle schema notes', () => {
       const note = ORACLE_VIEWS.find((v) => v.name === mv.name)
       expect(note?.columns, mv.name).toEqual(mv.columns)
     }
+  })
+
+  it('player_week_stats exposes exactly the stored stat columns', () => {
+    const view = migrationViews().find((v) => v.name === 'player_week_stats')
+    expect(view?.columns).toEqual(['season', 'week', 'player_id', 'gp', ...STAT_KEYS])
+  })
+
+  it('player_week_stats says what NULL means and that it is not fantasy points', () => {
+    const note = ORACLE_VIEWS.find((v) => v.name === 'player_week_stats')!.note
+    expect(note).toMatch(/NULL stat means the player did not play/)
+    expect(note).toMatch(/0 is a real zero/)
+    expect(note).toMatch(/NOT this league fantasy points/)
+    expect(note).toMatch(/player_weeks\.points/)
+    expect(note).toMatch(/season, week AND player_id/)
+    expect(note).toMatch(/rostered/)
   })
 
   it('every view has a note', () => {
