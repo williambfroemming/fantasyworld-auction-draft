@@ -420,7 +420,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **51.** Member-page table and the season grid
 
 **E. How the roster was built**
-- [ ] **52.** `roster-origin.ts` — drafted, traded at the draft, added later, unknown
+- [x] **52.** `roster-origin.ts` — drafted, traded at the draft, added later, unknown
 - [ ] **53.** The stacked bars
 
 **F. Deeper record book**
