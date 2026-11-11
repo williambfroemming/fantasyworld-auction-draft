@@ -412,12 +412,12 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **47.** Charts on the member and Past Auctions pages
 
 **C. Playoff odds, extended**
-- [ ] **48.** Seed distribution and win-or-lose leverage
-- [ ] **49.** Title odds
+- [x] **48.** Seed distribution and win-or-lose leverage
+- [x] **49.** Title odds
 
 **D. Positional scorecard**
-- [ ] **50.** `positionalScorecard()`
-- [ ] **51.** Member-page table and the season grid
+- [x] **50.** `positionalScorecard()`
+- [x] **51.** Member-page table and the season grid
 
 **E. How the roster was built**
 - [ ] **52.** `roster-origin.ts` — drafted, traded at the draft, added later, unknown

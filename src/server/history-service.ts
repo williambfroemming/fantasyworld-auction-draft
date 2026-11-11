@@ -33,6 +33,7 @@ import {
   leagueSummary,
   memberProfile,
   records,
+  regularSeasonWeekKeys,
   seasonInReview,
   type HistoryPick,
   type LeagueSummaryReport,
@@ -40,6 +41,11 @@ import {
 import { completeWeeks, seasonSoFar } from '@/lib/season-so-far'
 import { playoffOdds, type ScheduledGame } from '@/lib/playoff-odds'
 import { recordPaths } from '@/lib/record-paths'
+import {
+  positionalScorecard,
+  type PositionalScorecard,
+  type StarterRow,
+} from '@/lib/positional'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import type { StatsTrade } from '@/lib/stats'
@@ -1351,4 +1357,52 @@ async function getSchedule(season: number): Promise<ScheduledGame[]> {
     if ((err as { code?: string }).code === '42P01') return []
     throw err
   }
+}
+
+/**
+ * The positional scorecard for every season that has weekly data, newest first
+ * (src/lib/positional.ts). Each manager's STARTERS' points at each position against the
+ * league mean at that position.
+ *
+ * ⚠️ Weeks are the regular-season weeks that are also COMPLETE. `regularSeasonWeekKeys`
+ * alone would count a half-played week of the season in progress, leaving some managers
+ * with a week's points and others without, and every difference would be skewed by it.
+ * For a finished season the two sets are identical.
+ *
+ * Positions come from `player_weeks.position` — never `slot`.
+ */
+export async function getPositionalScorecards(
+  opts: { season?: number; throughWeek?: number } = {},
+): Promise<PositionalScorecard[]> {
+  const sql = getSql()
+  const [input, rows] = await Promise.all([
+    getHistoryInput(),
+    sql`SELECT season, week, manager_id, position, points
+          FROM player_weeks WHERE is_starter ORDER BY season, week`,
+  ])
+  const starters: StarterRow[] = rows.map((r) => ({
+    season: Number(r.season),
+    week: Number(r.week),
+    managerId: Number(r.manager_id),
+    position: r.position === null || r.position === undefined ? null : String(r.position),
+    isStarter: true,
+    points: num(r.points),
+  }))
+
+  const regular = regularSeasonWeekKeys(input.matchups)
+  const seasons = [...new Set(starters.map((r) => r.season))].sort((a, b) => b - a)
+  return seasons.map((season) => {
+    const complete = new Set(
+      completeWeeks(input.matchups, season).complete.map(([week]) => `${season}:${week}`),
+    )
+    const keys = new Set(
+      [...regular].filter((k) => {
+        if (!complete.has(k)) return false
+        // `throughWeek` cuts ONE season (the front page's preview mode stands a finished
+        // season in for the live one), so it never shows a full season beside a part one.
+        return !(season === opts.season && Number(k.split(':')[1]) > (opts.throughWeek ?? Infinity))
+      }),
+    )
+    return positionalScorecard(starters, season, keys)
+  })
 }
