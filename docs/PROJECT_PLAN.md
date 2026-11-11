@@ -416,7 +416,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **49.** Title odds
 
 **D. Positional scorecard**
-- [ ] **50.** `positionalScorecard()`
+- [x] **50.** `positionalScorecard()`
 - [ ] **51.** Member-page table and the season grid
 
 **E. How the roster was built**
