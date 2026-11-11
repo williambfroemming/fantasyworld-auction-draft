@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatValue } from './format'
+import { formatShare, formatValue } from './format'
 
 describe('formatValue', () => {
   it('defaults to a whole number with thousands separators', () => {
@@ -30,5 +30,19 @@ describe('formatValue', () => {
   it('survives being sent through JSON, which is what a server page does', () => {
     const spec = JSON.parse(JSON.stringify({ prefix: '$', decimals: 1 }))
     expect(formatValue(spec, 5)).toBe('$5.0')
+  })
+})
+
+describe('formatShare', () => {
+  it('rounds to a whole percent', () => {
+    expect(formatShare(0.4949)).toBe('49%')
+    expect(formatShare(1)).toBe('100%')
+    expect(formatShare(0)).toBe('0%')
+  })
+
+  it('says <1% for a real but tiny share, never 0%', () => {
+    expect(formatShare(0.002)).toBe('<1%')
+    expect(formatShare(0.0049)).toBe('<1%')
+    expect(formatShare(0.005)).toBe('1%')
   })
 })

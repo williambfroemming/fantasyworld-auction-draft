@@ -7,9 +7,9 @@ export function ChartTable({
   columns,
   rows,
 }: {
-  caption: string;
-  columns: string[];
-  rows: Array<{ label: string; cells: Array<string | null> }>;
+  caption: string
+  columns: string[]
+  rows: Array<{ label: string; cells: Array<string | null> }>
 }) {
   return (
     <table className="sr-only">
@@ -29,11 +29,11 @@ export function ChartTable({
           <tr key={r.label}>
             <th scope="row">{r.label}</th>
             {r.cells.map((c, i) => (
-              <td key={i}>{c ?? "no data"}</td>
+              <td key={i}>{c ?? 'no data'}</td>
             ))}
           </tr>
         ))}
       </tbody>
     </table>
-  );
+  )
 }

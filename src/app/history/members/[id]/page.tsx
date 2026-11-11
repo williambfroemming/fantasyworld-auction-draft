@@ -3,8 +3,10 @@ import { notFound } from 'next/navigation'
 import { EraBadge } from '@/components/history/EraBadge'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
+import { Donut } from '@/components/charts/Donut'
 import { DraftDnaPanel } from '@/components/history/DraftDnaPanel'
-import { managerColor } from '@/lib/colors'
+import { SPEND_SEGMENTS_BY_POSITION, managerColor } from '@/lib/colors'
+import type { SpendColumn } from '@/lib/stats'
 import { getDraftDna, getMemberProfile, getMostStarted } from '@/server/history-service'
 
 /**
@@ -247,6 +249,27 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
               How they spend
             </span>
           </h2>
+          {/* The same career dollars the table below totals, drawn. Positions and colours
+              are the ones the bars in the table use, so the two cannot disagree. */}
+          {dna.seasons.length > 0 && (
+            <div className="mb-5 max-w-md">
+              <p className="mb-1 text-xs text-slate-400">
+                Career auction dollars by position, across {dna.career.seasons}{' '}
+                {dna.career.seasons === 1 ? 'auction' : 'auctions'}.
+              </p>
+              <Donut
+                slices={SPEND_SEGMENTS_BY_POSITION.map((seg) => ({
+                  id: seg.key,
+                  label: seg.label,
+                  value: dna.career.positionSpend[seg.key as SpendColumn] ?? 0,
+                  color: seg.hex,
+                }))}
+                format={{ prefix: '$' }}
+                centerLabel={`$${dna.seasons.reduce((s, x) => s + x.spent, 0).toLocaleString()}`}
+                ariaLabel={`Career auction spend by position for ${profile.member.displayName}`}
+              />
+            </div>
+          )}
           <DraftDnaPanel dna={dna} />
         </section>
 

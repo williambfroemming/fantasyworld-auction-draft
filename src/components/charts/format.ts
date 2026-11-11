@@ -29,3 +29,13 @@ export function formatValue(spec: Fmt | undefined, v: number): string {
   const sign = body.startsWith('-') ? '-' : ''
   return `${sign}${f.prefix ?? ''}${sign ? body.slice(1) : body}${f.suffix ?? ''}`
 }
+
+/**
+ * A share (0..1) as a whole percent. A real but tiny share prints "<1%", never "0%": a
+ * slice that exists should not be labelled as if it were empty.
+ */
+export function formatShare(fraction: number): string {
+  const pct = fraction * 100
+  if (pct > 0 && pct < 0.5) return '<1%'
+  return `${Math.round(pct)}%`
+}

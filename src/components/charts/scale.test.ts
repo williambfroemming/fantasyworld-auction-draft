@@ -22,7 +22,12 @@ describe('niceTicks', () => {
   })
 
   it('always covers the data, so the end ticks may lie outside it', () => {
-    for (const [lo, hi] of [[0, 97], [3, 47], [0.12, 0.58], [-12, 31]]) {
+    for (const [lo, hi] of [
+      [0, 97],
+      [3, 47],
+      [0.12, 0.58],
+      [-12, 31],
+    ]) {
       const t = niceTicks(lo, hi)
       expect(t[0]).toBeLessThanOrEqual(lo)
       expect(t[t.length - 1]).toBeGreaterThanOrEqual(hi)
@@ -77,7 +82,12 @@ describe('spreadLabels', () => {
 })
 
 describe('foldSlices', () => {
-  const s = (id: string, value: number): Slice => ({ id, label: id.toUpperCase(), value, color: 'c' })
+  const s = (id: string, value: number): Slice => ({
+    id,
+    label: id.toUpperCase(),
+    value,
+    color: 'c',
+  })
 
   it('leaves five or fewer slices alone', () => {
     const five = ['a', 'b', 'c', 'd', 'e'].map((id, i) => s(id, i + 1))
@@ -96,7 +106,7 @@ describe('foldSlices', () => {
 })
 
 describe('arcPath', () => {
-  it('draws a quarter ring from 12 to 3 o\'clock', () => {
+  it("draws a quarter ring from 12 to 3 o'clock", () => {
     expect(arcPath(0, 0, 10, 5, 0, Math.PI / 2)).toBe(
       'M 0.00 -10.00 A 10 10 0 0 1 10.00 -0.00 L 5.00 -0.00 A 5 5 0 0 0 0.00 -5.00 Z',
     )

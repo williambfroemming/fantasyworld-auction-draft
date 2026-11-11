@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { cumulativePoints, cumulativeWins, finishBySeason, titlesAndMoney } from './chart-series'
+import {
+  auctionSpendByPosition,
+  cumulativePoints,
+  cumulativeWins,
+  finishBySeason,
+  titlesAndMoney,
+} from './chart-series'
 import { leagueSummary, type HistoryInput, type HistoryStanding } from './history'
 
 const members = [1, 2, 3].map((id) => ({
@@ -56,9 +62,12 @@ const input: HistoryInput = {
     season(2013, { championManagerId: 3, championPrize: null }),
   ],
   standings: [
-    st(2011, 1, 9, 1), st(2011, 2, 7, 2),
+    st(2011, 1, 9, 1),
+    st(2011, 2, 7, 2),
     st(2012, 1, 8, 2),
-    st(2013, 1, 5, 3), st(2013, 2, 6, 2), st(2013, 3, 10, 1),
+    st(2013, 1, 5, 3),
+    st(2013, 2, 6, 2),
+    st(2013, 3, 10, 1),
   ],
   matchups: [],
   lineups: [],
@@ -94,7 +103,10 @@ describe('cumulativeWins', () => {
   })
 
   it('omits a manager with no standings at all rather than drawing a line of nulls', () => {
-    const r2 = cumulativeWins({ ...input, standings: input.standings.filter((s) => s.managerId !== 3) })
+    const r2 = cumulativeWins({
+      ...input,
+      standings: input.standings.filter((s) => s.managerId !== 3),
+    })
     expect(r2.series.map((s) => s.managerId)).toEqual([1, 2])
   })
 })
@@ -158,5 +170,80 @@ describe('titlesAndMoney', () => {
   it('keeps an unknown prize unknown rather than calling it $0', () => {
     expect(r.rows.find((x) => x.managerId === 3)!.moneyWon).toBeNull() // champion, prize null
     expect(r.moneyUnknownSeasons).toEqual([2013])
+  })
+})
+
+describe('auctionSpendByPosition', () => {
+  const pk = (id: number, season: number, managerId: number, position: string, price: number) => ({
+    id,
+    season,
+    managerId,
+    playerName: `P${id}`,
+    playerPosition: position,
+    price,
+  })
+  const withPicks: HistoryInput = {
+    ...input,
+    picks: [
+      pk(1, 2021, 1, 'QB', 30),
+      pk(2, 2021, 2, 'RB', 50),
+      pk(3, 2021, 3, 'WR', 20),
+      pk(4, 2021, 1, 'DEF', 2),
+      pk(5, 2021, 2, 'K', 1),
+      pk(6, 2022, 1, 'RB', 40),
+      pk(7, 2022, 2, 'TE', 10),
+    ],
+    trades: [],
+  }
+
+  it('groups dollars by player position, newest season first, K and DEF in OTHER', () => {
+    const r = auctionSpendByPosition(withPicks)
+    expect(r.map((x) => x.season)).toEqual([2022, 2021])
+    expect(r[1].byPosition).toEqual({ QB: 30, RB: 50, WR: 20, TE: 0, OTHER: 3 })
+    expect(r[0].byPosition).toEqual({ QB: 0, RB: 40, WR: 0, TE: 10, OTHER: 0 })
+  })
+
+  it('always adds up to what was spent that year (the number the Past Auctions page prints)', () => {
+    for (const row of auctionSpendByPosition(withPicks)) {
+      const total = Object.values(row.byPosition).reduce((a, b) => a + b, 0)
+      expect(total).toBe(row.spent)
+    }
+    expect(auctionSpendByPosition(withPicks).find((x) => x.season === 2021)!.spent).toBe(103)
+  })
+
+  it('does not move league totals when a player is traded', () => {
+    const traded: HistoryInput = {
+      ...withPicks,
+      trades: [
+        {
+          id: 1,
+          createdAt: '2021-08-01',
+          managerAId: 1,
+          managerBId: 2,
+          players: [{ pickId: 1, toManagerId: 2 }],
+        },
+      ],
+    }
+    expect(auctionSpendByPosition(traded)).toEqual(auctionSpendByPosition(withPicks))
+  })
+
+  it('does not let a trade from one season touch another', () => {
+    const r = auctionSpendByPosition({
+      ...withPicks,
+      trades: [
+        {
+          id: 9,
+          createdAt: '2022-08-01',
+          managerAId: 1,
+          managerBId: 2,
+          players: [{ pickId: 6, toManagerId: 2 }],
+        },
+      ],
+    })
+    expect(r.find((x) => x.season === 2021)!.byPosition.QB).toBe(30)
+  })
+
+  it('returns nothing when no picks were loaded, rather than failing', () => {
+    expect(auctionSpendByPosition({ ...input, picks: undefined })).toEqual([])
   })
 })

@@ -74,7 +74,9 @@ export function AccountMenu() {
       >
         <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
         <span className="truncate">{me.displayName}</span>
-        <span aria-hidden className="text-slate-500">▾</span>
+        <span aria-hidden className="text-slate-500">
+          ▾
+        </span>
       </button>
 
       {open && (

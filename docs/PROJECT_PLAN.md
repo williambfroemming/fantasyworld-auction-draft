@@ -409,7 +409,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 **B. Charts**
 - [x] **45.** The chart kit — line, bar, stacked bar, donut
 - [x] **46.** `/history/charts` — cumulative wins by year, and three more
-- [ ] **47.** Charts on the member and Past Auctions pages
+- [x] **47.** Charts on the member and Past Auctions pages
 
 **C. Playoff odds, extended**
 - [ ] **48.** Seed distribution and win-or-lose leverage

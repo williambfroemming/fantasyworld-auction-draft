@@ -9,6 +9,7 @@
  * Coverage: standings reach back to 2011. Nothing here touches weekly data.
  */
 import { leagueSummary, type HistoryInput, type HistoryStanding } from './history'
+import { teamSpend, type SpendColumn, type StatsInput } from './stats'
 
 export interface SeriesPoint {
   /** A season. */
@@ -135,4 +136,66 @@ export function titlesAndMoney(input: HistoryInput): {
     }
   })
   return { rows, coverage: report.titles, moneyUnknownSeasons: [...unknown].sort((a, b) => a - b) }
+}
+
+export interface AuctionSpendRow {
+  season: number
+  spent: number
+  /** League-wide dollars at each position that year. */
+  byPosition: Record<SpendColumn, number>
+}
+
+/**
+ * Dollars spent at each position, per auction, league-wide.
+ *
+ * Goes through `teamSpend()` — the one spend calculation — season by season rather than
+ * summing prices here, so this chart and /stats cannot disagree. Positions group on the
+ * player's own `position` (K and DEF fall into OTHER), never a lineup slot.
+ *
+ * `teamSpend` also derives each manager's unspent budget and drift; those need live
+ * budgets this history input does not carry, so they are fed zeros and ignored. Only
+ * `totals.byPosition` is read. League totals do not depend on who bought whom, but the
+ * trade log is passed anyway so the attribution path is the same one /stats uses.
+ *
+ * Newest season first, matching the Past Auctions list beside it.
+ */
+export function auctionSpendByPosition(input: HistoryInput): AuctionSpendRow[] {
+  const picks = input.picks ?? []
+  const trades = input.trades ?? []
+  const seasons = [...new Set(picks.map((p) => p.season))].sort((a, b) => b - a)
+
+  return seasons.map((season) => {
+    const mine = picks.filter((p) => p.season === season)
+    const ids = new Set(mine.map((p) => p.id))
+    const stats: StatsInput = {
+      season,
+      rosterSize: 0,
+      startingBudget: 0,
+      managers: input.members.map((m) => ({
+        id: m.managerId,
+        displayName: m.displayName,
+        color: m.color,
+        draftSlot: 0,
+        budget: 0,
+        rostered: 0,
+      })),
+      picks: mine.map((p) => ({
+        id: p.id,
+        pickNo: 0,
+        managerId: p.managerId,
+        nominatorId: 0,
+        price: p.price,
+        position: p.playerPosition,
+        name: p.playerName,
+        rank: null,
+        posRank: null,
+      })),
+      // Only trades that moved this season's players; a trade never spans two seasons.
+      trades: trades.filter(
+        (t) => t.players.length > 0 && t.players.every((x) => ids.has(x.pickId)),
+      ),
+    }
+    const { totals } = teamSpend(stats)
+    return { season, spent: totals.spent, byPosition: totals.byPosition }
+  })
 }

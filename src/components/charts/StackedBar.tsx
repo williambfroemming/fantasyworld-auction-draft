@@ -1,25 +1,25 @@
-"use client";
+'use client'
 
-import { ChartTable } from "./ChartTable";
-import { INK_SOFT } from "./colors";
-import { formatValue, type Fmt } from "./format";
-import { useWidth } from "./useWidth";
+import { ChartTable } from './ChartTable'
+import { INK_SOFT } from './colors'
+import { formatValue, type Fmt } from './format'
+import { useWidth } from './useWidth'
 
 export interface Segment {
-  key: string;
-  label: string;
-  value: number;
-  color: string;
+  key: string
+  label: string
+  value: number
+  color: string
 }
 
 export interface StackRow {
-  id: string;
-  label: string;
-  segments: Segment[];
+  id: string
+  label: string
+  segments: Segment[]
 }
 
-const ROW_H = 28;
-const FONT = 11;
+const ROW_H = 28
+const FONT = 11
 
 /**
  * One bar per item, split into segments. With `normalize` (the default) every bar is full
@@ -34,25 +34,22 @@ export function StackedBar({
   format: fmt,
   normalize = true,
 }: {
-  rows: StackRow[];
-  ariaLabel: string;
-  format?: Fmt;
-  normalize?: boolean;
+  rows: StackRow[]
+  ariaLabel: string
+  format?: Fmt
+  normalize?: boolean
 }) {
-  const format = (v: number) => formatValue(fmt, v);
-  const [ref, width, ready] = useWidth();
-  const labelW = Math.min(90, Math.round(width * 0.22));
-  const barW = Math.max(40, width - labelW - 4);
-  const totals = rows.map((r) =>
-    r.segments.reduce((a, s) => a + Math.max(0, s.value), 0),
-  );
-  const widest = Math.max(1, ...totals);
-  const height = rows.length * ROW_H + 4;
+  const format = (v: number) => formatValue(fmt, v)
+  const [ref, width, ready] = useWidth()
+  const labelW = Math.min(90, Math.round(width * 0.22))
+  const barW = Math.max(40, width - labelW - 4)
+  const totals = rows.map((r) => r.segments.reduce((a, s) => a + Math.max(0, s.value), 0))
+  const widest = Math.max(1, ...totals)
+  const height = rows.length * ROW_H + 4
 
-  const legend: Segment[] = [];
+  const legend: Segment[] = []
   for (const r of rows)
-    for (const s of r.segments)
-      if (!legend.some((l) => l.key === s.key)) legend.push(s);
+    for (const s of r.segments) if (!legend.some((l) => l.key === s.key)) legend.push(s)
 
   return (
     <div ref={ref} className="w-full" style={{ minHeight: height }}>
@@ -66,13 +63,9 @@ export function StackedBar({
           className="block max-w-full"
         >
           {rows.map((r, i) => {
-            const total = totals[i];
-            const scale = normalize
-              ? total > 0
-                ? barW / total
-                : 0
-              : barW / widest;
-            let x = labelW;
+            const total = totals[i]
+            const scale = normalize ? (total > 0 ? barW / total : 0) : barW / widest
+            let x = labelW
             return (
               <g key={r.id}>
                 <text
@@ -86,11 +79,10 @@ export function StackedBar({
                   {r.label}
                 </text>
                 {r.segments.map((s) => {
-                  const w = Math.max(0, s.value) * scale;
-                  const x0 = x;
-                  x += w;
-                  const share =
-                    total > 0 ? Math.round((s.value / total) * 100) : 0;
+                  const w = Math.max(0, s.value) * scale
+                  const x0 = x
+                  x += w
+                  const share = total > 0 ? Math.round((s.value / total) * 100) : 0
                   return (
                     <g key={s.key}>
                       <rect
@@ -110,31 +102,25 @@ export function StackedBar({
                           textAnchor="middle"
                           fontSize={FONT}
                           fontWeight={700}
-                          style={{ fill: "var(--s-950)" }}
+                          style={{ fill: 'var(--s-950)' }}
                           pointerEvents="none"
                         >
                           {share}%
                         </text>
                       )}
                     </g>
-                  );
+                  )
                 })}
               </g>
-            );
+            )
           })}
         </svg>
       )}
 
-      <ul
-        className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400"
-        aria-hidden
-      >
+      <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400" aria-hidden>
         {legend.map((l) => (
           <li key={l.key} className="flex items-center gap-1.5">
-            <span
-              className="h-2.5 w-2.5"
-              style={{ backgroundColor: l.color }}
-            />
+            <span className="h-2.5 w-2.5" style={{ backgroundColor: l.color }} />
             {l.label}
           </li>
         ))}
@@ -146,11 +132,11 @@ export function StackedBar({
         rows={rows.map((r) => ({
           label: r.label,
           cells: legend.map((l) => {
-            const s = r.segments.find((q) => q.key === l.key);
-            return s ? format(s.value) : null;
+            const s = r.segments.find((q) => q.key === l.key)
+            return s ? format(s.value) : null
           }),
         }))}
       />
     </div>
-  );
+  )
 }
