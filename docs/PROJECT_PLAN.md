@@ -432,7 +432,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **57.** `/history/ratings`
 
 **H. FAAB and waivers**
-- [ ] **58.** Pull Sleeper transactions
+- [x] **58.** Pull Sleeper transactions
 - [ ] **59.** `season_transactions` and the importer
 - [ ] **60.** `faab.ts`
 - [ ] **61.** `/history/waivers`, and the Oracle learns about transactions
