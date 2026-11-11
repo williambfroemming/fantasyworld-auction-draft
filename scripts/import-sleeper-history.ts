@@ -457,22 +457,26 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
     }
     // Guarded the same way, for the same reason: `db:migrate-player-stats`.
     //
-    // Delete and insert in ONE statement, so a failure part-way can never leave
-    // a season with no stat lines — the HTTP driver has no transactions, and a
-    // DELETE followed by chunked INSERTs could. ~2,800 rows x 32 columns is over
-    // Postgres's 65,535-parameter limit for a VALUES list, so the rows go up as
-    // one JSON parameter and are unpacked server-side.
+    // Delete and insert go up as ONE atomic batch (`sql.transaction`), so a failure part-way
+    // leaves last run's rows rather than a season with no stat lines. Not one statement with the
+    // delete in a data-modifying CTE, which looks atomic but is not safe here:
+    // such a CTE does not let the INSERT see the DELETE, so re-importing a season that
+    // is already in the table failed on the primary key (it only worked into an empty table).
+    // ~2,800 rows x 32 columns is over Postgres's 65,535-parameter limit for a VALUES list, so
+    // the rows go up as one JSON parameter and are unpacked server-side.
     if (await hasStatsTable()) {
       const cols = ['season', 'week', 'player_id', 'gp', ...STAT_KEYS]
       const types = ['integer', 'integer', 'text', 'integer', ...STAT_KEYS.map(() => 'numeric(8,2)')]
       const payload = statRowsOut.map((row) => Object.fromEntries(cols.map((c, i) => [c, row[i]])))
-      await sql.query(
-        `WITH gone AS (DELETE FROM player_week_stats WHERE season = $1)
-         INSERT INTO player_week_stats (${cols.join(', ')})
-         SELECT ${cols.join(', ')}
-           FROM jsonb_to_recordset($2::jsonb) AS r(${cols.map((c, i) => `${c} ${types[i]}`).join(', ')})`,
-        [season, JSON.stringify(payload)],
-      )
+      await sql.transaction([
+        sql.query('DELETE FROM player_week_stats WHERE season = $1', [season]),
+        sql.query(
+          `INSERT INTO player_week_stats (${cols.join(', ')})
+           SELECT ${cols.join(', ')}
+             FROM jsonb_to_recordset($1::jsonb) AS r(${cols.map((c, i) => `${c} ${types[i]}`).join(', ')})`,
+          [JSON.stringify(payload)],
+        ),
+      ])
     } else {
       console.warn(`  ${season}  ⚠ player_week_stats missing — run npm run db:migrate-player-stats. Stats skipped.`)
     }
