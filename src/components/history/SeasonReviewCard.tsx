@@ -67,7 +67,7 @@ export function SeasonReviewCard({
     )
 
   return (
-    <section className="border border-rule p-3">
+    <section className="min-w-0 border border-rule p-3">
       <header className="mb-2 flex items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
         <h3 className="font-display text-base font-bold tracking-[0.06em]">{r.season}</h3>
         {r.city && (

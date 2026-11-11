@@ -9,6 +9,7 @@ import {
   longestStreaks,
   memberProfile,
   records,
+  recordLists,
   seasonInReview,
   type HistoryInput,
   type HistoryMatchup,
@@ -831,5 +832,76 @@ describe('records and the season in progress', () => {
     })
     expect(unknown.seasons.find((s) => s.key === 'bestRecord')).toMatchObject({ season: 2021 })
     expect(unknown.seasonCoverage.to).toBe(2021)
+  })
+})
+
+describe('recordLists', () => {
+  const seasons = [
+    season(2020, 'weekly', { championManagerId: 1 }),
+    season(2021, 'weekly', { championManagerId: 2 }),
+  ]
+  const matchups = [
+    ...[1, 2, 3, 4, 5, 6].flatMap((w) => week(2020, w, [100 + w * 3, 90 + w, 80 + w * 2, 70 + w])),
+    ...[1, 2, 3, 4, 5, 6, 7].flatMap((w) => week(2021, w, [95 + w, 110 - w * 4, 85 + w * 5, 120 - w])),
+    // Playoff games, so the playoff records have candidates too.
+    ...week(2021, 15, [130, 90, 100, 95], { isPlayoff: true, playoffRound: 1, playoffPlacement: null }),
+    ...week(2021, 16, [70, 140, 120, 60], { isPlayoff: true, playoffRound: 2, playoffPlacement: null }),
+  ]
+  const input: HistoryInput = {
+    members,
+    seasons,
+    standings: [
+      ...members.map((m) => standing(2020, m.managerId, { pointsFor: 1000 + m.managerId * 7, wins: 5 + m.managerId, losses: 8 - m.managerId })),
+      ...members.map((m) => standing(2021, m.managerId, { pointsFor: 1500 - m.managerId * 11, wins: 12 - m.managerId, losses: 2 + m.managerId })),
+    ],
+    matchups,
+    lineups: [],
+  }
+  const lists = recordLists(input)
+  const book = records(input)
+
+  it('entry one of every single-game and season list is the record holder', () => {
+    const entries = [...book.games, ...book.seasons]
+    expect(entries.length).toBeGreaterThan(8)
+    for (const e of entries) {
+      expect(lists[e.key], e.key).toBeDefined()
+      expect(lists[e.key][0], e.key).toEqual(e)
+    }
+  })
+
+  it('has a list for exactly the keys the book has', () => {
+    expect(Object.keys(lists).sort()).toEqual([...book.games, ...book.seasons].map((e) => e.key).sort())
+  })
+
+  it('is capped at ten and ordered best first', () => {
+    const high = lists.highScore
+    expect(high.length).toBe(10)
+    for (let i = 1; i < high.length; i++) expect(high[i - 1].value).toBeGreaterThanOrEqual(high[i].value)
+    const low = lists.lowScore
+    for (let i = 1; i < low.length; i++) expect(low[i - 1].value).toBeLessThanOrEqual(low[i].value)
+  })
+
+  it('lists a margin only from the winner', () => {
+    for (const e of lists.biggestBlowout) expect(e.value).toBeGreaterThan(0)
+  })
+
+  it('keeps one candidate per manager-season for a streak', () => {
+    const keys = lists.longestWinStreak.map((e) => `${e.season}:${e.managerId}`)
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+
+  it('gives a tie to the earliest, as the record does', () => {
+    const tied: HistoryInput = {
+      ...input,
+      matchups: [...week(2020, 1, [100, 50, 100, 60]), ...week(2021, 1, [100, 40, 90, 60])],
+    }
+    const top = recordLists(tied).highScore
+    expect(top[0]).toMatchObject({ season: 2020, managerId: 1, value: 100 })
+    expect(top[0]).toEqual(records(tied).games.find((g) => g.key === 'highScore'))
+  })
+
+  it('returns empty lists, not a crash, with no data', () => {
+    const empty = recordLists({ members, seasons: [], standings: [], matchups: [], lineups: [] })
+    for (const list of Object.values(empty)) expect(list).toEqual([])
   })
 })

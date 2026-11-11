@@ -14,11 +14,14 @@ export function RecordLine({
   members,
   format,
   showEra = false,
+  list = [],
 }: {
   record: RecordEntry
   members: HistoryMember[]
   format?: (value: number) => string
   showEra?: boolean
+  /** The top ten behind this record, best first. Entry one is `record` itself. */
+  list?: RecordEntry[]
 }) {
   const who = members.find((m) => m.managerId === record.managerId)
   const against = members.find((m) => m.managerId === record.opponentManagerId)
@@ -52,6 +55,33 @@ export function RecordLine({
         {record.detail && <span>· {record.detail}</span>}
         {showEra && <EraBadge coverage={record.coverage} className="ml-auto" />}
       </div>
+      {list.length > 1 && (
+        <details className="mt-1 text-[0.75rem]">
+          <summary className="cursor-pointer select-none text-slate-500 hover:text-slate-300">
+            Top {list.length}
+          </summary>
+          <ol className="mt-1 space-y-0.5">
+            {list.map((e, i) => {
+              const m = members.find((x) => x.managerId === e.managerId)
+              const vs = members.find((x) => x.managerId === e.opponentManagerId)
+              return (
+                <li key={`${e.season}-${e.week}-${e.managerId}-${i}`} className="flex items-baseline gap-2">
+                  <span className="w-4 shrink-0 text-right font-mono text-slate-600 tabular-nums">{i + 1}</span>
+                  <span className="w-14 shrink-0 font-mono font-semibold tabular-nums">
+                    {e.display ?? (format ? format(e.value) : e.value.toFixed(2))}
+                  </span>
+                  <span className="min-w-0 truncate text-slate-300">{m?.displayName ?? '—'}</span>
+                  <span className="ml-auto shrink-0 font-mono text-slate-500 tabular-nums">
+                    {e.week === null ? '' : `wk ${e.week} · `}
+                    {e.season}
+                    {vs ? ` · vs ${vs.displayName}` : ''}
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
+        </details>
+      )}
     </li>
   )
 }

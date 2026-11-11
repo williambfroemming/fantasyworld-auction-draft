@@ -33,6 +33,7 @@ import {
   leagueSummary,
   memberProfile,
   records,
+  recordLists,
   regularSeasonWeekKeys,
   seasonInReview,
   type HistoryPick,
@@ -46,6 +47,7 @@ import {
   type PositionalScorecard,
   type StarterRow,
 } from '@/lib/positional'
+import { playerRecords, type PlayerRecordBook } from '@/lib/player-records'
 import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
@@ -321,7 +323,7 @@ export async function getChampionshipLineup(season: number): Promise<Championshi
 
 export async function getRecordBook() {
   const input = await getHistoryInput()
-  return { book: records(input), members: input.members }
+  return { book: records(input), lists: recordLists(input), members: input.members }
 }
 
 /**
@@ -1467,4 +1469,43 @@ export async function getRosterOrigins(): Promise<Array<{ season: number; rows: 
     const keys = new Set([...regular].filter((k) => complete.has(k)))
     return { season, rows: rosterOrigin(rows, picks, trades, season, keys) }
   })
+}
+
+/**
+ * The player record book (step 55): rostered players, regular season, complete weeks, 2020 on.
+ * Same week keys as the positional scorecard and roster origin, so every page agrees about
+ * which weeks count.
+ */
+export async function getPlayerRecords(): Promise<PlayerRecordBook> {
+  const sql = getSql()
+  const [input, rows] = await Promise.all([
+    getHistoryInput(),
+    sql`SELECT season, week, manager_id, player_id, player_name, position, is_starter, points
+          FROM player_weeks ORDER BY season, week, manager_id, player_id`,
+  ])
+  const regular = regularSeasonWeekKeys(input.matchups)
+  const complete = new Set<string>()
+  for (const season of new Set(rows.map((r) => Number(r.season)))) {
+    for (const [week] of completeWeeks(input.matchups, season).complete) complete.add(`${season}:${week}`)
+  }
+  const keys = new Set([...regular].filter((k) => complete.has(k)))
+  return playerRecords(
+    rows.map((r) => ({
+      season: Number(r.season),
+      week: Number(r.week),
+      managerId: Number(r.manager_id),
+      playerId: String(r.player_id),
+      playerName: (r.player_name as string | null) ?? null,
+      position: (r.position as string | null) ?? null,
+      isStarter: Boolean(r.is_starter),
+      points: num(r.points),
+    })),
+    input.matchups.map((m) => ({
+      season: m.season,
+      week: m.week,
+      managerId: m.managerId,
+      result: m.result,
+    })),
+    keys,
+  )
 }

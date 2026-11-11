@@ -424,8 +424,8 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **53.** The stacked bars
 
 **F. Deeper record book**
-- [ ] **54.** Top-ten lists behind every record
-- [ ] **55.** The player record book
+- [x] **54.** Top-ten lists behind every record
+- [x] **55.** The player record book
 
 **G. Rating over time**
 - [ ] **56.** `ratingHistory()`

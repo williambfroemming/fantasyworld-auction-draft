@@ -1,5 +1,6 @@
 import { EraBadge } from '@/components/history/EraBadge'
 import { RecordLine } from '@/components/history/RecordLine'
+import { PlayerRecordsSection } from '@/components/history/PlayerRecordsSection'
 import { SeasonReviewCard } from '@/components/history/SeasonReviewCard'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
@@ -57,7 +58,7 @@ export default async function RecordsPage() {
 
       <div className="mx-auto max-w-[92rem] px-4 py-6">
         <div className="grid gap-8 lg:grid-cols-3">
-          <section>
+          <section className="min-w-0">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
               <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
                 Single game
@@ -66,7 +67,13 @@ export default async function RecordsPage() {
             </div>
             <ul>
               {book.games.map((r) => (
-                <RecordLine key={r.key} record={r} members={members} format={points} />
+                <RecordLine
+                  key={r.key}
+                  record={r}
+                  members={members}
+                  format={FORMAT[r.key] ?? points}
+                  list={lists[r.key]}
+                />
               ))}
             </ul>
             {book.games.length === 0 && (
@@ -74,7 +81,7 @@ export default async function RecordsPage() {
             )}
           </section>
 
-          <section>
+          <section className="min-w-0">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
               <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">Season</h2>
               <EraBadge coverage={book.seasonCoverage} />
@@ -86,6 +93,7 @@ export default async function RecordsPage() {
                   record={r}
                   members={members}
                   format={FORMAT[r.key] ?? points}
+                  list={lists[r.key]}
                   showEra={r.coverage.from !== book.seasonCoverage.from}
                 />
               ))}
@@ -96,7 +104,7 @@ export default async function RecordsPage() {
             */}
           </section>
 
-          <section>
+          <section className="min-w-0">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
               <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">Career</h2>
               <EraBadge coverage={book.seasonCoverage} />
@@ -138,6 +146,8 @@ export default async function RecordsPage() {
             </ol>
           </section>
         </div>
+
+        <PlayerRecordsSection book={playerBook} members={members} />
 
         <section className="mt-10">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
