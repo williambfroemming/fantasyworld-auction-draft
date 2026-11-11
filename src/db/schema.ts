@@ -810,7 +810,7 @@ export const legacyChampions = pgTable('legacy_champions', {
  *
  * ## Why the prose is stored rather than generated on request
  *
- * The same reason `seasons.draft_recap` is: `/history/gazette` is a Server
+ * The same reason `seasons.draft_recap` is: `/gazette` is a Server
  * Component, a finished week never changes, and the app's first rule is that
  * nothing on a request path makes an outbound call. An issue is written once by
  * `npm run gazette`, stored here, and read back as text.

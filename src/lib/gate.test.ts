@@ -12,8 +12,9 @@ describe('isPublicPath', () => {
     for (const p of [
       '/',
       '/history',
-      '/history/gazette',
-      '/history/oracle',
+      '/gazette',
+      '/gazette/2025/7',
+      '/oracle',
       '/glossary',
       '/stats',
       '/board',
@@ -40,7 +41,7 @@ describe('isPublicPath', () => {
 
 describe('safeNext', () => {
   it('keeps a same-site path, query and all', () => {
-    expect(safeNext('/history/gazette/2025/7')).toBe('/history/gazette/2025/7')
+    expect(safeNext('/gazette/2025/7')).toBe('/gazette/2025/7')
     expect(safeNext('/stats?season=2024')).toBe('/stats?season=2024')
   })
 

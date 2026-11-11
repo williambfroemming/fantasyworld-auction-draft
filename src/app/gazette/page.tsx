@@ -38,7 +38,7 @@ export default async function GazettePage() {
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="gazette" current="/history/gazette" />
+        <SiteNav section="gazette" current="/gazette" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Gazette</h1>
         <div className="ml-auto">
           <HeaderControls />
@@ -81,7 +81,7 @@ export default async function GazettePage() {
                     {rows.map((i) => (
                       <li key={`${i.season}-${i.week}`}>
                         <Link
-                          href={`/history/gazette/${i.season}/${i.week}`}
+                          href={`/gazette/${i.season}/${i.week}`}
                           className="block py-2 hover:bg-slate-900"
                         >
                           <div className="leaders text-[0.9rem]">
