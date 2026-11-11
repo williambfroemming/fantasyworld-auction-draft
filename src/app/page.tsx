@@ -19,7 +19,8 @@ import {
   listHistorySeasons,
 } from '@/server/history-service'
 import { listIssues } from '@/server/gazette-service'
-import { getPositionalScorecards, getSeasonSoFar } from '@/server/history-service'
+import { getFaab, getPositionalScorecards, getSeasonSoFar } from '@/server/history-service'
+import { FaabLeftPanel } from '@/components/season/FaabLeftPanel'
 import { SeasonSoFarPanel } from '@/components/season/SeasonSoFarPanel'
 import { PlayoffOddsPanel } from '@/components/season/PlayoffOddsPanel'
 import { PositionalGrid } from '@/components/season/PositionalGrid'
@@ -137,6 +138,18 @@ export default async function FrontPage({
         ).find((sc) => sc.season === soFar.season) ?? null)
       : null
 
+  // Waiver money left for the season in progress. One season only: the front page must not
+  // read six seasons of transactions to print ten numbers. Absent (not empty) when the season
+  // has no transactions on record.
+  const faab =
+    seasonUnderway && soFar.report
+      ? await getFaab({ season: soFar.season })
+          .then((all) => all.find((f) => f.season === soFar.season) ?? null)
+          // The front page must survive a database that has not had
+          // `db:migrate-transactions` yet: no panel, not a 500.
+          .catch(() => null)
+      : null
+
   // The most recent auction with picks in it. `listAuctions()` is built from
   // `picks`, so a season appears exactly when somebody drafted in it — which
   // means this is empty, not zero, before the first nomination of a new year.
@@ -214,6 +227,11 @@ export default async function FrontPage({
             {positional && positional.rows.length > 0 && (
               <div className="mt-12">
                 <PositionalGrid scorecard={positional} members={soFar.members} />
+              </div>
+            )}
+            {faab && faab.managers.length > 0 && (
+              <div className="mt-12">
+                <FaabLeftPanel faab={faab} members={soFar.members} />
               </div>
             )}
             {soFar.odds && (

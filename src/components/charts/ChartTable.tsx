@@ -12,28 +12,32 @@ export function ChartTable({
   rows: Array<{ label: string; cells: Array<string | null> }>
 }) {
   return (
-    <table className="sr-only">
-      <caption>{caption}</caption>
-      <thead>
-        <tr>
-          <th scope="col">Item</th>
-          {columns.map((c) => (
-            <th key={c} scope="col">
-              {c}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.label}>
-            <th scope="row">{r.label}</th>
-            {r.cells.map((c, i) => (
-              <td key={i}>{c ?? 'no data'}</td>
+    // The wrapper does the clipping: a table ignores `width: 1px`, so an sr-only table with
+    // dozens of columns stretched the whole page sideways.
+    <div className="sr-only">
+      <table>
+        <caption>{caption}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Item</th>
+            {columns.map((c) => (
+              <th key={c} scope="col">
+                {c}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.label}>
+              <th scope="row">{r.label}</th>
+              {r.cells.map((c, i) => (
+                <td key={i}>{c ?? 'no data'}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

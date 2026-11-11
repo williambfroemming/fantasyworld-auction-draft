@@ -24,10 +24,11 @@
  * and after and compared — history must never be able to move a live budget.
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
 import '../src/db/neon-local'
+import { flattenTransactions, type RawTransaction } from '../src/lib/transactions'
 import {
   combinePoints,
   isScoredWeek,
@@ -322,6 +323,24 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
 
   // --- lineups and player weeks -------------------------------------------
   const players = read<PlayerMap>(SLEEPER, 'players-min.json')
+
+  // --- transactions ----------------------------------------------------------
+  // One row per player movement, failed claims included. `null` means the season has no
+  // transaction files on disk (pull with `history:pull -- --transactions-only`); in that case
+  // the table is left alone rather than emptied.
+  const seasonDir = join(SLEEPER, String(season))
+  const txFiles = readdirSync(seasonDir)
+    .filter((f) => /^transactions-\d+\.json$/.test(f))
+    .sort()
+  const txRows =
+    txFiles.length === 0
+      ? null
+      : flattenTransactions(
+          season,
+          txFiles.flatMap((f) => read<RawTransaction[]>(seasonDir, f)),
+          owner,
+          players,
+        )
   const lineupRows: unknown[][] = []
   const playerWeekRows: unknown[][] = []
   for (const [week, entries] of weeks) {
@@ -356,7 +375,8 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
   if (dryRun) {
     console.log(
       `  ${season}  schedule ${scheduleRows.length} · standings ${standingRows.length} · matchups ${matchupRows.length} · ` +
-        `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length}`,
+        `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length}` +
+        (txRows ? ` · transactions ${txRows.length}` : ''),
     )
   } else {
     // Clear only this season, so a re-run after a source change cannot leave
@@ -391,9 +411,32 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
     } else {
       console.warn(`  ${season}  ⚠ season_schedule missing — run npm run db:migrate-schedule. Schedule skipped.`)
     }
+    // Guarded like the schedule: the weekly job must not fail on a database that has not had
+    // `db:migrate-transactions` yet. Delete and insert go up as ONE atomic batch, so a failure
+    // halfway leaves last week's rows, not half of this week's.
+    const [{ tx_exists: txTable }] = await sql`SELECT to_regclass('season_transactions') IS NOT NULL AS tx_exists`
+    if (txRows && txTable) {
+      const cols = ['season','week','transaction_id','line','type','status','manager_id',
+        'counterparty_manager_id','player_id_added','player_id_dropped','added_name','added_position',
+        'dropped_name','dropped_position','faab_bid','faab_transferred','note','created_at']
+      const values = txRows.map((r) => [r.season, r.week, r.transactionId, r.line, r.type, r.status,
+        r.managerId, r.counterpartyManagerId, r.playerIdAdded, r.playerIdDropped, r.addedName,
+        r.addedPosition, r.droppedName, r.droppedPosition, r.faabBid, r.faabTransferred, r.note, r.createdAt])
+      const statements = [sql.query('DELETE FROM season_transactions WHERE season = $1', [season])]
+      const CHUNK = 400
+      for (let i = 0; i < values.length; i += CHUNK) {
+        const params: unknown[] = []
+        const tuples = values.slice(i, i + CHUNK).map((row) => `(${row.map((v) => { params.push(v); return `$${params.length}` }).join(',')})`)
+        statements.push(sql.query(`INSERT INTO season_transactions (${cols.join(',')}) VALUES ${tuples.join(',')}`, params))
+      }
+      await sql.transaction(statements)
+    } else if (txRows) {
+      console.warn(`  ${season}  ⚠ season_transactions missing — run npm run db:migrate-transactions. Transactions skipped.`)
+    }
     console.log(
       `  ${season}  ✓ schedule ${scheduleRows.length} · standings ${standingRows.length} · matchups ${matchupRows.length} · ` +
-        `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length}`,
+        `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length}` +
+        (txRows ? ` · transactions ${txRows.length}` : ''),
     )
   }
 

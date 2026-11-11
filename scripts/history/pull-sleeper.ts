@@ -4,6 +4,9 @@
  *   npm run history:pull                # every importable season (2020-2025)
  *   npm run history:pull -- --season 2022
  *   npm run history:pull -- --force     # refetch even if the files exist
+ *   npm run history:pull -- --transactions-only
+ *                                       # ONLY the waiver / free-agent / trade files, for
+ *                                       # seasons already pulled; touches nothing else
  *
  * Writes raw, unmodified API responses to `data/sleeper/<season>/`, plus a
  * MANIFEST.json of counts and sha256s. Every importer verifies that manifest
@@ -48,6 +51,7 @@ const PAUSE_MS = 120
 
 const args = process.argv.slice(2)
 const force = args.includes('--force')
+const transactionsOnly = args.includes('--transactions-only')
 const seasonArg = args.indexOf('--season')
 const seasons: number[] =
   seasonArg >= 0 ? [Number(args[seasonArg + 1])] : [...SLEEPER_IMPORT_SEASONS]
@@ -91,6 +95,31 @@ async function writeJson(season: number, name: string, value: unknown) {
   }
 }
 
+/**
+ * Every transaction for one season: waiver claims, free-agent adds, trades and commissioner
+ * moves, one file per week (`transactions-NN.json`).
+ *
+ * ⚠️ FAILED waiver claims are kept, verbatim. Who lost the bidding is half the story, and
+ * Sleeper only marks a claim `failed` here, never anywhere else. Offseason and week-1 moves
+ * are all filed under week 1.
+ */
+async function pullTransactions(
+  season: number,
+  leagueId: string,
+  lastWeek: number,
+): Promise<Record<string, { sha256: string; count: number | null }>> {
+  const files: Record<string, { sha256: string; count: number | null }> = {}
+  for (let week = 1; week <= lastWeek; week++) {
+    const w = String(week).padStart(2, '0')
+    files[`transactions-${w}`] = await writeJson(
+      season,
+      `transactions-${w}`,
+      await get(`league/${leagueId}/transactions/${week}`),
+    )
+  }
+  return files
+}
+
 async function pullSeason(season: number) {
   const leagueId = SLEEPER_LEAGUE_IDS[season]
   if (!leagueId) throw new Error(`no pinned league id for ${season}`)
@@ -115,6 +144,8 @@ async function pullSeason(season: number) {
       await get(`league/${leagueId}/matchups/${week}`),
     )
   }
+
+  Object.assign(files, await pullTransactions(season, leagueId, lastWeek))
 
   files['winners_bracket'] = await writeJson(
     season,
@@ -149,8 +180,42 @@ async function pullSeason(season: number) {
   return { leagueId, league, files }
 }
 
+/**
+ * Add transaction files to seasons that are already on disk, leaving every other committed
+ * file, and its hash, exactly as it was. `--force` would refetch six settled seasons of
+ * matchups to learn something unrelated to them, and would quietly rewrite them if Sleeper
+ * had ever revised a number.
+ */
+async function pullTransactionsOnly() {
+  const rootPath = join(OUT_ROOT, 'MANIFEST.json')
+  const root: Record<string, unknown> = existsSync(rootPath)
+    ? JSON.parse(await readFile(rootPath, 'utf8'))
+    : {}
+  for (const season of seasons) {
+    const leagueId = SLEEPER_LEAGUE_IDS[season]
+    const path = join(OUT_ROOT, String(season), 'MANIFEST.json')
+    if (!leagueId || !existsSync(path)) {
+      console.log(`  ${season}  not pulled yet; run history:pull first`)
+      continue
+    }
+    const entry = JSON.parse(await readFile(path, 'utf8'))
+    if (entry.league_id !== leagueId) throw new Error(`${season}: manifest league id disagrees with the pinned one`)
+    const lastWeek = (entry.playoff_week_start ?? 15) + 2
+    const files = await pullTransactions(season, leagueId, lastWeek)
+    entry.files = { ...entry.files, ...files }
+    await writeFile(path, serialize(entry), 'utf8')
+    root[season] = entry
+    const rows = Object.values(files).reduce((n, f) => n + (f.count ?? 0), 0)
+    console.log(`  ${season}  ${Object.keys(files).length} weeks · ${rows} transactions`)
+  }
+  await writeFile(rootPath, serialize(root), 'utf8')
+  console.log(`\nwrote transactions for ${seasons.length} season(s) to ${OUT_ROOT}\n`)
+}
+
 async function main() {
   console.log(`\nPulling Sleeper seasons ${seasons.join(', ')}\n`)
+
+  if (transactionsOnly) return pullTransactionsOnly()
 
   const manifest: Record<string, unknown> = {}
   const chain: Record<number, { league_id: string; previous_league_id: string | null }> = {}

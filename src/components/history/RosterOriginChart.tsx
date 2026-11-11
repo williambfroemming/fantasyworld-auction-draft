@@ -11,7 +11,11 @@ import {
 export const ORIGIN_COLORS: Record<OriginPart, string> = {
   drafted: CHART_INKS[0],
   tradedAtDraft: CHART_INKS[3],
+  waiver: CHART_INKS[1],
+  freeAgent: CHART_INKS[4],
+  tradedLater: CHART_INKS[5],
   addedLater: CHART_INKS[1],
+  otherAdded: CHART_INKS[6],
   unknown: INK_FAINT,
 }
 

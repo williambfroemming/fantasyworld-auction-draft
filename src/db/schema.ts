@@ -687,6 +687,56 @@ export const seasonSchedule = pgTable(
 )
 
 /**
+ * Every Sleeper transaction, one row per player movement (step 59): waiver claims (won AND
+ * failed), free-agent adds and drops, trades, commissioner moves, and the FAAB dollars that
+ * changed hands inside trades (`type = 'trade_faab'`).
+ *
+ * The roadmap's column list plus what the data turned out to need: `commissioner` as a type,
+ * `faab_transferred` for money in trades, `note` for why a claim failed, and a snapshot of the
+ * player's name and position because the Sleeper player map is a pool and this is an archive
+ * (same principle as `picks`). Names are null when the player never appeared on a roster.
+ *
+ * A failed claim's `faab_bid` was never spent: anything adding money up must filter on
+ * `status = 'complete'`. Rewritten per season by the importer, created on Neon by
+ * `scripts/migrate-transactions.ts`. Both, or neither.
+ */
+export const seasonTransactions = pgTable(
+  'season_transactions',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    transactionId: text('transaction_id').notNull(),
+    /** Position inside the transaction, so a two-for-one trade shares one id. */
+    line: integer('line').notNull(),
+    /** waiver | free_agent | trade | commissioner | trade_faab */
+    type: text('type').notNull(),
+    /** Sleeper's word: complete | failed */
+    status: text('status').notNull(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    counterpartyManagerId: integer('counterparty_manager_id').references(() => managers.id),
+    playerIdAdded: text('player_id_added'),
+    playerIdDropped: text('player_id_dropped'),
+    addedName: text('added_name'),
+    addedPosition: text('added_position'),
+    droppedName: text('dropped_name'),
+    droppedPosition: text('dropped_position'),
+    faabBid: integer('faab_bid'),
+    faabTransferred: integer('faab_transferred'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.season, t.transactionId, t.line] }),
+    index('season_transactions_manager_idx').on(t.season, t.managerId),
+    index('season_transactions_added_idx').on(t.playerIdAdded),
+  ],
+)
+
+/**
  * What a manager scored against the best they could have scored, per week.
  *
  * **Kept separate from `season_matchups` despite the identical grain.** In the

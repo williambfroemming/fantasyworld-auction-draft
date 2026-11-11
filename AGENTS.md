@@ -147,6 +147,8 @@ npm run season:info -- 2025 --side-bet 10          # low scorer pays high scorer
 ### The FantasyWorld Gazette — the weekly newsletter
 npm run db:migrate-gazette                # the week_issues table + seasons.side_bet
 npm run db:migrate-schedule               # season_schedule, for playoff odds. Then history:refresh
+npm run db:migrate-transactions           # season_transactions: waivers, FAAB, trades. RUN BEFORE DEPLOYING the code that reads it. Then history:import-sleeper
+npm run history:pull -- --transactions-only   # add transaction files to seasons already on disk
 npm run odds:backtest                     # score the playoff odds against every finished season. EVERY OFFSEASON
 npm run gazette                           # newest unwritten week of this season
 npm run gazette -- 2025 7 --facts         # print the pack, call nothing

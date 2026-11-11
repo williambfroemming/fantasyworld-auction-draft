@@ -145,6 +145,29 @@ export const ORACLE_VIEWS: OracleViewNote[] = [
     note: 'Draft-night trades only. cash_a_to_b is signed: positive means A paid B.',
   },
   {
+    name: 'transactions',
+    columns: [
+      'season',
+      'week',
+      'transaction_id',
+      'type',
+      'status',
+      'manager_id',
+      'counterparty_manager_id',
+      'player_id_added',
+      'player_id_dropped',
+      'added_name',
+      'added_position',
+      'dropped_name',
+      'dropped_position',
+      'faab_bid',
+      'faab_transferred',
+      'note',
+      'created_at',
+    ],
+    note: 'Waiver claims, free-agent adds and drops, trades and commissioner moves, 2020 on, one row per player movement. type is waiver, free_agent, trade, commissioner or trade_faab. status is complete or failed: a FAILED waiver claim lost the bidding and its faab_bid was never spent. Each manager has a 100 dollar FAAB budget per season: dollars spent are the sum of faab_bid where type is waiver and status is complete. A trade_faab row is FAAB dollars moving in a trade: manager_id RECEIVED faab_transferred from counterparty_manager_id. On a trade row manager_id is the receiver and counterparty_manager_id the sender. A faab_bid of 0 is a real 0 dollar claim. week is the week Sleeper filed it under (pre-season moves are week 1). player ids are Sleeper ids and join to player_weeks.',
+  },
+  {
     name: 'legacy_champions',
     columns: ['season', 'champion_name', 'money_won'],
     note: 'Champions 2006 to 2010: a name and nothing else. Null money is unknown.',
@@ -165,7 +188,8 @@ Rules:
 9. Match player and manager names with ILIKE. If a name matches more than one player, say so and list them rather than adding them together.
 10. If the rows do not answer the question, say that plainly. Never use a figure that did not come back from a query. Use no NFL knowledge from memory.
 11. Compare players within a position, never across positions: this is a superflex league, so quarterbacks cost and score differently from everyone else.
-12. Answer in one to three sentences, lead with the number, plain text, no markdown tables.`
+12. FAAB spent means completed waiver claims only: type is waiver and status is complete. A failed claim is a lost bid, never money spent, and trade_faab rows move dollars between managers.
+13. Answer in one to three sentences, lead with the number, plain text, no markdown tables.`
 
 /** One block per view, for the system prompt. */
 export function oracleSchemaText(): string {
