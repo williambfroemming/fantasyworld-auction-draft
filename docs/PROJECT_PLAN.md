@@ -428,8 +428,8 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **55.** The player record book
 
 **G. Rating over time**
-- [ ] **56.** `ratingHistory()`
-- [ ] **57.** `/history/ratings`
+- [x] **56.** `ratingHistory()`
+- [x] **57.** `/history/ratings`
 
 **H. FAAB and waivers**
 - [ ] **58.** Pull Sleeper transactions

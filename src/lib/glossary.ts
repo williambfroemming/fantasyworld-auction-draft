@@ -357,6 +357,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'rosterOrigin() \u2014 src/lib/roster-origin.ts',
   },
   {
+    id: 'strength-rating',
+    term: 'Strength rating',
+    group: 'league',
+    where: 'Ratings \u00b7 Member page',
+    formula: 'an Elo rating: everyone starts at 1500; after each game, rating moves by 20 \u00d7 margin factor \u00d7 (result \u2212 expected result), where expected comes from the rating gap',
+    note: 'A model, not a record: it estimates how strong a team has looked and changes nobody\u2019s real record. A win over a stronger team moves it more than a win over a weaker one, and a bigger margin moves it more than a narrow one (scaled so an average margin counts once). Between seasons every rating moves a third of the way back to 1500, because rosters are rebuilt each August. Regular-season games plus the playoff games that count (not the fifth-place game). Weekly data starts in 2020, so no rating exists before then. A week with no point is a bye or a missing game, not a rating of 1500.',
+    source: 'ratingHistory() \u2014 src/lib/rating.ts',
+  },
+  {
     id: 'positional-scorecard',
     term: 'Points by position',
     group: 'league',

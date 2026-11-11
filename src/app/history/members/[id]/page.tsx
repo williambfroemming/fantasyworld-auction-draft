@@ -7,6 +7,10 @@ import { Donut } from '@/components/charts/Donut'
 import { DraftDnaPanel } from '@/components/history/DraftDnaPanel'
 import { MemberPositionalTable } from '@/components/history/MemberPositionalTable'
 import { memberPositional } from '@/lib/positional'
+import { LineChart } from '@/components/charts/LineChart'
+import { GlossaryLink } from '@/components/GlossaryLink'
+import { peakAndLow, ratingHistory } from '@/lib/rating'
+import { ratingChart } from '@/lib/rating-series'
 import { memberRosterOrigin } from '@/lib/roster-origin'
 import { MemberRosterOriginTable } from '@/components/history/MemberRosterOriginTable'
 import { SPEND_SEGMENTS_BY_POSITION, managerColor } from '@/lib/colors'
@@ -17,6 +21,7 @@ import {
   getMostStarted,
   getPositionalScorecards,
   getRosterOrigins,
+  getHistoryInput,
 } from '@/server/history-service'
 
 /**
@@ -55,19 +60,23 @@ function ordinal(n: number): string {
 export default async function MemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const managerId = Number(id)
-  const [{ profile, members }, favorites, dna, scorecards, origins] = await Promise.all([
+  const [{ profile, members }, favorites, dna, scorecards, origins, historyInput] = await Promise.all([
     getMemberProfile(managerId),
     getMostStarted(managerId, 10),
     getDraftDna(managerId),
     getPositionalScorecards(),
     getRosterOrigins(),
+    getHistoryInput(),
   ])
   if (!profile) notFound()
 
   const { member, allTime: a, weekly: w } = profile
+  const color = managerColor(member.color)
   const positional = memberPositional(scorecards, managerId)
   const originSeasons = memberRosterOrigin(origins, managerId)
-  const color = managerColor(member.color)
+  const mine = ratingHistory(historyInput.matchups).filter((r) => r.managerId === managerId)
+  const ratingLimits = mine[0] ? peakAndLow(mine[0].points) : null
+  const myRating = mine.length ? ratingChart(mine, () => ({ name: member.displayName, color })) : null
 
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
@@ -290,6 +299,33 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
         {/* Weekly data only (2020 on); absent entirely for a member with none. */}
         {positional.length > 0 && <MemberPositionalTable seasons={positional} />}
         {originSeasons.length > 0 && <MemberRosterOriginTable seasons={originSeasons} />}
+
+        {myRating && ratingLimits && (
+          <section className="mt-10 min-w-0">
+            <h2 className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5 font-display text-sm font-bold uppercase tracking-[0.1em]">
+              <span className="flex items-baseline gap-2">
+                Strength rating
+                <GlossaryLink anchor="strength-rating" label="strength rating" />
+              </span>
+              <EraBadge coverage={profile.weeklyCoverage} />
+            </h2>
+            <p className="mb-3 text-xs text-slate-400">
+              A model, not a record. Peak {Math.round(ratingLimits.peak.rating)} (wk{' '}
+              {ratingLimits.peak.week}, {ratingLimits.peak.season}), low{' '}
+              {Math.round(ratingLimits.low.rating)} (wk {ratingLimits.low.week},{' '}
+              {ratingLimits.low.season}). Dashed lines mark the start of each season.
+            </p>
+            <LineChart
+              series={myRating.series}
+              xLabels={myRating.labels}
+              xMarks={myRating.marks}
+              yDomain={myRating.yDomain}
+              yFormat={{ decimals: 0, thousands: false }}
+              height={240}
+              ariaLabel={`${member.displayName}'s strength rating after every game`}
+            />
+          </section>
+        )}
 
         {/*
           Ranked by weeks STARTED, not weeks rostered and not money spent.

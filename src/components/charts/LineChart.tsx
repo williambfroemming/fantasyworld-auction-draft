@@ -28,6 +28,13 @@ interface Props {
   yTicks?: number[]
   /** Put the smallest y at the top, for ranks where 1 is best. */
   invertY?: boolean
+  /** Text for an x, overriding `xFormat` (axis ticks, hover table). A plain object, so it can cross to a client component. */
+  xLabels?: Record<number, string>
+  /**
+   * Dividers drawn at these x values, each with its label along the bottom, INSTEAD of the
+   * thinned x ticks. For marking season boundaries on an axis of game weeks.
+   */
+  xMarks?: Array<{ x: number; label: string }>
 }
 
 const FONT = 11
@@ -49,6 +56,8 @@ export function LineChart({
   yDomain,
   yTicks,
   invertY = false,
+  xLabels,
+  xMarks,
 }: Props) {
   const [ref, width, ready] = useWidth()
   const [active, setActive] = useState<string | null>(null)
@@ -70,7 +79,7 @@ export function LineChart({
   }, [series, yDomain, yTicks])
 
   const { xs, ticks } = model
-  const xLabel = (x: number) => formatValue(xFormat, x)
+  const xLabel = (x: number) => xLabels?.[x] ?? formatValue(xFormat, x)
   const yLabel = (y: number) => formatValue(yFormat, y)
   if (xs.length === 0) {
     return <p className="text-sm text-slate-500">Nothing to draw yet.</p>
@@ -115,7 +124,7 @@ export function LineChart({
           className="block max-w-full overflow-visible"
         >
           <g transform={`translate(${m.left},${m.top})`}>
-            {ticks.map((t) => (
+            {ticks.filter((t) => t >= Math.min(y0, y1) && t <= Math.max(y0, y1)).map((t) => (
               <g key={t}>
                 <line
                   x1={0}
@@ -138,7 +147,23 @@ export function LineChart({
                 </text>
               </g>
             ))}
-            {xTicks.map((x) => (
+            {(xMarks ?? []).map((mk) => (
+              <g key={`mark${mk.x}`}>
+                <line
+                  x1={sx(mk.x)}
+                  x2={sx(mk.x)}
+                  y1={0}
+                  y2={plotH}
+                  style={{ stroke: GRID }}
+                  strokeWidth={1}
+                  strokeDasharray="3 3"
+                />
+                <text x={sx(mk.x) + 3} y={plotH + 18} fontSize={FONT} style={{ fill: INK_FAINT }}>
+                  {mk.label}
+                </text>
+              </g>
+            ))}
+            {(xMarks ? [] : xTicks).map((x) => (
               <text
                 key={x}
                 x={sx(x)}
