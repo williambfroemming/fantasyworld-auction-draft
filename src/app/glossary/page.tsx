@@ -1,5 +1,5 @@
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { GLOSSARY_GROUPS, glossaryGroup } from '@/lib/glossary'
 
 /**
@@ -26,7 +26,7 @@ export default function GlossaryPage() {
         <SiteNav section="draft-history" current="/glossary" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Glossary</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

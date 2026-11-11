@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, sessionSecret, signSession } from '@/lib/auth'
 import { signIn } from '@/server/pin-service'
+import { getSql } from '@/server/sql'
 import { currentManagerId } from '@/server/session'
 
 export const dynamic = 'force-dynamic'
@@ -11,10 +12,25 @@ const Body = z.object({
   pin: z.string(),
 })
 
-/** Who am I? Used on load to decide between the join screen and the draft. */
+/**
+ * Who am I? Read by the account menu in every page header, and on load to decide between
+ * the join screen and the draft. `displayName` and `isCommish` are null when signed out.
+ * Public, like the rest of this route, so it must say nothing about anyone but the caller.
+ */
 export async function GET() {
   const managerId = await currentManagerId()
-  return NextResponse.json({ managerId }, { headers: { 'Cache-Control': 'no-store' } })
+  let displayName: string | null = null
+  let isCommish: boolean | null = null
+  if (managerId !== null) {
+    const [m] = await getSql()`SELECT display_name, is_commish FROM managers WHERE id = ${managerId}`
+    // A valid cookie for a seat that no longer exists reads as signed out.
+    displayName = (m?.display_name as string | undefined) ?? null
+    isCommish = m ? (m.is_commish as boolean) : null
+  }
+  return NextResponse.json(
+    { managerId: displayName === null ? null : managerId, displayName, isCommish },
+    { headers: { 'Cache-Control': 'no-store' } },
+  )
 }
 
 /**

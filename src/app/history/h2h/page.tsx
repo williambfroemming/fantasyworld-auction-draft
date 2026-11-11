@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { EraBadge } from '@/components/history/EraBadge'
 import { GlossaryLink } from '@/components/GlossaryLink'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
 import { getHeadToHead } from '@/server/history-service'
 
@@ -38,7 +38,7 @@ export default async function HeadToHeadPage() {
         <SiteNav section="league-history" current="/history/h2h" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Head to Head</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

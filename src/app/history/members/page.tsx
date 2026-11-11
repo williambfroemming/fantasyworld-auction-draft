@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
 import { listMembers } from '@/server/history-service'
 
@@ -18,7 +18,7 @@ export default async function MembersPage() {
         <SiteNav section="league-history" current="/history/members" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Members</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

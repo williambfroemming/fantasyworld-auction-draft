@@ -7,7 +7,7 @@ import { randomOrder, snakeSlot } from '@/lib/draft'
 import { useDraft } from '@/hooks/useDraft'
 import type { StateManager } from '@/server/draft-service'
 import { managerTint } from '@/lib/colors'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 
 /**
  * Pre-draft setup. Commissioner only.
@@ -152,7 +152,7 @@ export default function SetupPage() {
             {state.draft.status}
           </span>
           <div className="ml-auto flex items-center gap-3">
-            <ThemeToggle />
+            <HeaderControls />
             <Link href="/draft" className="text-sm text-slate-400 underline">
               → draft
             </Link>

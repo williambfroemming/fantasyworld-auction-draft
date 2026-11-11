@@ -407,9 +407,9 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
 
 **B. Charts**
-- [ ] **45.** The chart kit — line, bar, stacked bar, donut
-- [ ] **46.** `/history/charts` — cumulative wins by year, and three more
-- [ ] **47.** Charts on the member and Past Auctions pages
+- [x] **45.** The chart kit — line, bar, stacked bar, donut
+- [x] **46.** `/history/charts` — cumulative wins by year, and three more
+- [x] **47.** Charts on the member and Past Auctions pages
 
 **C. Playoff odds, extended**
 - [ ] **48.** Seed distribution and win-or-lose leverage

@@ -8,7 +8,7 @@ import { MarketPanel } from '@/components/MarketPanel'
 import { SeasonPicker } from '@/components/SeasonPicker'
 import { useDraft } from '@/hooks/useDraft'
 import { useSeasonView } from '@/hooks/useSeasonView'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 
 /**
  * The League board on its own page, for the live draft and every past one.
@@ -82,7 +82,7 @@ function BoardView() {
         />
 
         <div className="ml-auto flex items-center gap-3">
-          <ThemeToggle />
+          <HeaderControls />
           {isArchive ? (
             <>
               <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">

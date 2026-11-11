@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Column, Furniture, GameNotes, Masthead, Tables } from '@/components/gazette/Issue'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { getAdjacentIssues, getIssue } from '@/server/gazette-service'
 import { listMembers } from '@/server/history-service'
 
@@ -51,7 +51,7 @@ export default async function IssuePage({
         <SiteNav section="league-history" current="/history/gazette" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Gazette</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

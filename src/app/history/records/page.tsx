@@ -2,7 +2,7 @@ import { EraBadge } from '@/components/history/EraBadge'
 import { RecordLine } from '@/components/history/RecordLine'
 import { SeasonReviewCard } from '@/components/history/SeasonReviewCard'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
 import { getBestPickups, getRecordBook, getSeasonReviews } from '@/server/history-service'
 
@@ -50,7 +50,7 @@ export default async function RecordsPage() {
         <SiteNav section="league-history" current="/history/records" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Records</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

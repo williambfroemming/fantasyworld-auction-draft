@@ -13,7 +13,7 @@ import { useQueue } from '@/hooks/useQueue'
 import { sounds, unlockAudio } from '@/lib/sounds'
 import type { BoardPlayer } from '@/hooks/useDraft'
 import { managerTint } from '@/lib/colors'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 
 export default function DraftPage() {
   const router = useRouter()
@@ -125,7 +125,7 @@ export default function DraftPage() {
         )}
 
         <div className="ml-auto flex items-center gap-3 text-sm">
-          <ThemeToggle />
+          <HeaderControls />
           {myManager && (
             <>
               <span className="hidden text-slate-500 sm:inline">

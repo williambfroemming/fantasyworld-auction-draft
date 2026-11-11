@@ -223,3 +223,6 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | Turn it **Off**: the next question is refused in words, `/history/oracle` shows the switched-off notice, and no `oracle_log` row is added | |
 | ⬜ | Turn it **On** again: questions work with no redeploy | |
 | ⬜ | A non-commissioner calling `/api/oracle-admin` gets 403 | |
+| ⬜ | Top right of every signed-in page shows your name with a green dot; the menu says "Signed in as …" (and "Commissioner" if you are) | |
+| ⬜ | Menu → **Sign out** lands on the sign-in page, and going Back does not show the site again | |
+| ⬜ | Menu → **Switch seat** opens the seat picker; signing in as someone else changes the name top right | |

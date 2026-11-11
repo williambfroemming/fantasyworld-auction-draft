@@ -2,7 +2,7 @@ import { SiteNav } from '@/components/SiteNav'
 import { LeagueSummaryTable } from '@/components/history/LeagueSummaryTable'
 import { EraBadge } from '@/components/history/EraBadge'
 import { GlossaryLink } from '@/components/GlossaryLink'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { getLeagueSummary, listHistorySeasons } from '@/server/history-service'
 
 /**
@@ -35,7 +35,7 @@ export default async function HistoryPage() {
           {oldest}–{newest}
         </span>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { SiteNav, SECTIONS } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import {
   AuctionNumbers,
   ChampionLead,
@@ -158,7 +158,7 @@ export default async function FrontPage({
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <SiteNav current="/" />
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

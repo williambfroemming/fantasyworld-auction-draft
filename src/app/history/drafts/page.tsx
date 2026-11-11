@@ -1,7 +1,12 @@
 import Link from 'next/link'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { listAuctions } from '@/server/history-service'
+import { HeaderControls } from '@/components/HeaderControls'
+import { StackedBar } from '@/components/charts/StackedBar'
+import { EraBadge } from '@/components/history/EraBadge'
+import { auctionSpendByPosition } from '@/lib/chart-series'
+import { SPEND_SEGMENTS_BY_POSITION } from '@/lib/colors'
+import type { SpendColumn } from '@/lib/stats'
+import { getHistoryInput, listAuctions } from '@/server/history-service'
 
 /**
  * Every auction the league has on record.
@@ -18,7 +23,9 @@ export const revalidate = 3600
 export const metadata = { title: 'Past auctions — FantasyWorld' }
 
 export default async function DraftsPage() {
-  const auctions = await listAuctions()
+  const [auctions, historyInput] = await Promise.all([listAuctions(), getHistoryInput()])
+  const spend = auctionSpendByPosition(historyInput)
+  const years = spend.map((r) => r.season).sort((a, b) => a - b)
 
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
@@ -26,13 +33,48 @@ export default async function DraftsPage() {
         <SiteNav section="draft-history" current="/history/drafts" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Past Auctions</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 
       <div className="mx-auto max-w-5xl px-4 py-6">
         {auctions.length === 0 && (
           <p className="text-sm text-slate-400">No drafts on record yet.</p>
+        )}
+
+        {spend.length > 0 && (
+          <section className="mb-8">
+            <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
+              <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
+                Where the money went
+              </h2>
+              <EraBadge
+                coverage={{
+                  from: years[0],
+                  to: years[years.length - 1],
+                  seasons: years,
+                  label: 'Auctions',
+                }}
+              />
+            </div>
+            <p className="mb-3 text-sm text-slate-400">
+              Each auction&rsquo;s dollars, split by the position of the player bought.
+            </p>
+            <StackedBar
+              rows={spend.map((r) => ({
+                id: String(r.season),
+                label: String(r.season),
+                segments: SPEND_SEGMENTS_BY_POSITION.map((seg) => ({
+                  key: seg.key,
+                  label: seg.label,
+                  value: r.byPosition[seg.key as SpendColumn] ?? 0,
+                  color: seg.hex,
+                })),
+              }))}
+              format={{ prefix: '$' }}
+              ariaLabel="Share of each auction's dollars spent at each position"
+            />
+          </section>
         )}
 
         <ul className="space-y-3">

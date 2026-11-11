@@ -1,6 +1,6 @@
 import { PlayerSearch } from '@/components/history/PlayerSearch'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { listPlayers } from '@/server/history-service'
 
 /** Everyone the league has ever rostered, newest scoring first. */
@@ -17,7 +17,7 @@ export default async function PlayersPage() {
         <SiteNav section="league-history" current="/history/players" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Players</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 
