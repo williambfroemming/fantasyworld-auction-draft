@@ -292,3 +292,55 @@ export async function askOracle(
 
   return fail('The Oracle could not work that out in five queries.')
 }
+
+// ---------------------------------------------------------------------------
+// The daily cap and the log (step 42)
+// ---------------------------------------------------------------------------
+
+/** Questions one manager may ask per rolling 24 hours. Every one costs real money. */
+export const DAILY_LIMIT = 30
+
+/** Rows kept per step in oracle_log. Enough to see what the model saw; not the table. */
+const LOG_ROWS_PER_STEP = 20
+
+/**
+ * How many questions this manager has asked in the last 24 hours, and when the oldest of
+ * them ages out (which is when a full allowance starts to free up). One statement.
+ *
+ * Counts every logged row, failed or not: a question that errored still spent tokens.
+ * Scoped by manager_id — one manager's questions never use up another's allowance.
+ */
+export async function questionsToday(
+  managerId: number,
+): Promise<{ count: number; freesAt: Date | null }> {
+  const sql = getSql()
+  const [row] = await sql`
+    SELECT count(*)::int AS n, min(created_at) AS oldest
+    FROM oracle_log
+    WHERE manager_id = ${managerId}
+      AND created_at > now() - interval '24 hours'`
+  const oldest = row.oldest ? new Date(row.oldest as string) : null
+  return {
+    count: row.n as number,
+    freesAt: oldest ? new Date(oldest.getTime() + 24 * 60 * 60 * 1000) : null,
+  }
+}
+
+/** Record one question, successful or not. One statement. Returns the new row's id. */
+export async function logQuestion(
+  managerId: number,
+  question: string,
+  result: OracleResult,
+  ms: number,
+): Promise<number> {
+  const sql = getSql()
+  const steps = result.steps.map((s) => ({ ...s, rows: s.rows.slice(0, LOG_ROWS_PER_STEP) }))
+  const [row] = await sql`
+    INSERT INTO oracle_log
+      (manager_id, question, answer, steps, ok, error, ms, input_tokens, output_tokens)
+    VALUES
+      (${managerId}, ${question}, ${result.answer}, ${JSON.stringify(steps)}::jsonb,
+       ${result.ok}, ${result.error}, ${ms}, ${result.inputTokens}, ${result.outputTokens})
+    RETURNING id`
+  return row.id as number
+}
