@@ -1,0 +1,1047 @@
+{
+  "19": {
+    "gp": 1,
+    "pass_att": 37,
+    "pass_cmp": 19,
+    "pass_int": 1,
+    "pass_sack": 1,
+    "pass_td": 1,
+    "pass_yd": 183,
+    "rush_att": 1,
+    "rush_yd": 3
+  },
+  "421": {
+    "gp": 1,
+    "pass_att": 35,
+    "pass_cmp": 25,
+    "pass_sack": 1,
+    "pass_td": 3,
+    "pass_yd": 273
+  },
+  "827": {
+    "gp": 1,
+    "pass_att": 28,
+    "pass_cmp": 17,
+    "pass_int": 1,
+    "pass_sack": 3,
+    "pass_td": 1,
+    "pass_yd": 222,
+    "rush_att": 5,
+    "rush_yd": 19
+  },
+  "1166": {
+    "fum": 1,
+    "gp": 1,
+    "pass_att": 23,
+    "pass_cmp": 16,
+    "pass_int": 1,
+    "pass_sack": 3,
+    "pass_td": 2,
+    "pass_yd": 199,
+    "rush_att": 2,
+    "rush_yd": 5
+  },
+  "1373": {
+    "fum": 2,
+    "fum_lost": 1,
+    "gp": 1,
+    "pass_att": 44,
+    "pass_cmp": 30,
+    "pass_sack": 10,
+    "pass_td": 1,
+    "pass_yd": 285,
+    "rush_att": 3,
+    "rush_yd": 8
+  },
+  "1466": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 6,
+    "rec_yd": 43,
+    "rush_att": 1,
+    "rush_yd": 1
+  },
+  "2133": {
+    "gp": 1,
+    "rec": 5,
+    "rec_td": 2,
+    "rec_tgt": 8,
+    "rec_yd": 62
+  },
+  "2449": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 3,
+    "rec_yd": 20
+  },
+  "3163": {
+    "gp": 1,
+    "pass_att": 42,
+    "pass_cmp": 28,
+    "pass_int": 1,
+    "pass_sack": 3,
+    "pass_td": 2,
+    "pass_yd": 279
+  },
+  "3198": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 2,
+    "rec_yd": 24,
+    "rush_att": 21,
+    "rush_td": 2,
+    "rush_yd": 64
+  },
+  "3214": {
+    "gp": 1,
+    "rec": 7,
+    "rec_td": 1,
+    "rec_tgt": 10,
+    "rec_yd": 115
+  },
+  "3257": {
+    "gp": 1,
+    "pass_att": 49,
+    "pass_cmp": 33,
+    "pass_sack": 6,
+    "pass_td": 1,
+    "pass_yd": 317,
+    "rush_att": 3,
+    "rush_yd": 20
+  },
+  "3294": {
+    "gp": 1,
+    "pass_att": 36,
+    "pass_cmp": 23,
+    "pass_int": 1,
+    "pass_sack": 1,
+    "pass_td": 2,
+    "pass_yd": 354,
+    "rush_att": 5,
+    "rush_td": 1,
+    "rush_yd": 9
+  },
+  "4034": {
+    "fum": 1,
+    "gp": 1,
+    "rec": 7,
+    "rec_tgt": 7,
+    "rec_yd": 53,
+    "rush_att": 24,
+    "rush_td": 1,
+    "rush_yd": 89
+  },
+  "4035": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 2,
+    "rec_yd": 4,
+    "rush_att": 3,
+    "rush_yd": 11
+  },
+  "4037": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 4,
+    "rec_yd": 9
+  },
+  "4046": {
+    "gp": 1,
+    "pass_2pt": 1,
+    "pass_att": 46,
+    "pass_cmp": 29,
+    "pass_int": 1,
+    "pass_sack": 4,
+    "pass_yd": 352,
+    "rush_att": 4,
+    "rush_yd": 30
+  },
+  "4098": {
+    "fum": 1,
+    "fum_lost": 1,
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 3,
+    "rec_yd": 26,
+    "rush_att": 30,
+    "rush_td": 1,
+    "rush_yd": 104
+  },
+  "4199": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 4,
+    "rec_yd": 16,
+    "rush_att": 9,
+    "rush_yd": 41
+  },
+  "4217": {
+    "gp": 1,
+    "rec": 6,
+    "rec_tgt": 10,
+    "rec_yd": 78
+  },
+  "4866": {
+    "fum": 1,
+    "fum_lost": 1,
+    "gp": 1,
+    "rec": 7,
+    "rec_tgt": 8,
+    "rec_yd": 52,
+    "rush_att": 10,
+    "rush_yd": 22
+  },
+  "4881": {
+    "fum": 1,
+    "gp": 1,
+    "pass_att": 23,
+    "pass_cmp": 13,
+    "pass_sack": 1,
+    "pass_yd": 153,
+    "rush_att": 7,
+    "rush_yd": 11
+  },
+  "4892": {
+    "gp": 1,
+    "pass_att": 19,
+    "pass_cmp": 9,
+    "pass_int": 2,
+    "pass_sack": 2,
+    "pass_td": 1,
+    "pass_yd": 41,
+    "rush_att": 4,
+    "rush_yd": 19
+  },
+  "4943": {
+    "gp": 1,
+    "pass_att": 26,
+    "pass_cmp": 16,
+    "pass_sack": 1,
+    "pass_td": 2,
+    "pass_yd": 244,
+    "rush_att": 1,
+    "rush_yd": -1
+  },
+  "4983": {
+    "gp": 1,
+    "rec": 5,
+    "rec_td": 2,
+    "rec_tgt": 7,
+    "rec_yd": 64
+  },
+  "4984": {
+    "gp": 1,
+    "pass_att": 34,
+    "pass_cmp": 24,
+    "pass_int": 2,
+    "pass_sack": 8,
+    "pass_yd": 253,
+    "rush_att": 5,
+    "rush_yd": 20
+  },
+  "5012": {
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 3,
+    "rec_yd": 9,
+    "rush_att": 2,
+    "rush_yd": 2
+  },
+  "5022": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 2,
+    "rec_yd": 20
+  },
+  "5846": {
+    "gp": 1,
+    "rec": 5,
+    "rec_tgt": 8,
+    "rec_yd": 22,
+    "rush_att": 2,
+    "rush_td": 1,
+    "rush_yd": 12
+  },
+  "5859": {
+    "gp": 1,
+    "rec": 8,
+    "rec_td": 1,
+    "rec_tgt": 10,
+    "rec_yd": 110
+  },
+  "5870": {
+    "gp": 1,
+    "pass_att": 31,
+    "pass_cmp": 19,
+    "pass_td": 2,
+    "pass_yd": 181,
+    "rush_att": 3,
+    "rush_yd": 16
+  },
+  "5892": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 3,
+    "rec_yd": 19,
+    "rush_att": 5,
+    "rush_yd": 18
+  },
+  "5947": {
+    "gp": 1,
+    "rec": 4,
+    "rec_td": 1,
+    "rec_tgt": 6,
+    "rec_yd": 50
+  },
+  "5967": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 5,
+    "rec_yd": 21,
+    "rush_att": 11,
+    "rush_yd": 20
+  },
+  "6770": {},
+  "6786": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 11,
+    "rec_yd": 75
+  },
+  "6790": {
+    "fum": 1,
+    "fum_lost": 1,
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 1,
+    "rec_yd": 14,
+    "rush_att": 8,
+    "rush_yd": 15
+  },
+  "6794": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 6,
+    "rec_yd": 48
+  },
+  "6801": {
+    "gp": 1,
+    "rec": 5,
+    "rec_tgt": 6,
+    "rec_yd": 31
+  },
+  "6803": {},
+  "6804": {
+    "gp": 1,
+    "pass_att": 21,
+    "pass_cmp": 14,
+    "pass_sack": 1,
+    "pass_yd": 139,
+    "rush_att": 3,
+    "rush_yd": 15
+  },
+  "6813": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 3,
+    "rec_yd": 8,
+    "rush_att": 16,
+    "rush_yd": 58
+  },
+  "6819": {
+    "gp": 1,
+    "rec": 5,
+    "rec_td": 1,
+    "rec_tgt": 8,
+    "rec_yd": 27
+  },
+  "6904": {
+    "gp": 1,
+    "pass_att": 39,
+    "pass_cmp": 27,
+    "pass_sack": 1,
+    "pass_td": 1,
+    "pass_yd": 289,
+    "rush_att": 7,
+    "rush_td": 2,
+    "rush_yd": 33
+  },
+  "7002": {
+    "gp": 1,
+    "rec": 6,
+    "rec_tgt": 7,
+    "rec_yd": 46
+  },
+  "7021": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 4,
+    "rec_yd": 36,
+    "rush_att": 6,
+    "rush_yd": 38
+  },
+  "7049": {
+    "gp": 1,
+    "rec": 5,
+    "rec_td": 1,
+    "rec_tgt": 7,
+    "rec_yd": 41
+  },
+  "7090": {
+    "gp": 1,
+    "rec": 3,
+    "rec_td": 1,
+    "rec_tgt": 3,
+    "rec_yd": 74
+  },
+  "7523": {
+    "fum": 1,
+    "fum_lost": 1,
+    "gp": 1,
+    "pass_att": 30,
+    "pass_cmp": 18,
+    "pass_int": 3,
+    "pass_sack": 3,
+    "pass_td": 3,
+    "pass_yd": 256,
+    "rush_att": 5,
+    "rush_yd": 29
+  },
+  "7525": {
+    "gp": 1,
+    "rec": 6,
+    "rec_tgt": 11,
+    "rec_yd": 89
+  },
+  "7543": {
+    "gp": 1,
+    "rec": 3,
+    "rec_td": 1,
+    "rec_tgt": 4,
+    "rec_yd": 30,
+    "rush_att": 15,
+    "rush_yd": 86
+  },
+  "7547": {
+    "gp": 1,
+    "rec": 9,
+    "rec_td": 1,
+    "rec_tgt": 13,
+    "rec_yd": 149
+  },
+  "7553": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 5,
+    "rec_yd": 25
+  },
+  "7564": {},
+  "7567": {
+    "gp": 1,
+    "rec": 6,
+    "rec_tgt": 6,
+    "rec_yd": 30,
+    "rush_att": 10,
+    "rush_yd": 92
+  },
+  "7569": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 3,
+    "rec_yd": 55
+  },
+  "7585": {
+    "gp": 1,
+    "pass_att": 30,
+    "pass_cmp": 16,
+    "pass_td": 2,
+    "pass_yd": 153,
+    "rush_att": 2,
+    "rush_yd": 4
+  },
+  "7588": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 3,
+    "rec_yd": 14,
+    "rush_att": 20,
+    "rush_yd": 87
+  },
+  "7594": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 4,
+    "rec_yd": 27,
+    "rush_att": 3,
+    "rush_yd": 16
+  },
+  "7611": {
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 2,
+    "rec_yd": 5,
+    "rush_att": 6,
+    "rush_yd": 5
+  },
+  "8110": {
+    "fum": 1,
+    "gp": 1,
+    "rec": 5,
+    "rec_tgt": 6,
+    "rec_yd": 60,
+    "rush_att": 1,
+    "rush_yd": 1
+  },
+  "8121": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 3,
+    "rec_yd": 23
+  },
+  "8122": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 5,
+    "rec_yd": 20,
+    "rush_att": 10,
+    "rush_td": 1,
+    "rush_yd": 12
+  },
+  "8126": {
+    "fum": 1,
+    "gp": 1,
+    "rec": 9,
+    "rec_td": 1,
+    "rec_tgt": 14,
+    "rec_yd": 156,
+    "rush_att": 1
+  },
+  "8130": {
+    "gp": 1,
+    "rec": 9,
+    "rec_tgt": 10,
+    "rec_yd": 79
+  },
+  "8132": {
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 1,
+    "rec_yd": 5,
+    "rush_att": 12,
+    "rush_yd": 44
+  },
+  "8137": {
+    "gp": 1,
+    "rec": 9,
+    "rec_td": 1,
+    "rec_tgt": 9,
+    "rec_yd": 146
+  },
+  "8138": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 3,
+    "rec_yd": 13,
+    "rush_att": 17,
+    "rush_td": 1,
+    "rush_yd": 116
+  },
+  "8142": {
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 2,
+    "rec_yd": 26
+  },
+  "8144": {
+    "gp": 1,
+    "rec": 9,
+    "rec_tgt": 13,
+    "rec_yd": 70
+  },
+  "8146": {},
+  "8148": {
+    "gp": 1,
+    "rec_tgt": 3
+  },
+  "8150": {
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 1,
+    "rec_yd": 2,
+    "rush_att": 12,
+    "rush_yd": 46
+  },
+  "8151": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 4,
+    "rec_yd": 30,
+    "rush_att": 11,
+    "rush_yd": 71
+  },
+  "8154": {
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 2,
+    "rec_yd": 4,
+    "rush_att": 7,
+    "rush_yd": 40
+  },
+  "8155": {
+    "fum": 1,
+    "fum_lost": 1,
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 4,
+    "rec_yd": 75,
+    "rush_att": 16,
+    "rush_yd": 44
+  },
+  "8167": {
+    "gp": 1,
+    "rec": 5,
+    "rec_tgt": 7,
+    "rec_yd": 49
+  },
+  "8183": {
+    "gp": 1,
+    "pass_att": 32,
+    "pass_cmp": 23,
+    "pass_int": 3,
+    "pass_td": 1,
+    "pass_yd": 193,
+    "rush_att": 6,
+    "rush_yd": 16
+  },
+  "8228": {
+    "gp": 1,
+    "rush_att": 18,
+    "rush_td": 1,
+    "rush_yd": 68
+  },
+  "8408": {
+    "gp": 1,
+    "rush_att": 8,
+    "rush_yd": 42
+  },
+  "8676": {
+    "gp": 1,
+    "rec_tgt": 2,
+    "rush_att": 1,
+    "rush_yd": 5
+  },
+  "9221": {
+    "gp": 1,
+    "rec": 11,
+    "rec_td": 1,
+    "rec_tgt": 12,
+    "rec_yd": 45,
+    "rush_att": 15,
+    "rush_td": 2,
+    "rush_yd": 219
+  },
+  "9224": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 4,
+    "rec_yd": 23,
+    "rush_att": 19,
+    "rush_yd": 107
+  },
+  "9225": {
+    "gp": 1,
+    "rush_att": 1,
+    "rush_yd": 8
+  },
+  "9228": {
+    "gp": 1,
+    "pass_att": 29,
+    "pass_cmp": 18,
+    "pass_int": 2,
+    "pass_sack": 1,
+    "pass_td": 1,
+    "pass_yd": 169,
+    "rush_att": 4,
+    "rush_yd": 15
+  },
+  "9488": {
+    "gp": 1,
+    "rec": 8,
+    "rec_td": 2,
+    "rec_tgt": 10,
+    "rec_yd": 167,
+    "rush_att": 1,
+    "rush_yd": 4
+  },
+  "9493": {
+    "gp": 1,
+    "rec": 7,
+    "rec_tgt": 11,
+    "rec_yd": 97
+  },
+  "9504": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 2,
+    "rec_yd": 15
+  },
+  "9506": {
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 2,
+    "rec_yd": 4,
+    "rush_att": 12,
+    "rush_yd": 42
+  },
+  "9508": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 5,
+    "rec_yd": 21,
+    "rush_att": 3,
+    "rush_yd": 4
+  },
+  "9509": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 2,
+    "rec_yd": 37,
+    "rush_2pt": 1,
+    "rush_att": 14,
+    "rush_yd": 70
+  },
+  "9753": {
+    "gp": 1,
+    "rush_att": 6,
+    "rush_td": 1,
+    "rush_yd": 35
+  },
+  "9756": {
+    "gp": 1,
+    "rec_tgt": 1
+  },
+  "9997": {
+    "gp": 1,
+    "rec": 5,
+    "rec_tgt": 6,
+    "rec_yd": 58,
+    "rush_att": 2,
+    "rush_yd": 11
+  },
+  "10213": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 10,
+    "rec_yd": 28
+  },
+  "10222": {},
+  "10226": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 7,
+    "rec_yd": 61,
+    "rush_att": 1,
+    "rush_yd": 5
+  },
+  "10229": {
+    "gp": 1,
+    "rec": 8,
+    "rec_2pt": 1,
+    "rec_tgt": 12,
+    "rec_yd": 141
+  },
+  "10232": {
+    "gp": 1,
+    "rec": 10,
+    "rec_tgt": 15,
+    "rec_yd": 118
+  },
+  "11377": {
+    "gp": 1
+  },
+  "11435": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 2,
+    "rec_yd": 18,
+    "rush_att": 28,
+    "rush_td": 2,
+    "rush_yd": 107
+  },
+  "11560": {
+    "fum": 1,
+    "fum_lost": 1,
+    "gp": 1,
+    "pass_att": 35,
+    "pass_cmp": 19,
+    "pass_sack": 1,
+    "pass_td": 3,
+    "pass_yd": 239,
+    "rush_att": 4,
+    "rush_yd": 21
+  },
+  "11564": {
+    "gp": 1,
+    "pass_att": 35,
+    "pass_cmp": 22,
+    "pass_int": 1,
+    "pass_sack": 1,
+    "pass_td": 1,
+    "pass_yd": 294,
+    "rush_att": 5,
+    "rush_yd": 22
+  },
+  "11565": {
+    "fum": 1,
+    "gp": 1,
+    "pass_att": 19,
+    "pass_cmp": 12,
+    "pass_int": 2,
+    "pass_sack": 5,
+    "pass_yd": 87,
+    "rush_att": 2,
+    "rush_yd": 10
+  },
+  "11586": {
+    "gp": 1,
+    "rush_att": 7,
+    "rush_yd": 24
+  },
+  "11589": {},
+  "11604": {
+    "gp": 1,
+    "rec": 6,
+    "rec_tgt": 9,
+    "rec_yd": 55
+  },
+  "11620": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 9,
+    "rec_yd": 53
+  },
+  "11624": {
+    "gp": 1,
+    "rec": 4,
+    "rec_tgt": 8,
+    "rec_yd": 59
+  },
+  "11638": {
+    "gp": 1,
+    "rec": 2,
+    "rec_tgt": 4,
+    "rec_yd": 6,
+    "rush_att": 1,
+    "rush_yd": 2
+  },
+  "11655": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 4,
+    "rec_yd": 68,
+    "rush_att": 20,
+    "rush_yd": 62
+  },
+  "12474": {
+    "gp": 1,
+    "rec": 1,
+    "rec_tgt": 1,
+    "rec_yd": -5,
+    "rush_att": 16,
+    "rush_yd": 74
+  },
+  "12490": {
+    "gp": 1,
+    "rec_tgt": 1,
+    "rush_att": 7,
+    "rush_yd": 17
+  },
+  "12512": {
+    "gp": 1,
+    "rush_att": 16,
+    "rush_td": 2,
+    "rush_yd": 47
+  },
+  "12514": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 8,
+    "rec_yd": 32
+  },
+  "12518": {
+    "gp": 1,
+    "rec": 5,
+    "rec_tgt": 7,
+    "rec_yd": 45
+  },
+  "12522": {
+    "gp": 1,
+    "pass_att": 42,
+    "pass_cmp": 28,
+    "pass_sack": 4,
+    "pass_td": 1,
+    "pass_yd": 256,
+    "rush_att": 6,
+    "rush_td": 1,
+    "rush_yd": 37
+  },
+  "12524": {
+    "gp": 1,
+    "pass_att": 20,
+    "pass_cmp": 11,
+    "pass_int": 1,
+    "pass_sack": 1,
+    "pass_td": 1,
+    "pass_yd": 209,
+    "rush_att": 1,
+    "rush_yd": -1
+  },
+  "12526": {
+    "gp": 1,
+    "rec": 2,
+    "rec_td": 1,
+    "rec_tgt": 7,
+    "rec_yd": 35
+  },
+  "12527": {
+    "gp": 1,
+    "rec": 8,
+    "rec_td": 1,
+    "rec_tgt": 8,
+    "rec_yd": 58,
+    "rush_att": 17,
+    "rush_yd": 50
+  },
+  "12529": {
+    "gp": 1,
+    "rec": 3,
+    "rec_tgt": 4,
+    "rec_yd": 15,
+    "rush_att": 18,
+    "rush_yd": 66
+  },
+  "12534": {
+    "gp": 1,
+    "rush_att": 12,
+    "rush_td": 1,
+    "rush_yd": 48
+  },
+  "12545": {
+    "fum": 1,
+    "fum_lost": 1,
+    "gp": 1,
+    "pass_att": 43,
+    "pass_cmp": 30,
+    "pass_int": 1,
+    "pass_sack": 5,
+    "pass_yd": 243,
+    "rush_att": 7,
+    "rush_yd": 22
+  },
+  "ATL": {
+    "fum_rec": 1,
+    "gp": 1,
+    "int": 1,
+    "pts_allow": 4,
+    "sack": 5,
+    "yds_allow": 293
+  },
+  "BAL": {
+    "fum_rec": 1,
+    "gp": 1,
+    "int": 1,
+    "pts_allow": 10,
+    "sack": 3,
+    "yds_allow": 282
+  },
+  "CHI": {
+    "fum_rec": 1,
+    "gp": 1,
+    "int": 1,
+    "pts_allow": 22,
+    "sack": 2,
+    "yds_allow": 345
+  },
+  "CLE": {
+    "fum_rec": 1,
+    "gp": 1,
+    "pts_allow": 10,
+    "sack": 10,
+    "yds_allow": 268
+  },
+  "DET": {
+    "gp": 1,
+    "int": 1,
+    "pts_allow": 27,
+    "sack": 1,
+    "yds_allow": 517
+  },
+  "GB": {
+    "gp": 1,
+    "int": 2,
+    "pts_allow": 6,
+    "sack": 5,
+    "yds_allow": 145
+  },
+  "HOU": {
+    "fum_rec": 1,
+    "gp": 1,
+    "int": 2,
+    "pts_allow": 19,
+    "sack": 8,
+    "yds_allow": 326
+  },
+  "LAR": {
+    "def_td": 1,
+    "gp": 1,
+    "int": 2,
+    "pts_allow": 7,
+    "sack": 4,
+    "yds_allow": 193
+  },
+  "LV": {
+    "fum_rec": 1,
+    "gp": 1,
+    "int": 1,
+    "pts_allow": 24,
+    "sack": 1,
+    "yds_allow": 270
+  },
+  "NE": {
+    "def_td": 1,
+    "gp": 1,
+    "int": 1,
+    "pts_allow": 14,
+    "sack": 1,
+    "yds_allow": 307
+  },
+  "NO": {
+    "def_td": 1,
+    "gp": 1,
+    "int": 1,
+    "pts_allow": 24,
+    "sack": 3,
+    "yds_allow": 302
+  },
+  "PHI": {
+    "fum_rec": 1,
+    "gp": 1,
+    "int": 1,
+    "pts_allow": 24,
+    "sack": 1,
+    "yds_allow": 473
+  },
+  "SEA": {
+    "gp": 1,
+    "pts_allow": 24,
+    "sack": 4,
+    "yds_allow": 296
+  },
+  "SF": {
+    "gp": 1,
+    "int": 2,
+    "pts_allow": 9,
+    "sack": 1,
+    "yds_allow": 230
+  }
+}

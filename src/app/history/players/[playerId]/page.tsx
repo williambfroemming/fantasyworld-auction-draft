@@ -33,16 +33,20 @@ function Stat({
   label,
   value,
   sub,
+  detail,
 }: {
   label: string
   value: string
   sub?: string
+  /** A second line under `sub`, e.g. the NFL stat line behind the best week. */
+  detail?: string | null
 }) {
   return (
     <div className="border border-rule p-3">
       <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
       <div className="font-mono text-xl font-bold tabular-nums">{value}</div>
       {sub && <div className="text-xs text-slate-400">{sub}</div>}
+      {detail && <div className="mt-0.5 font-mono text-xs tabular-nums text-slate-300">{detail}</div>}
     </div>
   )
 }
@@ -106,10 +110,11 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
                 ? `${player.best.season} wk ${player.best.week} · ${player.best.displayName}`
                 : undefined
             }
+            detail={player.best?.statLine}
           />
         </div>
 
-        <PlayerTimeline weekly={player.weekly} className="mt-8" />
+        <PlayerTimeline weekly={player.weekly} statsCoverage={player.statsCoverage} className="mt-8" />
 
         {/* Season table. A bar column rather than a second chart: six values do
             not need axes, and the numbers are wanted anyway. */}

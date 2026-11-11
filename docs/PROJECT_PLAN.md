@@ -446,3 +446,9 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **64.** `src/lib/activity.ts` — path normalising, page groups, the visible-and-active clock, the summary
 - [x] **65.** `<ActivityBeacon>` and `POST /api/track`
 - [x] **66.** Admin panel → Activity, `GET /api/admin/activity`, and ship
+
+**K. Player stats** — added 2026-11-11. **Build instructions: `docs/PLAYER_STATS_ROADMAP.md`**
+- [x] **63.** Pull Sleeper's weekly stats, trimmed to rostered players and the whitelist, into `data/sleeper/{season}/stats-NN.json`
+- [x] **64.** `player_week_stats` and the importer
+- [x] **65.** The Oracle learns about stats
+- [x] **66.** Show the stat line

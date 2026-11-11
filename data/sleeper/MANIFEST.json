@@ -1163,7 +1163,7 @@
     "playoff_teams": 6,
     "files": {
       "league": {
-        "sha256": "b43d558a721fd1754d5a4e9df5d2e7c345ae26c857c2f27176f39a6b507cf91b",
+        "sha256": "931b3f8e693f978f93dcc3fa01d1a0821ea9055417ad42ee49686eadd5e494fe",
         "count": null
       },
       "users": {
@@ -1171,83 +1171,151 @@
         "count": 11
       },
       "rosters": {
-        "sha256": "0938a8076aae166e99799c270848fafd421af73ad4ac10b96244d94f01510197",
+        "sha256": "3a04d1724bbc14e5368d298d3fc7b4980f4fcc43bbe3a9f7fd4fb0b245152b96",
         "count": 10
       },
       "matchups-01": {
         "sha256": "298f7bb2dc3561f33ae51db6ff2a779439ae544e3b69c94ca2729c7f98cb786e",
         "count": 10
       },
+      "stats-01": {
+        "sha256": "cb6dbc75fe122de0d38d360e5280888b085580c6f539132185edf0fc5af745b9",
+        "count": 164
+      },
       "matchups-02": {
-        "sha256": "4e8d192601dee291b08a96c679b3bc667031ce735cbbdcab560acacf672f8e4f",
+        "sha256": "6b99144537201c302f033638b19cddc62f6d45e985a1a658c1137c59f3cffb71",
         "count": 10
+      },
+      "stats-02": {
+        "sha256": "3d36bf4aa267e57c6f8f53de6e3f9355f271f09303f77ec15b5e503d4e7ab478",
+        "count": 158
       },
       "matchups-03": {
-        "sha256": "5837cc5b1ba52cd74baab789a9ef1e42074e7cf16872763bfcf4adc79ae43f6d",
+        "sha256": "c3f8c3dddf43293a4328c3d01e3375d96da5ed779471aa2994782aa2fc6b2090",
         "count": 10
+      },
+      "stats-03": {
+        "sha256": "af15e682768fce27ec0063a47798fd997c7b3e6e3c88e686570f0fbc19a7f558",
+        "count": 159
       },
       "matchups-04": {
-        "sha256": "a328b644b16c4d7889fbf4641bb86969c303c938b57ef87bbb283cf9eb52122d",
+        "sha256": "f2fc851970325cbc03400a0d48dd721965d9624ff67abe9f7751e37f6c50cf83",
         "count": 10
+      },
+      "stats-04": {
+        "sha256": "511bd02737cd64912d922d9f5aca4a03f3300e3370d1e3418b5a3b57b2f4d261",
+        "count": 157
       },
       "matchups-05": {
-        "sha256": "db4278728d093b8741fdb7950b7b108556cff0cc75b44ff25a8973a7709dff77",
+        "sha256": "05dca51764e40a9a8bcffe9c84bad74b538d5960cc20939a38589fe7aa4615f5",
         "count": 10
+      },
+      "stats-05": {
+        "sha256": "ac5e78511319915bf9d5ce84f67a5c36778ca1ed2e30d38780e906dbd6eba924",
+        "count": 150
       },
       "matchups-06": {
-        "sha256": "63286502069e40d2ba00e59222e29737b5a690ae592aec6bca70e991b5ead0fd",
+        "sha256": "e7263a11347d2634dddbc1c34249a5f7e59e2675c1be8297657a6cae76896b1b",
         "count": 10
+      },
+      "stats-06": {
+        "sha256": "14a61c2ca1fd18d2807c2c55898ad89ab41a2331b8f002ad4c4cd08603e0c479",
+        "count": 139
       },
       "matchups-07": {
-        "sha256": "7f0e04b0d5ee1816096dfb5a3c2626633f6eb623f5e7a4112b6249eff7d9adab",
+        "sha256": "0cb40a70b6f9c82a0e8d7db0b5a447a2b3c61581ebd8ebc20d96521b49ced235",
         "count": 10
+      },
+      "stats-07": {
+        "sha256": "e9326be93a1201fb0b98b43b2d498c15df211eb9ae1496d1b368ffbd57afbd71",
+        "count": 135
       },
       "matchups-08": {
-        "sha256": "b6e1d8ae2775f4588e4b9502278a20a0b44b4554f73e76670c512176cb3e6579",
+        "sha256": "f8c227e3e818dcfd058d12e1adcc2fc03bbdb7f247b9f97ecf9e1070d3c7fe06",
         "count": 10
+      },
+      "stats-08": {
+        "sha256": "0182f49629e63bbb32ec7e01004d7b433ffc10f956bd8f77d6026d9782cdc821",
+        "count": 141
       },
       "matchups-09": {
-        "sha256": "d5637adba6a3286d954ad47ca5979ec0525de42e79193c0320471cab5760a218",
+        "sha256": "d7a4233b3fb7230cc51f96a1c02aa41482c4d3a171e2a0e24e01b4401f05b410",
         "count": 10
+      },
+      "stats-09": {
+        "sha256": "8f58e54a1a3ed2dc0be2086bbf074a565b9c9d042bea677bed6d60ef54272b94",
+        "count": 146
       },
       "matchups-10": {
-        "sha256": "e407689ae628c62abae736d59f833c87c817303b24042bd5b4512c49fa14bc42",
+        "sha256": "e7ce3961b6a61f8a341325a4c825052e8e54d85b9970e52bfde6fa4cd4f3e69c",
         "count": 10
+      },
+      "stats-10": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-11": {
-        "sha256": "735629d2c5742edfdcebce53f4346f5096efe948d1b4da09025e057949453c20",
+        "sha256": "b95d1efb34a6b29b82acbbab800260f8bd1d7ffd92c9c2f0b077b77c25c1a237",
         "count": 10
+      },
+      "stats-11": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-12": {
-        "sha256": "5837cc5b1ba52cd74baab789a9ef1e42074e7cf16872763bfcf4adc79ae43f6d",
+        "sha256": "b92db49276f18d806b5a900d939aece54f25fd15ffbfabb0ebd069e4c78046bd",
         "count": 10
+      },
+      "stats-12": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-13": {
-        "sha256": "a328b644b16c4d7889fbf4641bb86969c303c938b57ef87bbb283cf9eb52122d",
+        "sha256": "525e90a0772a4da0921df52269bf0403efa2aaed3670fbcd317850e5fa2bcc44",
         "count": 10
+      },
+      "stats-13": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-14": {
-        "sha256": "db4278728d093b8741fdb7950b7b108556cff0cc75b44ff25a8973a7709dff77",
+        "sha256": "a334293b44a2e90b2f9135cb102440f0a7b13d2dde9a532e87d0f0e0fc85e9ca",
         "count": 10
+      },
+      "stats-14": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-15": {
-        "sha256": "63286502069e40d2ba00e59222e29737b5a690ae592aec6bca70e991b5ead0fd",
+        "sha256": "f0b66d41a23fd6b3a8a6cb1d46978eaf7ccd63d623fc83cf6f1e35402955f39b",
         "count": 10
+      },
+      "stats-15": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-16": {
-        "sha256": "7f0e04b0d5ee1816096dfb5a3c2626633f6eb623f5e7a4112b6249eff7d9adab",
+        "sha256": "456ae52e3c3da7eee56e3771083053b810ac1213ed5dcdd05c3e86dd58624182",
         "count": 10
+      },
+      "stats-16": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-17": {
-        "sha256": "b6e1d8ae2775f4588e4b9502278a20a0b44b4554f73e76670c512176cb3e6579",
+        "sha256": "e5a5a1eccff0a78a29672c0d44de705b70a1b392f0193267b01d5fa8307fb9f1",
         "count": 10
       },
+      "stats-17": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
+      },
       "winners_bracket": {
-        "sha256": "95134b12f0f11c17eebb1dd90de3f841fb7a1d1257e057be1a4957b1bf4ceb3c",
+        "sha256": "c54f87f1a342d388fb26b675188c3101c1dac89b3ef2a43eb6a18ea3aac6ec4f",
         "count": 7
       },
       "losers_bracket": {
-        "sha256": "6cfd56c6cd03bfd0ed65f0aca3a43eca20ec0ff170525221eb13b300b0ecfc07",
+        "sha256": "dbcf4bb6e2e9e2e4d415a547ff65a7f11580d0324a9dd13fdca4dd0a9e5bb962",
         "count": 4
       },
       "drafts": {
