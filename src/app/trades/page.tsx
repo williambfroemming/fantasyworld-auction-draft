@@ -52,7 +52,7 @@ export default function TradesPage() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-3">
-          <HeaderControls />
+          <HeaderControls hideOracle />
           {myManager && (
           <span
             className="rounded-full px-3 py-1 text-xs font-semibold"

@@ -27,7 +27,7 @@ export default async function OraclePage() {
           Ask the Oracle
         </h1>
         <div className="ml-auto">
-          <HeaderControls />
+          <HeaderControls hideOracle />
         </div>
       </header>
 

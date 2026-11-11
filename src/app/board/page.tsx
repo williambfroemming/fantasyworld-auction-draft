@@ -82,7 +82,7 @@ function BoardView() {
         />
 
         <div className="ml-auto flex items-center gap-3">
-          <HeaderControls />
+          <HeaderControls hideOracle />
           {isArchive ? (
             <>
               <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">

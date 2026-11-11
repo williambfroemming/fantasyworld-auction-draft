@@ -124,7 +124,7 @@ export default function DraftPage() {
         )}
 
         <div className="ml-auto flex items-center gap-3 text-sm">
-          <HeaderControls />
+          <HeaderControls hideOracle />
           {myManager && (
             <>
               <span className="hidden text-slate-500 sm:inline">
