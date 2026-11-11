@@ -1371,7 +1371,9 @@ async function getSchedule(season: number): Promise<ScheduledGame[]> {
  *
  * Positions come from `player_weeks.position` — never `slot`.
  */
-export async function getPositionalScorecards(): Promise<PositionalScorecard[]> {
+export async function getPositionalScorecards(
+  opts: { season?: number; throughWeek?: number } = {},
+): Promise<PositionalScorecard[]> {
   const sql = getSql()
   const [input, rows] = await Promise.all([
     getHistoryInput(),
@@ -1393,7 +1395,14 @@ export async function getPositionalScorecards(): Promise<PositionalScorecard[]> 
     const complete = new Set(
       completeWeeks(input.matchups, season).complete.map(([week]) => `${season}:${week}`),
     )
-    const keys = new Set([...regular].filter((k) => complete.has(k)))
+    const keys = new Set(
+      [...regular].filter((k) => {
+        if (!complete.has(k)) return false
+        // `throughWeek` cuts ONE season (the front page's preview mode stands a finished
+        // season in for the live one), so it never shows a full season beside a part one.
+        return !(season === opts.season && Number(k.split(':')[1]) > (opts.throughWeek ?? Infinity))
+      }),
+    )
     return positionalScorecard(starters, season, keys)
   })
 }

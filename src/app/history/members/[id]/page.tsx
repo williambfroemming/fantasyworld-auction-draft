@@ -5,9 +5,16 @@ import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import { Donut } from '@/components/charts/Donut'
 import { DraftDnaPanel } from '@/components/history/DraftDnaPanel'
+import { MemberPositionalTable } from '@/components/history/MemberPositionalTable'
+import { memberPositional } from '@/lib/positional'
 import { SPEND_SEGMENTS_BY_POSITION, managerColor } from '@/lib/colors'
 import type { SpendColumn } from '@/lib/stats'
-import { getDraftDna, getMemberProfile, getMostStarted } from '@/server/history-service'
+import {
+  getDraftDna,
+  getMemberProfile,
+  getMostStarted,
+  getPositionalScorecards,
+} from '@/server/history-service'
 
 /**
  * One member's career.
@@ -45,14 +52,16 @@ function ordinal(n: number): string {
 export default async function MemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const managerId = Number(id)
-  const [{ profile, members }, favorites, dna] = await Promise.all([
+  const [{ profile, members }, favorites, dna, scorecards] = await Promise.all([
     getMemberProfile(managerId),
     getMostStarted(managerId, 10),
     getDraftDna(managerId),
+    getPositionalScorecards(),
   ])
   if (!profile) notFound()
 
   const { member, allTime: a, weekly: w } = profile
+  const positional = memberPositional(scorecards, managerId)
   const color = managerColor(member.color)
 
   return (
@@ -272,6 +281,9 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           )}
           <DraftDnaPanel dna={dna} />
         </section>
+
+        {/* Weekly data only (2020 on); absent entirely for a member with none. */}
+        {positional.length > 0 && <MemberPositionalTable seasons={positional} />}
 
         {/*
           Ranked by weeks STARTED, not weeks rostered and not money spent.

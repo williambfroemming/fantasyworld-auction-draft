@@ -19,9 +19,10 @@ import {
   listHistorySeasons,
 } from '@/server/history-service'
 import { listIssues } from '@/server/gazette-service'
-import { getSeasonSoFar } from '@/server/history-service'
+import { getPositionalScorecards, getSeasonSoFar } from '@/server/history-service'
 import { SeasonSoFarPanel } from '@/components/season/SeasonSoFarPanel'
 import { PlayoffOddsPanel } from '@/components/season/PlayoffOddsPanel'
+import { PositionalGrid } from '@/components/season/PositionalGrid'
 import { currentManagerId } from '@/server/session'
 
 /**
@@ -124,6 +125,18 @@ export default async function FrontPage({
   // Null for 2006–2019, which have a champion's name and no week-by-week record.
   const lineup = reigning?.champion ? await getChampionshipLineup(reigning.season) : null
 
+  // Points by position for the season in progress, to the same week the table beside it
+  // stops at. Only read while a season is actually underway.
+  const positional =
+    seasonUnderway && soFar.report
+      ? ((
+          await getPositionalScorecards({
+            season: soFar.season,
+            throughWeek: soFar.report.throughWeek,
+          })
+        ).find((sc) => sc.season === soFar.season) ?? null)
+      : null
+
   // The most recent auction with picks in it. `listAuctions()` is built from
   // `picks`, so a season appears exactly when somebody drafted in it — which
   // means this is empty, not zero, before the first nomination of a new year.
@@ -198,6 +211,11 @@ export default async function FrontPage({
               read forward. Absent, not empty, when the schedule is not on
               record -- see `getSchedule`.
             */}
+            {positional && positional.rows.length > 0 && (
+              <div className="mt-12">
+                <PositionalGrid scorecard={positional} members={soFar.members} />
+              </div>
+            )}
             {soFar.odds && (
               <div className="mt-12">
                 <PlayoffOddsPanel

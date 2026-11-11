@@ -417,7 +417,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 
 **D. Positional scorecard**
 - [x] **50.** `positionalScorecard()`
-- [ ] **51.** Member-page table and the season grid
+- [x] **51.** Member-page table and the season grid
 
 **E. How the roster was built**
 - [ ] **52.** `roster-origin.ts` — drafted, traded at the draft, added later, unknown

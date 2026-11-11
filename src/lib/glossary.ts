@@ -348,6 +348,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'playoffOdds() — src/lib/playoff-odds.ts',
   },
   {
+    id: 'positional-scorecard',
+    term: 'Points by position',
+    group: 'league',
+    where: 'Front page · Member page',
+    formula: 'for each manager and position: the points their STARTERS scored there, minus the average of every manager\u2019s starters at that position',
+    note: 'Grouped on the player\u2019s own position, never the lineup slot, so a receiver started in FLEX still counts as a receiver. Always within a position: a column compares your receivers with other managers\u2019 receivers, never with your quarterback. Regular season only, and the differences in any column add up to zero across the league. Weekly data starts in 2020. A dash means the position was not played, which is not the same as scoring nothing.',
+    source: 'positionalScorecard() \u2014 src/lib/positional.ts',
+  },
+  {
     id: 'title-odds',
     term: 'Title odds',
     group: 'league',

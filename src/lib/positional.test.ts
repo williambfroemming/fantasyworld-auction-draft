@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { memberPositional, positionalScorecard, type StarterRow } from './positional'
+import { formatDiff, memberPositional, positionalScorecard, type StarterRow } from './positional'
 
 const keys = (...weeks: number[]) => new Set(weeks.map((w) => `2025:${w}`))
 const row = (
@@ -134,5 +134,18 @@ describe('memberPositional', () => {
 
   it('skips a season the manager has no row in', () => {
     expect(memberPositional([a], 99)).toEqual([])
+  })
+})
+
+describe('formatDiff', () => {
+  it('signs the difference and uses a real minus', () => {
+    expect(formatDiff(12.34)).toBe('+12.3')
+    expect(formatDiff(-4.56)).toBe('−4.6')
+  })
+
+  it('never prints a signed zero', () => {
+    expect(formatDiff(0)).toBe('0.0')
+    expect(formatDiff(0.04)).toBe('0.0')
+    expect(formatDiff(-0.04)).toBe('0.0')
   })
 })

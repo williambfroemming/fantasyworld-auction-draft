@@ -156,3 +156,13 @@ export function memberPositional(
       return [{ season: sc.season, weeks: sc.weeks, diffs, total: row.total }]
     })
 }
+
+/**
+ * A signed difference for display: "+12.3", "−4.5" (a real minus, not a hyphen), "0.0".
+ * A value that rounds to zero prints as "0.0", never "-0.0" or "+0.0".
+ */
+export function formatDiff(n: number, decimals = 1): string {
+  const rounded = Number(n.toFixed(decimals))
+  if (rounded === 0) return (0).toFixed(decimals)
+  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded).toFixed(decimals)}`
+}
