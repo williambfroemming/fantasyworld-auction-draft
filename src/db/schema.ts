@@ -11,6 +11,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { STAT_KEYS, type StatKey } from '../lib/player-stats'
 
 /**
  * The 10 league managers.
@@ -754,6 +755,49 @@ export const playerWeeks = pgTable(
     primaryKey({ columns: [t.season, t.week, t.managerId, t.playerId] }),
     index('player_weeks_player_idx').on(t.playerId),
     index('player_weeks_season_idx').on(t.season),
+  ],
+)
+
+const statColumn = (name: string) => numeric(name, { precision: 8, scale: 2 })
+/** One nullable `numeric(8,2)` per whitelisted stat, named exactly as stored. */
+const statColumns = Object.fromEntries(STAT_KEYS.map((k) => [k, statColumn(k)])) as {
+  [K in StatKey]: ReturnType<typeof statColumn>
+}
+
+/**
+ * A rostered player's NFL stat line for one week — yards, touchdowns, targets,
+ * sacks. Sleeper's numbers, **not** this league's points: those are
+ * `player_weeks.points`, and Sleeper's own `pts_*` are deliberately not stored.
+ *
+ * Keyed by the player, not the manager: join to `player_weeks` on
+ * `(season, week, player_id)` for who held him. One row per player-week that
+ * appears on a roster in this league, 2020 on — not an NFL-wide table.
+ *
+ * ⚠️ **NULL is "did not play", 0 is a real zero.** A row with `gp` NULL is a
+ * player Sleeper listed but who never took the field, and every stat is NULL.
+ * A player who played has 0 in every column of his own group and NULL in the
+ * other (a WR has no `pts_allow`). A player on a bye has no row at all. See
+ * `src/lib/player-stats.ts`.
+ *
+ * Built by `scripts/migrate-player-stats.ts`; rewritten per season by
+ * `history:import-sleeper`.
+ */
+export const playerWeekStats = pgTable(
+  'player_week_stats',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    /** Sleeper player id, or a team code for a defense — same as `player_weeks`. */
+    playerId: text('player_id').notNull(),
+    gp: integer('gp'),
+    ...statColumns,
+  },
+  (t) => [
+    primaryKey({ columns: [t.season, t.week, t.playerId] }),
+    index('player_week_stats_player_idx').on(t.playerId),
+    index('player_week_stats_season_idx').on(t.season),
   ],
 )
 
