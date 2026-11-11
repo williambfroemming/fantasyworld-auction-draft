@@ -39,69 +39,137 @@
       "sha256": "a85cbdc189ba5b953d003c52d1f60fa8621d2ab74b3bd035bf17c7d58abfa02c",
       "count": 10
     },
+    "stats-01": {
+      "sha256": "856ecbe5d0b70b508e1ca9ab5e6021dd1f947d03104cfbbd132224a0a6bb52ac",
+      "count": 158
+    },
     "matchups-02": {
       "sha256": "7c6cb3fd3d272af57e3336270bfd733abc4ccde894db94e1fe53beaec28e4926",
       "count": 10
+    },
+    "stats-02": {
+      "sha256": "70980967a1882ea2cf12417dc7742991fb47a5bd23ba44647eb6a8e3254425fe",
+      "count": 160
     },
     "matchups-03": {
       "sha256": "5f5f0fb337407eb4594f709b15fd38946ec370036396b8a4498892afadf7c9f6",
       "count": 10
     },
+    "stats-03": {
+      "sha256": "426ea5793010a77f3dfec53f693f4a89c20a48e4d01f7c390f13b746f9b6f234",
+      "count": 158
+    },
     "matchups-04": {
       "sha256": "068b2fc0b25289ee53e45a4f097a2e64f740bcde80cc37e583342bb8c37ff905",
       "count": 10
+    },
+    "stats-04": {
+      "sha256": "d924e767a5f9741af0467a79f3b1bf0fd42b510d86eec2e37ecba7747d5d6b92",
+      "count": 160
     },
     "matchups-05": {
       "sha256": "272a4e2577deeacc3d1c1902b525fa5b31ca68a50a0eef5d81a8b7e5dbbb5c1f",
       "count": 10
     },
+    "stats-05": {
+      "sha256": "f20a26d6d0c9cdfa4b675aa36d9dc1b5a59fddb8f5ceb6322eb1af773b74f8f2",
+      "count": 142
+    },
     "matchups-06": {
       "sha256": "cc8c49bf5cb5699039d7103771f2a044d1f1d9e85310d051b194a8bf19d8d0fd",
       "count": 10
+    },
+    "stats-06": {
+      "sha256": "c514d52feb20b21b1acc58c936f9d294c468959607e065cdaac6acdc67160dc3",
+      "count": 152
     },
     "matchups-07": {
       "sha256": "f1661d9d58cd62a999cb7b7eb0c1eea5dd1adb29a970961af58147df2a3a257d",
       "count": 10
     },
+    "stats-07": {
+      "sha256": "ebea4cc93214d37ffb300a4e27cee96b9ded840464177c5ffa91f5b5991b3976",
+      "count": 138
+    },
     "matchups-08": {
       "sha256": "d58fc8a294be342b4c25b670f5e223e1bcd9b15d54dd71882935ba44d1e7a33b",
       "count": 10
+    },
+    "stats-08": {
+      "sha256": "7d230cd32bc26f5867f86518db105132e2b999d297c92f2c9275e8b0ffe03cc4",
+      "count": 161
     },
     "matchups-09": {
       "sha256": "a49541c553d632cca67fe5419bef0cfa631a35d72e064ffb5aa6cef00ee98071",
       "count": 10
     },
+    "stats-09": {
+      "sha256": "f8b359e1e44e0865e4d8dff49accd03a5bafa31cd57f8f8c692ea9bd15258ee5",
+      "count": 141
+    },
     "matchups-10": {
       "sha256": "30f6380a5cba6f6b622e6110e3c76d44f1a0ac51ec583049ac54175670ebf5ad",
       "count": 10
+    },
+    "stats-10": {
+      "sha256": "4bcfccc292db9992544849cb366c23dab86352d0b949d0653dab3e5e67091ed5",
+      "count": 139
     },
     "matchups-11": {
       "sha256": "8ca49b907b4ca67968f4cd2507faf0452d9583907a3f0c12d185c3b40f0c1776",
       "count": 10
     },
+    "stats-11": {
+      "sha256": "6452ec3c4d3d8d9e7d29a6c754d339c558225d32e131780d087930c1cb0eccf6",
+      "count": 144
+    },
     "matchups-12": {
       "sha256": "33ecdf7de28d81a70cdc77758df5c92bced51ae35711d863b325751a3d9646b6",
       "count": 10
+    },
+    "stats-12": {
+      "sha256": "7f0ce637fba0666eacbe6a4e8969ec6c618cd1162a324e3bb79b5ec571410516",
+      "count": 157
     },
     "matchups-13": {
       "sha256": "1015aa99b744292fe4fc4721d25ced06ac0488ed6ec57c66de24730ff5db4fe2",
       "count": 10
     },
+    "stats-13": {
+      "sha256": "8aaebe9dc64d0f070a347b31d4ca9176eb2f45906474e63b7d819f05e6ae703e",
+      "count": 130
+    },
     "matchups-14": {
       "sha256": "c8b73a7cd8e22aa812d4993ab826eb2a60e9656b44ea7f5fb4cdf63674e8a69a",
       "count": 10
+    },
+    "stats-14": {
+      "sha256": "0bdbb28af8f8fc26074c4e55d7f43ddcb888cdcaf93d329e22474df7c187f5af",
+      "count": 148
     },
     "matchups-15": {
       "sha256": "03a95fcf85880eb238048b1ff34331661bf605069b438be56766b34518623f2b",
       "count": 10
     },
+    "stats-15": {
+      "sha256": "d5c0a3639d2c13a8f4c4e3cac7c2241d1af3378f8048b9b77ce6dd0df1ff072b",
+      "count": 152
+    },
     "matchups-16": {
       "sha256": "f1bee1e8e9ceec3b26f3c39934f63f3b28636ba6130c9fdf28542c5a77220b99",
       "count": 10
     },
+    "stats-16": {
+      "sha256": "10915e225122df21cc47d1dfa413a92eb92c88a8cf9c35e702b1451bc7cc02e7",
+      "count": 152
+    },
     "matchups-17": {
       "sha256": "744999347420962fbab9d9f55563b539a6062a9bd6fc8d9e95f6e6c488f8c64b",
       "count": 10
+    },
+    "stats-17": {
+      "sha256": "82c64fc3eccbc9e7e50334b33a485c2dd07643206d30bfd83ef2ae8581f9b540",
+      "count": 151
     },
     "winners_bracket": {
       "sha256": "63d7a8a4c7989f44da23ac425c7aed95cf4ae7620cabb714b41b16956fbbb0fb",

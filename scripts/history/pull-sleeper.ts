@@ -1,5 +1,5 @@
 /**
- * Pull the league's Sleeper seasons to disk, verbatim.
+ * Pull the league's Sleeper seasons to disk — verbatim, except the stats.
  *
  *   npm run history:pull                # every importable season (2020-2025)
  *   npm run history:pull -- --season 2022
@@ -8,6 +8,24 @@
  * Writes raw, unmodified API responses to `data/sleeper/<season>/`, plus a
  * MANIFEST.json of counts and sha256s. Every importer verifies that manifest
  * before it opens a database connection.
+ *
+ * ## The one exception: `stats-NN.json` is trimmed, not verbatim
+ *
+ * Each week also pulls `stats/nfl/regular/{season}/{week}` — the NFL-wide stat
+ * line for every player, ~2,300 entries and ~570 KB a week. Committed whole,
+ * every week of every season is ~65 MB of mostly players nobody in this league
+ * ever rostered. So before it is written, `trimStats()` in
+ * `src/lib/player-stats.ts` drops:
+ *
+ *  - every id not on a roster in **that week's** matchups (`player_weeks`
+ *    already means "rostered in this league", and the stats match it);
+ *  - every key that is not `gp` or on the whitelist — Sleeper's own `pts_*`
+ *    included, deliberately: the league's scoring is `player_weeks.points`, and
+ *    a second, different points figure beside it invites trusting the wrong one.
+ *
+ * What is left is a few KB a week. The values themselves are untouched, and an
+ * entry trimmed to `{}` is kept, because "Sleeper had a line and he did not
+ * play" is a different fact from "no line at all". See `docs/PLAYER_STATS_ROADMAP.md`.
  *
  * ## Why the responses are committed rather than fetched at import time
  *
@@ -38,12 +56,13 @@ import {
   SLEEPER_LEAGUE_IDS,
   verifyLeagueChain,
 } from '../../src/lib/history-identity'
+import { trimStats, type RawStatsWeek } from '../../src/lib/player-stats'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const OUT_ROOT = join(ROOT, 'data', 'sleeper')
 const API = 'https://api.sleeper.app/v1'
 
-/** Sleeper asks for restraint rather than publishing a hard limit. ~120 calls total. */
+/** Sleeper asks for restraint rather than publishing a hard limit. ~230 calls total. */
 const PAUSE_MS = 120
 
 const args = process.argv.slice(2)
@@ -87,7 +106,12 @@ async function writeJson(season: number, name: string, value: unknown) {
   await writeFile(join(dir, `${name}.json`), body, 'utf8')
   return {
     sha256: createHash('sha256').update(body).digest('hex'),
-    count: Array.isArray(value) ? value.length : null,
+    // An array's length, or a keyed object's entry count (the stats files).
+    count: Array.isArray(value)
+      ? value.length
+      : value && typeof value === 'object' && name.startsWith('stats-')
+        ? Object.keys(value).length
+        : null,
   }
 }
 
@@ -107,13 +131,21 @@ async function pullSeason(season: number) {
   // an empty array rather than an error, which is harmless.
   const playoffStart = league.settings.playoff_week_start ?? 15
   const lastWeek = playoffStart + 2
+  let statLines = 0
   for (let week = 1; week <= lastWeek; week++) {
     const w = String(week).padStart(2, '0')
-    files[`matchups-${w}`] = await writeJson(
-      season,
-      `matchups-${w}`,
-      await get(`league/${leagueId}/matchups/${week}`),
+    const matchups = await get<Array<{ players?: string[] | null; starters?: string[] | null }>>(
+      `league/${leagueId}/matchups/${week}`,
     )
+    files[`matchups-${w}`] = await writeJson(season, `matchups-${w}`, matchups)
+
+    // The NFL stat line for every player on a roster that week. Same id set
+    // `playerWeeks()` builds rows from — players plus starters — so every
+    // `player_weeks` row can find its line. A week not yet played returns `{}`.
+    const rostered = matchups.flatMap((m) => [...(m.players ?? []), ...(m.starters ?? [])])
+    const stats = trimStats(await get<RawStatsWeek | null>(`stats/nfl/regular/${season}/${week}`), rostered)
+    files[`stats-${w}`] = await writeJson(season, `stats-${w}`, stats)
+    statLines += Object.keys(stats).length
   }
 
   files['winners_bracket'] = await writeJson(
@@ -143,7 +175,7 @@ async function pullSeason(season: number) {
   console.log(
     `  ${season}  ${league.name.padEnd(20)} ${league.total_rosters} rosters · ` +
       `${starters} starters · reg 1-${playoffStart - 1} · playoffs ${playoffStart}-${lastWeek} · ` +
-      `${Array.isArray(picks) ? picks.length : 0} draft picks`,
+      `${Array.isArray(picks) ? picks.length : 0} draft picks · ${statLines} stat lines`,
   )
 
   return { leagueId, league, files }

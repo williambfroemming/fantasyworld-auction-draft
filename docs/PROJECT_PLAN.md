@@ -439,3 +439,9 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 
 **I. Commissioner tools** — added 2026-11-11, outside the analytics roadmap
 - [x] **62.** The admin panel: `/admin` from the account menu, replacing the ⚙ Commish drawer and `/setup`; edit any pick, record a sale, unlock a seat, rename, commissioner role, per-season prize money, start a new season
+
+**J. Player stats** — added 2026-11-11. **Build instructions: `docs/PLAYER_STATS_ROADMAP.md`**
+- [x] **63.** Pull Sleeper's weekly stats, trimmed to rostered players and the whitelist, into `data/sleeper/{season}/stats-NN.json`
+- [ ] **64.** `player_week_stats` and the importer
+- [ ] **65.** The Oracle learns about stats
+- [ ] **66.** Show the stat line
