@@ -574,7 +574,7 @@ export function Contents({
 }) {
   return (
     <section className="rule-strong pt-4">
-      <div className="grid gap-x-10 gap-y-6 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-x-10 gap-y-6 md:grid-cols-4">
         {groups.map((g) => (
           <div key={g.label}>
             <p className="font-display text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-slate-500">

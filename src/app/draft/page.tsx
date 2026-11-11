@@ -105,7 +105,7 @@ export default function DraftPage() {
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-3">
         {/* The wordmark and the section nav already say where you are; a
             second title beside them was just noise. */}
-        <SiteNav section="draft" current="/draft" isCommish={myManager?.isCommish} />
+        <SiteNav section="auction" current="/draft" isCommish={myManager?.isCommish} />
 
         {state.draft.status === 'paused' && (
           <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-semibold text-amber-300">

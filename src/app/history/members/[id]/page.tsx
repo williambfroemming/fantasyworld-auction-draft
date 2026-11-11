@@ -72,7 +72,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="league-history" current="/history/members" />
+        <SiteNav section="history" current="/history/members" />
         <h1 className="flex items-baseline gap-2 font-display text-lg font-bold uppercase tracking-[0.08em]">
           <span aria-hidden className="h-4 w-1.5 self-center" style={{ backgroundColor: color }} />
           {member.displayName}

@@ -51,7 +51,7 @@ function BoardView() {
   return (
     <main id="main" className="flex h-dvh flex-col bg-slate-950 text-slate-100">
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="draft" current="/board" isCommish={myManager?.isCommish} />
+        <SiteNav section="auction" current="/board" isCommish={myManager?.isCommish} />
 
         {/* Grid vs market: two ways of reading the same draft. The grid is who
             has whom; the market is what the money has been going to. */}

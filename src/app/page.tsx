@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { SiteNav, SECTIONS } from '@/components/SiteNav'
+import { OFF_BAR, SECTIONS, SiteNav, sectionItems } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import {
   AuctionNumbers,
@@ -158,13 +158,19 @@ export default async function FrontPage({
     ? seasons.filter((s) => s.champion === reigning.champion).length
     : 0
 
-  const groups = SECTIONS.map((s) => ({
-    label: s.label,
-    // `commishOnly` items are dropped rather than gated: this page has no
-    // session to check against, and `/admin` re-reads `is_commish` from the
-    // database anyway. A link the reader cannot use is worse than no link.
-    items: s.items.filter((i) => !i.commishOnly),
-  }))
+  // One column per top-bar section, groups flattened and direct links included,
+  // then the pages that have no slot in the bar (the Oracle's full page and the
+  // glossary) so the index still reaches every screen.
+  const groups = [
+    ...SECTIONS.map((s) => ({
+      label: s.label,
+      // `commishOnly` items are dropped rather than gated: this page has no
+      // session to check against, and `/admin` re-reads `is_commish` from the
+      // database anyway. A link the reader cannot use is worse than no link.
+      items: sectionItems(s).filter((i) => !i.commishOnly),
+    })),
+    { label: 'Reference', items: OFF_BAR },
+  ]
 
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">

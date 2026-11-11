@@ -29,7 +29,7 @@ export default async function HistoryPage() {
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="league-history" current="/history" />
+        <SiteNav section="history" current="/history" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">League History</h1>
         <span className="font-mono text-xs text-slate-400 tabular-nums">
           {oldest}–{newest}

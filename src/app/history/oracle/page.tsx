@@ -22,7 +22,7 @@ export default async function OraclePage() {
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="league-history" current="/history/oracle" />
+        <SiteNav section="history" current="/history/oracle" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">
           Ask the Oracle
         </h1>
