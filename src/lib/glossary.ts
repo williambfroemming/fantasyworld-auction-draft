@@ -348,6 +348,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'playoffOdds() — src/lib/playoff-odds.ts',
   },
   {
+    id: 'points-vs-average',
+    term: 'Points vs the league average',
+    group: 'league',
+    where: 'Charts',
+    formula: 'each season: a manager\u2019s points for minus the average points for of that season\u2019s managers; the running total of those differences',
+    note: 'Zero is an average team. It exists because raw cumulative points cannot separate managers who all score about the same: ten lines sit on top of each other, while the gaps from the average do not. The same gaps, centred. When the chart is filtered to a window of years the total restarts at the first year shown. A season with no points figure for a manager adds nothing for that year.',
+    source: 'cumulativePointsVsAverage() \u2014 src/lib/chart-series.ts',
+  },
+  {
     id: 'positional-scorecard',
     term: 'Points by position',
     group: 'league',
