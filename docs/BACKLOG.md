@@ -25,6 +25,7 @@ here — **never renumbered and never deleted.**
 | §12 | What the front page leads with during the playoffs | Small |
 | §13 | Folding the record-by-week history into the playoff odds | Offseason, on evidence |
 | §14 | Analytics ideas not chosen for Phase 3 | Parked |
+| §15 | Player stats — what Phase 4 left out | Parked |
 
 The analytics work that *was* chosen is not backlog — it is scheduled, in
 `docs/ANALYTICS_ROADMAP.md`.
@@ -193,3 +194,22 @@ which is a fair test of whether any deserves a page: build one when people keep 
   team-seasons. Must print its sample size and say that sixty is small.
 - **In-season trade ledger.** Each trade with points scored by each side afterwards. Needs
   the transactions pull from step 58, so it is cheap once that lands.
+
+---
+
+## 15. Player stats — what Phase 4 left out
+
+`player_week_stats` (steps 63–66, `docs/PLAYER_STATS_ROADMAP.md`) holds the NFL stat line of
+every **rostered** player-week from 2020. These were ruled out of that work on purpose:
+
+- **Stat lines in the Gazette.** The grounding check compares every digit in the prose
+  against the fact pack, so adding yards and touchdowns to the pack is a pack change, a
+  `PROMPT_VERSION` bump and a re-audit of the committed archive. Its own step, not a rider.
+- **NFL players nobody rostered.** A second, ~65 MB import answering a different question
+  ("the best waiver pick nobody made"). `trimStats()` drops them before anything is committed.
+- **Pre-2020 stats.** Sleeper has no league data before 2020 and the endpoint is NFL-wide, so
+  this would be a separate source with its own id-matching problem.
+- **Projections** (`/projections/nfl/...`). A different feature.
+- **Kicking stats.** The league has never had a K slot. If one is ever added, put the kicking
+  keys back on the whitelist (`fgm`, `fga`, `xpm`, `xpa`, `fgm_50p`), re-run
+  `db:migrate-player-stats` (it adds missing columns) and `history:pull -- --force`.

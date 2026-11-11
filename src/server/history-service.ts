@@ -21,6 +21,7 @@
  */
 import { getSql } from './sql'
 import type {
+  Coverage,
   HistoryInput,
   HistoryLineup,
   HistoryMatchup,
@@ -51,6 +52,7 @@ import { playerRecords, type PlayerRecordBook } from '@/lib/player-records'
 import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
+import { STAT_KEYS, formatStatLine, type StatKey } from '@/lib/player-stats'
 import type { StatsTrade } from '@/lib/stats'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
@@ -822,6 +824,12 @@ export interface PlayerWeekPoint {
   isPlayoff: boolean
   managerId: number
   displayName: string
+  /**
+   * The NFL stat line, `23/31, 287 yds, 2 TD` — see `formatStatLine`. Null when
+   * he did not play, when Sleeper had no line (a bye), or before stats exist.
+   * Never zeros for a week he sat.
+   */
+  statLine: string | null
 }
 
 export interface PlayerHistory {
@@ -852,6 +860,11 @@ export interface PlayerHistory {
   best: PlayerWeekPoint | null
   /** Every week, oldest first. The series behind the chart. */
   weekly: PlayerWeekPoint[]
+  /**
+   * The seasons this player has NFL stat lines for, for the `EraBadge` beside
+   * them. Null when he has none — the page then says nothing about stats.
+   */
+  statsCoverage: Coverage | null
 }
 
 /** A `player_weeks` row joined to its manager, before aggregation. */
@@ -871,6 +884,8 @@ export interface PlayerWeekRow {
   isPlayoff: boolean
   playerName: string | null
   position: string | null
+  /** Optional so callers without stats (and the tests) need not pass it. */
+  statLine?: string | null
 }
 
 /** A draft row for this player, already attributed to the drafter. */
@@ -945,6 +960,7 @@ export function buildPlayerHistory(
       isPlayoff: r.isPlayoff,
       managerId: r.managerId,
       displayName: r.displayName,
+      statLine: r.statLine ?? null,
     }
     weekly.push(point)
     addSplit(r.isPlayoff ? careerPlayoff : careerRegular, r)
@@ -1026,6 +1042,7 @@ export function buildPlayerHistory(
     owners: [...careerOwners.values()].sort(byWeeksDesc).map(roundOwner),
     best,
     weekly,
+    statsCoverage: null,
   }
 }
 
@@ -1233,7 +1250,46 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
     }
   })
 
-  return buildPlayerHistory(sleeperId, rows, drafts)
+  // The stat lines, read separately so a database that has not had
+  // `db:migrate-player-stats` yet still renders the page, just without them.
+  const stats = await getPlayerStatLines(sleeperId)
+  for (const r of rows) {
+    r.statLine = formatStatLine(r.position, stats.get(`${r.season}:${r.week}`))
+  }
+
+  const history = buildPlayerHistory(sleeperId, rows, drafts)
+  if (!history) return null
+  const statSeasons = [...new Set(rows.filter((r) => r.statLine).map((r) => r.season))].sort((a, b) => a - b)
+  history.statsCoverage = statSeasons.length
+    ? { from: statSeasons[0], to: statSeasons[statSeasons.length - 1], seasons: statSeasons, label: 'NFL stats' }
+    : null
+  return history
+}
+
+/**
+ * One player's weekly NFL stats, keyed `season:week`.
+ *
+ * ⚠️ An empty map rather than an error when `player_week_stats` does not exist
+ * (Postgres 42P01): the player page shipped long before the stats did, and a
+ * deploy that lands before `db:migrate-player-stats` must not take it down.
+ */
+async function getPlayerStatLines(
+  sleeperId: string,
+): Promise<Map<string, Partial<Record<StatKey, number | null>>>> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM player_week_stats WHERE player_id = ${sleeperId}`
+    return new Map(
+      rows.map((r) => [
+        `${Number(r.season)}:${Number(r.week)}`,
+        Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+      ]),
+    )
+  } catch (err) {
+    if ((err as { code?: string }).code === '42P01') return new Map()
+    throw err
+  }
 }
 
 /**

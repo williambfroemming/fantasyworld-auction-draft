@@ -444,4 +444,4 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **63.** Pull Sleeper's weekly stats, trimmed to rostered players and the whitelist, into `data/sleeper/{season}/stats-NN.json`
 - [x] **64.** `player_week_stats` and the importer
 - [x] **65.** The Oracle learns about stats
-- [ ] **66.** Show the stat line
+- [x] **66.** Show the stat line
