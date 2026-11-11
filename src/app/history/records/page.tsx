@@ -1,10 +1,11 @@
 import { EraBadge } from '@/components/history/EraBadge'
 import { RecordLine } from '@/components/history/RecordLine'
+import { PlayerRecordsSection } from '@/components/history/PlayerRecordsSection'
 import { SeasonReviewCard } from '@/components/history/SeasonReviewCard'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
-import { getBestPickups, getRecordBook, getRosterOrigins, getSeasonReviews } from '@/server/history-service'
+import { getBestPickups, getPlayerRecords, getRecordBook, getRosterOrigins, getSeasonReviews } from '@/server/history-service'
 
 /**
  * The record book, and a card for every season.
@@ -38,11 +39,12 @@ const FORMAT: Record<string, (n: number) => string> = {
 }
 
 export default async function RecordsPage() {
-  const [{ book, lists, members }, { reviews }, pickups, origins] = await Promise.all([
+  const [{ book, lists, members }, { reviews }, pickups, origins, playerBook] = await Promise.all([
     getRecordBook(),
     getSeasonReviews(),
     getBestPickups(3),
     getRosterOrigins(),
+    getPlayerRecords(),
   ])
 
   return (
@@ -145,6 +147,8 @@ export default async function RecordsPage() {
             </ol>
           </section>
         </div>
+
+        <PlayerRecordsSection book={playerBook} members={members} />
 
         <section className="mt-10">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
