@@ -208,7 +208,7 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | `curl https://…/api/state` and `curl -X POST https://…/api/ask` signed out both return 401 | |
 | ⬜ | Signing in from the front page goes to the front page (draft complete) and does not drop you in the draft room | |
 | ⬜ | Stay signed in across a few days; you are not asked again within a week | |
-| ⬜ | `/setup` → Member PINs: **Reset PIN** shows a new 4-digit PIN once; the member signs in with it and their old PIN stops working | |
+| ⬜ | Admin panel → Members & access: **Reset PIN** shows a new 4-digit PIN once; the member signs in with it and their old PIN stops working | |
 | ⬜ | A member who forgot their PIN sees "ask the commissioner" on the PIN screen | |
 | ⬜ | A signed-in non-commissioner calling `/api/commish` `resetPin` gets 403 | |
 
@@ -218,11 +218,29 @@ problem. Either way read `oracle_log.steps` before fixing it.
 |---|---|---|
 | ⬜ | Five wrong PINs on a seat: tries-left counts down 4, 3, 2, 1, then it locks with a "try again in 15 minutes" message | |
 | ⬜ | While locked, even the correct PIN is refused | |
-| ⬜ | `/setup` → Member PINs → Reset PIN unlocks the seat; the new PIN works at once | |
-| ⬜ | `/setup` → Ask the Oracle shows On/Off, the last 24 hours of questions and tokens, and who asked most | |
+| ⬜ | Admin panel → Members & access → Reset PIN unlocks the seat; the new PIN works at once | |
+| ⬜ | Admin panel → Ask the Oracle shows On/Off, the last 24 hours of questions and tokens, and who asked most | |
 | ⬜ | Turn it **Off**: the next question is refused in words, `/history/oracle` shows the switched-off notice, and no `oracle_log` row is added | |
 | ⬜ | Turn it **On** again: questions work with no redeploy | |
 | ⬜ | A non-commissioner calling `/api/oracle-admin` gets 403 | |
 | ⬜ | Top right of every signed-in page shows your name with a green dot; the menu says "Signed in as …" (and "Commissioner" if you are) | |
 | ⬜ | Menu → **Sign out** lands on the sign-in page, and going Back does not show the site again | |
 | ⬜ | Menu → **Switch seat** opens the seat picker; signing in as someone else changes the name top right | |
+
+## M. Admin panel — commissioner only
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | Signed in as the commissioner, the account menu (top right) shows **Admin panel**; it opens `/admin` | |
+| ⬜ | Signed in as anyone else, the menu has no Admin panel, and typing `/admin` shows a 404 | |
+| ⬜ | `/setup` (old bookmark) redirects to the admin panel's Draft order section | |
+| ⬜ | The Draft Room has no ⚙ Commish button for anyone | |
+| ⬜ | Live draft: Pause/Resume, Undo last pick, Cancel current lot and Skip nominator all work, and the Draft Room in another tab follows within a second | |
+| ⬜ | Picks: edit the price of a pick that is NOT the last one; the manager's budget on the board changes to match | |
+| ⬜ | Picks: a traded player shows a "traded" tag and offers no Reassign | |
+| ⬜ | Picks → Record a sale: the pick appears with the right price and owner, and whoever was on the clock is still on the clock | |
+| ⬜ | Members: lock a seat with five wrong PINs → it shows **Locked until …** → **Unlock** → the member signs in with their OLD PIN | |
+| ⬜ | Members: Rename changes the name on the board; a past season's archive keeps the old name | |
+| ⬜ | Members: Make a second commissioner; they now see Admin panel. Removing the last remaining commissioner is refused | |
+| ⬜ | Seasons: pick a past year, set prize money, save, reload — the values stick; an emptied box comes back empty (unknown), not 0 | |
+| ⬜ | Seasons: Start the next season is disabled until the year is typed; do NOT run this against the live league until the season is really over | |

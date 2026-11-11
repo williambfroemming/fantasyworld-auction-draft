@@ -161,7 +161,7 @@ export default async function FrontPage({
   const groups = SECTIONS.map((s) => ({
     label: s.label,
     // `commishOnly` items are dropped rather than gated: this page has no
-    // session to check against, and `/setup` re-reads `is_commish` from the
+    // session to check against, and `/admin` re-reads `is_commish` from the
     // database anyway. A link the reader cannot use is worse than no link.
     items: s.items.filter((i) => !i.commishOnly),
   }))

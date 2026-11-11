@@ -96,7 +96,6 @@ export const SECTIONS: SectionDef[] = [
       { href: '/draft', label: 'Draft Room', hint: 'Nominate, bid, record a sale' },
       { href: '/board', label: 'Board', hint: 'Who has whom' },
       { href: '/trades', label: 'Trades', hint: 'Players and auction dollars' },
-      { href: '/setup', label: 'Setup', hint: 'Order and settings', commishOnly: true },
     ],
   },
   {
