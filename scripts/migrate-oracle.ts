@@ -19,9 +19,10 @@
  * Hand-written and idempotent (AGENTS.md: `drizzle-kit push` cannot tell a new table
  * from a rename). Safe to run twice.
  *
- * ⚠️ NEVER expose, by any view: player_queue, managers.pin_hash, week_issues, draft,
- * lots, budget_adjustments, oracle_log. The first two are private by non-negotiable;
- * the rest are draft-room state or the Oracle's own log. To let the Oracle answer
+ * ⚠️ NEVER expose, by any view: player_queue, managers.pin_hash, page_visits, week_issues,
+ * draft, lots, budget_adjustments, oracle_log. The first three are private by
+ * non-negotiable (page_visits is commissioner-only activity tracking); the rest are
+ * draft-room state or the Oracle's own log. To let the Oracle answer
  * something new, add a view HERE — never widen the role's grants, never hand it `public`.
  *
  * ⚠️ `npm run db:local:setup` drops and recreates `public`, which cascades away every

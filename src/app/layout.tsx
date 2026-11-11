@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Oswald, Playfair_Display, Source_Serif_4, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ActivityBeacon } from "@/components/ActivityBeacon";
 
 /*
  * Three voices, the way a sports page has three:
@@ -96,6 +97,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         {children}
+        {/*
+          First-party activity tracking for the commissioner's Admin panel:
+          visible, active time per page, sent to /api/track. A client island
+          that renders nothing, so the layout itself stays a server component.
+          See src/components/ActivityBeacon.tsx.
+        */}
+        <ActivityBeacon />
       </body>
     </html>
   );

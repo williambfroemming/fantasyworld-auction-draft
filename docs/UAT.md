@@ -244,3 +244,18 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | Members: Make a second commissioner; they now see Admin panel. Removing the last remaining commissioner is refused | |
 | ⬜ | Seasons: pick a past year, set prize money, save, reload — the values stick; an emptied box comes back empty (unknown), not 0 | |
 | ⬜ | Seasons: Start the next season is disabled until the year is typed; do NOT run this against the live league until the season is really over | |
+
+## N. Activity — commissioner only
+
+Run `npm run db:migrate-activity` against live **before** deploying this.
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | Signed in as anyone, browse three pages for ~20 seconds each. Then, as the commissioner, Admin panel → **Activity** (with "Hide my own visits" off if it was you) shows those pages and roughly that time | |
+| ⬜ | "Hide my own visits" is ticked by default and removes your own rows; unticking it adds them back | |
+| ⬜ | 7 days / 30 days / All time each change the totals; a window with nothing in it says "No visits recorded …", not a table of zeros | |
+| ⬜ | Leave `/draft` open and untouched for 10 minutes: Activity adds at most ~5 minutes for it, not 10 | |
+| ⬜ | Switch to another tab for a few minutes and come back: the hidden time is not counted | |
+| ⬜ | A member gets a 404 on `/admin` and a 403 from `/api/admin/activity` | |
+| ⬜ | Glossary → **Active time** explains how it is counted | |
+| ⬜ | The league has been told (see `docs/ACTIVITY_ROADMAP.md` → Tell the league) | |

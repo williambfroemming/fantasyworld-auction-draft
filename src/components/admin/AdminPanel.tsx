@@ -6,6 +6,7 @@ import { useDraft } from '@/hooks/useDraft'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import type { AdminMember, SeasonDetails } from '@/server/commish-service'
+import { ActivitySection } from './ActivitySection'
 import { DraftOrderSection } from './DraftOrderSection'
 import { LiveDraftSection } from './LiveDraftSection'
 import { MembersSection } from './MembersSection'
@@ -44,6 +45,7 @@ const JUMP = [
   ['members', 'Members'],
   ['seasons', 'Seasons'],
   ['oracle', 'Oracle'],
+  ['activity', 'Activity'],
   ['danger', 'Export & reset'],
 ] as const
 
@@ -159,6 +161,7 @@ export function AdminPanel({ me }: { me: number }) {
           onChanged={loadAdmin}
         />
         <OracleSection setMsg={setMsg} />
+        <ActivitySection />
 
         <Section id="danger" title="Export & reset">
           <div className="flex flex-wrap gap-2">
