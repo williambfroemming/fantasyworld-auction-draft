@@ -33,6 +33,7 @@ import {
   leagueSummary,
   memberProfile,
   records,
+  recordLists,
   regularSeasonWeekKeys,
   seasonInReview,
   type HistoryPick,
@@ -321,7 +322,7 @@ export async function getChampionshipLineup(season: number): Promise<Championshi
 
 export async function getRecordBook() {
   const input = await getHistoryInput()
-  return { book: records(input), members: input.members }
+  return { book: records(input), lists: recordLists(input), members: input.members }
 }
 
 /**
