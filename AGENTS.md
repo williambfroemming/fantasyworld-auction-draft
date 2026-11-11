@@ -30,6 +30,7 @@ Stack: Next.js 16.3 (App Router) · React 19.2 · TypeScript · Tailwind 4 · Ne
 | `docs/ANALYTICS_ROADMAP.md` | **The current work.** Steps 38–61, each written to be built on its own. Start here |
 | `docs/ACTIVITY_ROADMAP.md` | Feature J (Activity), steps 63–66: first-party page tracking for the commissioner. Built; read it before changing anything that records or shows activity |
 | `docs/PLAYER_STATS_ROADMAP.md` | Feature K (Player stats), steps 63–66: weekly NFL stat lines (`player_week_stats`), the decisions behind them, and the confirmed whitelist |
+| `docs/STATS_WEAVE_ROADMAP.md` | Feature L, steps 67–75: putting the stat lines on the player page, players index, Records, Spend & Value, member page, Waivers and the front page. **The current work.** Read its "Left out on purpose" before adding stats anywhere else (the Gazette and the draft room are excluded deliberately) |
 | `docs/PROGRESS_LOG.md` | Append-only learnings, one entry per completed step, from step 38. **Read before starting work** |
 | `docs/UAT.md` | Acceptance checklist the user runs against the live deploy |
 | `docs/DRAFT_NIGHT.md` | One-page runbook for the commissioner on the night |

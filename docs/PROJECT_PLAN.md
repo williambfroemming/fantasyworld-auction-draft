@@ -452,3 +452,15 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **64.** `player_week_stats` and the importer
 - [x] **65.** The Oracle learns about stats
 - [x] **66.** Show the stat line
+
+**L. Weaving player stats into the site** — added 2026-11-11. **Build instructions: `docs/STATS_WEAVE_ROADMAP.md`**
+- [ ] **67.** `player-stat-totals.ts` and "Stats by season" on the player page
+- [ ] **68.** Player page: game log, and a points / headline-stat toggle on the timeline
+- [ ] **69.** Players index: position and season filters, one stat column (stat sort only within one position)
+- [ ] **70.** Records: stat records within a position
+- [ ] **71.** Spend & Value / Past Auctions: what each pick returned
+- [ ] **72.** Member page: biggest weeks, with stat lines
+- [ ] **73.** Waivers: what a claim did since pickup
+- [ ] **74.** Front page (season underway): the week's biggest starts
+- [ ] **75.** Oracle suggested questions, glossary, UAT
+
