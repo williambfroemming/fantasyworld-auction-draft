@@ -54,6 +54,7 @@ import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import { STAT_KEYS, formatStatLine, type StatKey } from '@/lib/player-stats'
+import { playerStatTotals, type PlayerStatTotals, type StatWeek } from '@/lib/player-stat-totals'
 import type { StatsTrade } from '@/lib/stats'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
@@ -866,6 +867,11 @@ export interface PlayerHistory {
    * them. Null when he has none — the page then says nothing about stats.
    */
   statsCoverage: Coverage | null
+  /**
+   * Season and career NFL stat totals, over the weeks he was rostered here and played.
+   * Null when he has no stat rows at all.
+   */
+  statTotals: PlayerStatTotals | null
 }
 
 /** A `player_weeks` row joined to its manager, before aggregation. */
@@ -1044,6 +1050,7 @@ export function buildPlayerHistory(
     best,
     weekly,
     statsCoverage: null,
+    statTotals: null,
   }
 }
 
@@ -1255,7 +1262,7 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
   // `db:migrate-player-stats` yet still renders the page, just without them.
   const stats = await getPlayerStatLines(sleeperId)
   for (const r of rows) {
-    r.statLine = formatStatLine(r.position, stats.get(`${r.season}:${r.week}`))
+    r.statLine = formatStatLine(r.position, stats.get(`${r.season}:${r.week}`)?.stats)
   }
 
   const history = buildPlayerHistory(sleeperId, rows, drafts)
@@ -1264,6 +1271,14 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
   history.statsCoverage = statSeasons.length
     ? { from: statSeasons[0], to: statSeasons[statSeasons.length - 1], seasons: statSeasons, label: 'NFL stats' }
     : null
+
+  // Totals over the weeks he was rostered AND has a stat row. `isPlayoff` is the same flag the
+  // points split already uses (each season's own boundary), so the two never disagree.
+  const statWeeks: StatWeek[] = rows.flatMap((r) => {
+    const line = stats.get(`${r.season}:${r.week}`)
+    return line ? [{ season: r.season, week: r.week, isPlayoff: r.isPlayoff, gp: line.gp, stats: line.stats }] : []
+  })
+  history.statTotals = playerStatTotals(statWeeks, history.position)
   return history
 }
 
@@ -1276,7 +1291,7 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
  */
 async function getPlayerStatLines(
   sleeperId: string,
-): Promise<Map<string, Partial<Record<StatKey, number | null>>>> {
+): Promise<Map<string, { gp: number | null; stats: Partial<Record<StatKey, number | null>> }>> {
   const sql = getSql()
   try {
     const rows = await sql`
@@ -1284,7 +1299,10 @@ async function getPlayerStatLines(
     return new Map(
       rows.map((r) => [
         `${Number(r.season)}:${Number(r.week)}`,
-        Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+        {
+          gp: numOrNull(r.gp),
+          stats: Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+        },
       ]),
     )
   } catch (err) {

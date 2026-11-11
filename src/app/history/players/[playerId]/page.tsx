@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { PlayerStatTotalsTable } from '@/components/history/PlayerStatTotalsTable'
 import { PlayerTimeline } from '@/components/history/PlayerTimeline'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
@@ -188,6 +189,9 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
             </tbody>
           </table>
         </div>
+
+        {/* NFL stat totals, only for a player who has stat rows at all. */}
+        {player.statTotals && <PlayerStatTotalsTable totals={player.statTotals} />}
 
         {/* "Managers" rather than "Who kept him": this page also serves team
             defenses (Kansas City Chiefs, Tampa Bay Buccaneers), where a pronoun

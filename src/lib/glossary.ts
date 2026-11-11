@@ -384,6 +384,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'faabReport() \u2014 src/lib/faab.ts',
   },
   {
+    id: 'stat-totals',
+    term: 'Stats by season',
+    group: 'league',
+    where: 'Player page',
+    formula: 'each stat added up over the weeks the player played (games played of at least 1) while on a roster in this league',
+    note: 'NFL stats, not fantasy points, and only for the weeks he was rostered here, from 2020: never an NFL season or career total. A week with no stat line is a bye or an inactive and is not a game; a played week with no catches is a game and a real zero. A dash means no played week had a value for that stat (a receiver has no sacks), which is not a zero. The columns follow the player\u2019s own position: a quarterback\u2019s passing, a receiver\u2019s targets and receptions, a defense\u2019s sacks and points allowed per game; a secondary group (a receiver\u2019s rushing) appears only if he has any. Regular season and playoffs are split on each season\u2019s own playoff week (14 in 2020, 15 from 2021).',
+    source: 'playerStatTotals() \u2014 src/lib/player-stat-totals.ts',
+  },
+  {
     id: 'positional-scorecard',
     term: 'Points by position',
     group: 'league',
