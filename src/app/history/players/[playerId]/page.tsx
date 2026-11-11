@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { PlayerTimeline } from '@/components/history/PlayerTimeline'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
 import { getPlayerHistory, listMembers } from '@/server/history-service'
 
@@ -66,7 +66,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
         </h1>
         <span className="font-mono text-xs text-slate-500">{player.position ?? '—'}</span>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

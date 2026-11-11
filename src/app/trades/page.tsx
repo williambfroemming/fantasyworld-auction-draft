@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { TradePanel } from '@/components/TradePanel'
 import { useDraft } from '@/hooks/useDraft'
 import { managerTint } from '@/lib/colors'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 
 /**
  * Trades, on their own page.
@@ -52,7 +52,7 @@ export default function TradesPage() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-3">
-          <ThemeToggle />
+          <HeaderControls />
           {myManager && (
           <span
             className="rounded-full px-3 py-1 text-xs font-semibold"

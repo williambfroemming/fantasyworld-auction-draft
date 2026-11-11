@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { listAuctions } from '@/server/history-service'
 
 /**
@@ -26,7 +26,7 @@ export default async function DraftsPage() {
         <SiteNav section="draft-history" current="/history/drafts" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Past Auctions</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { EraBadge } from '@/components/history/EraBadge'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { DraftDnaPanel } from '@/components/history/DraftDnaPanel'
 import { managerColor } from '@/lib/colors'
 import { getDraftDna, getMemberProfile, getMostStarted } from '@/server/history-service'
@@ -62,7 +62,7 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           {member.displayName}
         </h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { OracleBar } from '@/components/OracleBar'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { currentManagerId } from '@/server/session'
 import { oracleEnabled } from '@/server/settings-service'
 
@@ -27,7 +27,7 @@ export default async function OraclePage() {
           Ask the Oracle
         </h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

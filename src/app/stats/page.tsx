@@ -13,7 +13,7 @@ import { ValuePanel } from '@/components/stats/ValuePanel'
 import { useDraft } from '@/hooks/useDraft'
 import { useSeasonView } from '@/hooks/useSeasonView'
 import type { StatsInput } from '@/lib/stats'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 
 type View = 'teams' | 'pace' | 'curve' | 'nominations' | 'value'
 
@@ -127,7 +127,7 @@ function StatsView() {
       <header className="flex shrink-0 flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
         <SiteNav section="draft-history" current="/stats" isCommish={myManager?.isCommish} />
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 

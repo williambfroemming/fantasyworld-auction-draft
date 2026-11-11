@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { GlossaryLink } from '@/components/GlossaryLink'
 import { SiteNav } from '@/components/SiteNav'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
 import { MIN_SAMPLE, recordCell, type RecordCell } from '@/lib/record-paths'
 import { getRecordPaths } from '@/server/history-service'
@@ -56,7 +56,7 @@ export default async function RecordByWeekPage() {
         <SiteNav section="league-history" current="/history/by-week" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Record by Week</h1>
         <div className="ml-auto">
-          <ThemeToggle />
+          <HeaderControls />
         </div>
       </header>
 
