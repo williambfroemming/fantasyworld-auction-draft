@@ -8,6 +8,8 @@
  * All of them bump `draft.rev`, which is part of the polling fingerprint, so
  * every client picks the change up on its next poll.
  */
+import { randomInt } from 'node:crypto'
+import { hashPin } from '@/lib/auth'
 import { getSql } from './sql'
 import { getState, type ActionResult } from './draft-service'
 
@@ -300,6 +302,25 @@ export async function swapSeats(aId: number, bId: number): Promise<ActionResult<
 export async function clearPin(managerId: number): Promise<ActionResult<null>> {
   await getSql()`UPDATE managers SET pin_hash = NULL WHERE id = ${managerId}`
   return { ok: true, data: null }
+}
+
+/**
+ * Give a member a new PIN and hand it back, once, to the commissioner to pass on.
+ *
+ * This is the "I forgot my PIN" path. It sets a PIN rather than clearing one on purpose:
+ * a cleared seat can be claimed by whoever reaches the sign-in screen first, and the
+ * sign-in screen is public. Here there is no unclaimed moment. The member signs in with
+ * the PIN they are given and can ask for another any time.
+ *
+ * Random, so the commissioner is not choosing (or reusing) a PIN.
+ */
+export async function resetPin(managerId: number): Promise<ActionResult<{ pin: string }>> {
+  const sql = getSql()
+  const pin = String(randomInt(0, 10_000)).padStart(4, '0')
+  const rows = await sql`
+    UPDATE managers SET pin_hash = ${await hashPin(pin)} WHERE id = ${managerId} RETURNING id`
+  if (rows.length === 0) return { ok: false, reason: 'Unknown manager' }
+  return { ok: true, data: { pin } }
 }
 
 /** Budget and roster size. Locked once picks exist — both feed max bid. */

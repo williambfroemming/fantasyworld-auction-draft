@@ -96,6 +96,6 @@ export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax',
   path: '/',
-  maxAge: 60 * 60 * 24 * 7, // a week, so the rehearsal and the real draft both fit
+  maxAge: 60 * 60 * 24 * 90, // the whole site sits behind this, so don't make people re-enter a PIN weekly
   secure: process.env.NODE_ENV === 'production',
 } as const

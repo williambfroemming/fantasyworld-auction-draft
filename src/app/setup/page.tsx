@@ -249,6 +249,52 @@ export default function SetupPage() {
           </div>
         </Section>
 
+        {/* ---------------- Member PINs ---------------- */}
+        <Section
+          title="Member PINs"
+          note="Someone forgot theirs? Reset it here and tell them the new one. They can sign in with it straight away."
+        >
+          <ul className="space-y-2">
+            {state.managers.map((m) => (
+              <li key={m.id} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate">
+                  {m.displayName}
+                  <span className="ml-2 text-xs text-slate-500">
+                    {m.hasPin ? 'has a PIN' : 'no PIN yet'}
+                  </span>
+                </span>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(`Reset ${m.displayName}'s PIN? Their old PIN stops working.`)) return
+                    setBusy(true)
+                    setMsg(null)
+                    try {
+                      const res = await fetch('/api/commish', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'resetPin', managerId: m.id }),
+                      })
+                      const data = await res.json()
+                      setMsg(
+                        data.ok
+                          ? `${m.displayName}'s new PIN is ${data.data.pin} — tell them now; it is not shown again.`
+                          : (data.reason ?? 'Failed'),
+                      )
+                      await refresh()
+                    } finally {
+                      setBusy(false)
+                    }
+                  }}
+                  disabled={busy}
+                  className="shrink-0 rounded-lg border border-rule px-3 py-1.5 text-sm hover:bg-slate-800"
+                >
+                  Reset PIN
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Section>
+
         {/* ---------------- Danger ---------------- */}
         <Section title="Before the real draft" note="Run both of these after any rehearsal.">
           <div className="flex flex-wrap gap-2">
