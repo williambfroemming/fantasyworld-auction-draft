@@ -9,8 +9,11 @@
  * players were bought in the room but could not be entered through the UI. This
  * is the repair path — and it stays useful until that bug is fixed.
  *
- * It bypasses **whose turn it is** and nothing else. Each entry opens a real lot
- * and awards it with the same single statement as `awardLot()`, so the max-bid
+ * The admin panel's Picks → Record a sale does the same thing from a browser;
+ * both go through `recordSale()` in src/server/commish-service.ts.
+ *
+ * It bypasses **whose turn it is** and nothing else. Each entry writes a real lot
+ * and pick with the same checks and snapshot as `awardLot()`, so the max-bid
  * check still runs inside the database against `manager_totals`. A price that
  * would strand a manager below $1 per empty slot is refused here exactly as it
  * would be in the app.
@@ -21,6 +24,7 @@
  */
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
 import '../src/db/neon-local'
+import { recordSale } from '../src/server/commish-service'
 
 interface Entry {
   manager: string
@@ -111,62 +115,18 @@ async function main() {
     return
   }
 
-  // The award statement needs a live draft to reference; a completed draft sits
-  // at 'done' and would otherwise have to be reopened by hand.
-  if (settings.status !== 'live') {
-    await sql`UPDATE draft SET status = 'live', rev = rev + 1 WHERE id = 1`
-    console.log(`\n(status "${settings.status}" -> "live" for the duration of this run)`)
-  }
-
+  // One copy of the statement, shared with the admin panel's Record a sale.
+  // recordSale() writes the lot and the pick together, with awardLot()'s
+  // max-bid check and player snapshot (sleeper id included, which this script's
+  // own copy used to drop), and refuses rather than half-applying. It works on
+  // a 'live', 'paused' or 'done' draft, so there is no status to flip first.
   console.log()
   for (const r of resolved) {
-    // A real lot, so the archive and the pick log read the same as any other
-    // sale. The buyer is recorded as their own nominator: these were the
-    // end-of-draft fills, and inventing someone else's name would be a lie in
-    // the permanent record.
-    const [lot] = await sql`
-      INSERT INTO lots (season, player_id, nominator_id)
-      SELECT ${season}, ${r.player.id}, ${r.manager.id}
-      WHERE NOT EXISTS (
-        SELECT 1 FROM picks WHERE player_id = ${r.player.id} AND season = ${season})
-      RETURNING id`
-    if (!lot) throw new Error(`${r.player.name} was drafted by someone else mid-run`)
-
-    // Byte-for-byte the statement in awardLot(), including the player snapshot
-    // copied onto the pick: the max-bid rule is enforced by the database, not
-    // by this script.
-    const rows = await sql`
-      WITH sold AS (
-        UPDATE lots
-        SET status = 'sold', sold_price = ${r.price}, winner_id = ${r.manager.id}
-        WHERE id = ${lot.id}
-          AND status = 'open'
-          AND ${r.price} <= (SELECT max_bid FROM manager_totals WHERE id = ${r.manager.id})
-          AND NOT EXISTS (
-            SELECT 1 FROM picks pk
-            WHERE pk.player_id = lots.player_id AND pk.season = ${season})
-        RETURNING player_id, nominator_id
-      )
-      INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
-                         player_position, player_rank, player_pos_rank,
-                         manager_id, nominator_id, price)
-      SELECT ${season},
-             (SELECT COALESCE(MAX(pick_no), 0) FROM picks WHERE season = ${season}) + 1,
-             sold.player_id, p.name, p.team, p.position, p.search_rank, p.pos_rank,
-             ${r.manager.id}, sold.nominator_id, ${r.price}
-      FROM sold JOIN players p ON p.id = sold.player_id
-      ON CONFLICT (season, player_id) DO NOTHING
-      RETURNING pick_no`
-
-    if (rows.length === 0) {
-      const [t] = await sql`SELECT budget, rostered, max_bid FROM manager_totals WHERE id = ${r.manager.id}`
-      await sql`UPDATE lots SET status = 'void' WHERE id = ${lot.id}`
-      throw new Error(
-        `Refused: ${r.manager.display_name} at $${r.price} for ${r.player.name} — ` +
-          `budget $${t.budget}, ${t.rostered}/${settings.roster_size} rostered, max bid $${t.max_bid}`,
-      )
+    const res = await recordSale(r.player.id, r.manager.id, r.price)
+    if (!res.ok) {
+      throw new Error(`Refused: ${r.manager.display_name} at $${r.price} for ${r.player.name} — ${res.reason}`)
     }
-    console.log(`  ✓ pick #${rows[0].pick_no}  ${r.player.name} -> ${r.manager.display_name} $${r.price}`)
+    console.log(`  ✓ pick #${res.data.pickNo}  ${r.player.name} -> ${r.manager.display_name} $${r.price}`)
   }
 
   const totals = await sql`
@@ -175,12 +135,10 @@ async function main() {
   console.log()
   console.table(totals)
 
-  // Every roster full means the draft is over. Saying so is what stops the
-  // board rendering an empty clock that reads as a freeze (BACKLOG §9, P1).
+  // recordSale() sets 'done' itself when the last slot fills (BACKLOG §9, P1).
   const unfilled = totals.filter((t) => Number(t.rostered) < Number(settings.roster_size))
   if (unfilled.length === 0) {
-    await sql`UPDATE draft SET status = 'done', rev = rev + 1 WHERE id = 1`
-    console.log('✓ Every roster is full — draft status set to "done".')
+    console.log('✓ Every roster is full — the draft is done.')
   } else {
     console.log(
       `${unfilled.length} manager(s) still unfilled: ` +

@@ -140,7 +140,7 @@ export function LotPanel({
               app has lost track of whose turn it is. This is a fault, not the end of the draft.
             </p>
             <p className="mt-2 text-sm text-slate-500">
-              The commissioner can use ⚙ Commish → Skip nominator to get things moving.
+              The commissioner can use Admin panel → Skip nominator to get things moving.
             </p>
           </>
         ) : (

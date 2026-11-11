@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import * as commish from '@/server/commish-service'
-import { currentManagerId } from '@/server/session'
-import { getSql } from '@/server/sql'
+import { checkCommish } from '@/server/require-commish'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,11 +28,31 @@ const Body = z.discriminatedUnion('action', [
     rosterSize: z.number().int(),
   }),
   z.object({
-    action: z.literal('setSeasonInfo'),
+    action: z.literal('setSeasonDetails'),
+    season: z.number().int().min(2000).max(2999),
     city: z.string().max(60).nullable(),
     state: z.string().max(40).nullable(),
-    // Null is "not priced yet", and must survive a round trip as null.
-    buyIn: z.number().int().nullable(),
+    // Null is "unknown", never 0, and must survive a round trip as null.
+    buyIn: z.number().int().min(0).max(100_000).nullable(),
+    championPrize: z.number().int().min(0).max(100_000).nullable(),
+    runnerUpPrize: z.number().int().min(0).max(100_000).nullable(),
+    thirdPrize: z.number().int().min(0).max(100_000).nullable(),
+    sideBet: z.number().int().min(0).max(100_000).nullable(),
+  }),
+  z.object({ action: z.literal('unlockSeat'), managerId: z.number().int() }),
+  z.object({ action: z.literal('setCommish'), managerId: z.number().int(), on: z.boolean() }),
+  z.object({
+    action: z.literal('recordSale'),
+    playerId: z.string().min(1).max(100),
+    managerId: z.number().int(),
+    price: z.number().int(),
+  }),
+  // The year must be typed twice — once as the target, once as the confirmation —
+  // so a stray click cannot roll the league into a new season.
+  z.object({
+    action: z.literal('startNewSeason'),
+    year: z.number().int(),
+    confirm: z.number().int(),
   }),
   z.object({
     action: z.literal('renameManager'),
@@ -47,13 +66,9 @@ const Body = z.discriminatedUnion('action', [
 export async function POST(req: Request) {
   // Commissioner status is read from the database against the signed session —
   // never taken from the request.
-  const managerId = await currentManagerId()
-  if (managerId === null) {
-    return NextResponse.json({ ok: false, reason: 'Not signed in' }, { status: 401 })
-  }
-  const [me] = await getSql()`SELECT is_commish FROM managers WHERE id = ${managerId}`
-  if (!me?.is_commish) {
-    return NextResponse.json({ ok: false, reason: 'Commissioner only' }, { status: 403 })
+  const who = await checkCommish()
+  if (!who.ok) {
+    return NextResponse.json({ ok: false, reason: who.reason }, { status: who.status })
   }
 
   const parsed = Body.safeParse(await req.json().catch(() => null))
@@ -77,7 +92,17 @@ export async function POST(req: Request) {
       case 'clearPin': return commish.clearPin(b.managerId)
       case 'resetPin': return commish.resetPin(b.managerId)
       case 'setLeagueSettings': return commish.setLeagueSettings(b.startingBudget, b.rosterSize)
-      case 'setSeasonInfo': return commish.setSeasonInfo({ city: b.city, state: b.state, buyIn: b.buyIn })
+      case 'setSeasonDetails': return commish.setSeasonDetails({
+        season: b.season, city: b.city, state: b.state, buyIn: b.buyIn,
+        championPrize: b.championPrize, runnerUpPrize: b.runnerUpPrize,
+        thirdPrize: b.thirdPrize, sideBet: b.sideBet,
+      })
+      case 'unlockSeat': return commish.unlockSeat(b.managerId)
+      case 'setCommish': return commish.setCommish(b.managerId, b.on)
+      case 'recordSale': return commish.recordSale(b.playerId, b.managerId, b.price)
+      case 'startNewSeason':
+        if (b.confirm !== b.year) return { ok: false as const, reason: 'Type the new year to confirm' }
+        return commish.startNewSeason(b.year)
       case 'renameManager': return commish.renameManager(b.managerId, b.displayName)
       case 'resetDraft': return commish.resetDraft()
     }

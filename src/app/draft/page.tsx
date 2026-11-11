@@ -7,7 +7,6 @@ import { LotPanel, PositionBadge } from '@/components/LotPanel'
 import { NominationOrder } from '@/components/NominationOrder'
 import { PlayerPool } from '@/components/PlayerPool'
 import { SidePanel } from '@/components/SidePanel'
-import { CommishDrawer } from '@/components/CommishDrawer'
 import { useDraft } from '@/hooks/useDraft'
 import { useQueue } from '@/hooks/useQueue'
 import { sounds, unlockAudio } from '@/lib/sounds'
@@ -88,7 +87,7 @@ export default function DraftPage() {
     ? null
     : state.draft.status === 'setup'
       ? 'The draft has not been started yet.' +
-        (myManager?.isCommish ? ' Open ⚙ Commish → Start draft.' : ' Waiting on the commissioner.')
+        (myManager?.isCommish ? ' Open your account menu → Admin panel → Start draft.' : ' Waiting on the commissioner.')
       : state.draft.status === 'paused'
         ? 'The draft is paused.'
         : state.draft.status === 'done'
@@ -171,7 +170,7 @@ export default function DraftPage() {
       {state.draft.status === 'setup' && (
         <div className="bg-amber-500/15 px-4 py-2 text-center text-sm font-semibold text-amber-300">
           Draft not started.{' '}
-          {myManager?.isCommish ? 'Open ⚙ Commish → Start draft.' : 'Waiting on the commissioner.'}
+          {myManager?.isCommish ? 'Open your account menu → Admin panel → Start draft.' : 'Waiting on the commissioner.'}
         </div>
       )}
 
@@ -238,9 +237,6 @@ export default function DraftPage() {
         </div>
       </div>
 
-      {myManager?.isCommish && (
-        <CommishDrawer state={state} board={board} onDone={refresh} />
-      )}
     </main>
   )
 }

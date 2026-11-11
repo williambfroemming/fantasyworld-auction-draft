@@ -228,7 +228,7 @@ paired `budget_adjustments` rows rather than by freezing the column.
 4. **Commissioner drawer** (`isCommish`) — pause/resume, undo last pick, edit price, reassign, skip nominator, cancel lot, export CSV.
 5. **`/stats`** — spend analysis, its own page because `/board` is about *who has whom*. Four views (Teams / Pace / Nominations / Value), one `StatsInput` adapter so the live draft and any archived season share a single code path. The Value view is **gated until every roster is full** — a live "you overpaid" readout is the anchoring the league removed tiers and auction values to avoid.
 6. **`/trades`** — its own page, for the same reason the board got one: bidding, studying the board, and negotiating a trade are three different moments. Two rosters side by side, cash either way, and a live preview of both managers' budget/roster/max bid *after* the deal.
-6. **`/setup`** — sync players, seed managers, budget/roster rules, and **set the season's draft order** (drag or Randomize, re-rollable, round 1/2 preview, locks when live).
+6. **`/admin`** (was `/setup`; reached from the account menu, commissioner only) — sync players, seed managers, budget/roster rules, and **set the season's draft order** (drag or Randomize, re-rollable, round 1/2 preview, locks when live).
 
 ## 9. Sleeper — `src/lib/sleeper.ts`, setup only, never on draft night
 
@@ -383,7 +383,7 @@ net, rather than reading as a $0 entry fee — `memberProfile` restricts net win
 have *both* a buy-in and a podium, so fifteen years of prizes are never netted against one year's
 entry fee.
 
-Location and buy-in are set from `/setup` (`setSeasonInfo`), and unlike budget and roster size they
+Location, buy-in, prize money and side bet are set from the admin panel (`setSeasonDetails`, any season on record), and unlike budget and roster size they
 **stay editable after the first pick**. Nothing about them reaches the auction engine, and both are
 routinely settled late — the buy-in once everyone has actually paid, the city whenever somebody
 remembers. They are read by `/api/season-info`, deliberately not by `/api/state`: they change once a
@@ -436,3 +436,6 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] **59.** `season_transactions` and the importer
 - [ ] **60.** `faab.ts`
 - [ ] **61.** `/history/waivers`, and the Oracle learns about transactions
+
+**I. Commissioner tools** — added 2026-11-11, outside the analytics roadmap
+- [x] **62.** The admin panel: `/admin` from the account menu, replacing the ⚙ Commish drawer and `/setup`; edit any pick, record a sale, unlock a seat, rename, commissioner role, per-season prize money, start a new season

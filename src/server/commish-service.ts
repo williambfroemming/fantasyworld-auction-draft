@@ -189,6 +189,18 @@ export async function reassignPick(pickId: number, managerId: number): Promise<A
     return { ok: false, reason: `That pick is from the ${pick.season} draft and is archived` }
   }
 
+  // A traded player's salary stays with whoever drafted them, held in place by a
+  // pair of budget_adjustments. Reassigning moves the charge with the player, so
+  // on a traded pick it would quietly bill the new owner as well as leaving the
+  // trade's cancelling pair behind. Same refusal as undoLastPick.
+  const [traded] = await sql`
+    SELECT id FROM trades
+    WHERE ${pickId}::int = ANY(picks_a_to_b) OR ${pickId}::int = ANY(picks_b_to_a)
+    LIMIT 1`
+  if (traded) {
+    return { ok: false, reason: `That player has been traded (trade #${traded.id}) — reassigning would double-charge` }
+  }
+
   const [totals] = await sql`SELECT budget, rostered FROM manager_totals WHERE id = ${managerId}`
   const [settings] = await sql`SELECT roster_size FROM draft WHERE id = 1`
   if (!totals) return { ok: false, reason: 'Unknown manager' }
@@ -350,73 +362,116 @@ export async function setLeagueSettings(
 }
 
 /**
- * Where the draft was held and what it cost to enter.
+ * The facts about a season that exist in no API: prize money, the buy-in, the
+ * weekly side bet, and where the draft was held.
  *
  * These live on `seasons`, not `draft`, because they are facts about a *year*
  * rather than settings the auction engine reads — nothing here can change a
- * budget, a max bid or a pick. That is also why, unlike `setLeagueSettings`,
- * they stay editable after the first pick: the room usually only agrees on the
- * final buy-in once everyone has actually paid, and somebody always wants to
- * add the city months later. Locking them at pick one would mean editing the
- * database by hand to record where the league sat.
+ * budget, a max bid or a pick. That is why, unlike `setLeagueSettings`, they
+ * stay editable after the first pick and for any past year: the room only
+ * agrees the buy-in once everyone has paid, prize money is settled at the end
+ * of the season, and somebody always wants to add the city months later.
  *
- * The buy-in is what makes career winnings a real number rather than a gross
- * prize total. `null` is unknown and is preserved as unknown — a season nobody
- * has priced must not read as a free one.
+ * ⚠️ Null is UNKNOWN, never zero, for every money field — the same semantics as
+ * `npm run season:info` (scripts/set-season-info.ts). 2006–2010 paid something
+ * nobody wrote down; 2011–2013 genuinely paid $0. A form that turned an empty
+ * box into 0 would make career winnings quietly authoritative about years it
+ * knows nothing about.
  */
-export async function setSeasonInfo(info: {
-  city: string | null
-  state: string | null
-  buyIn: number | null
-}): Promise<ActionResult<null>> {
-  if (info.buyIn !== null && (info.buyIn < 0 || info.buyIn > 100_000)) {
-    return { ok: false, reason: 'Buy-in out of range' }
-  }
-
-  const sql = getSql()
-  const season = await currentSeason()
-  const city = info.city?.trim() || null
-  const stateName = info.state?.trim() || null
-
-  // A `seasons` row may not exist yet for a year that has only just started,
-  // so this upserts rather than updating. Country is fixed rather than asked
-  // for: it is one field nobody would ever fill in, and the history import
-  // already writes 'USA' for every season on record.
-  await sql`
-    INSERT INTO seasons (season, draft_city, draft_state, draft_country, buy_in, data_tier)
-    VALUES (${season}, ${city}, ${stateName}, ${city ? 'USA' : null}, ${info.buyIn}, 'weekly')
-    ON CONFLICT (season) DO UPDATE SET
-      draft_city    = excluded.draft_city,
-      draft_state   = excluded.draft_state,
-      draft_country = COALESCE(excluded.draft_country, seasons.draft_country),
-      buy_in        = excluded.buy_in`
-
-  await bumpRev()
-  return { ok: true, data: null }
-}
-
-/**
- * What is currently recorded for this season, to seed the setup form.
- *
- * Deliberately its own read rather than a field on `/api/state`: it changes
- * about once a year, and the polling payload is the one thing in this app that
- * every client refetches every 400ms all draft night.
- */
-export async function getSeasonInfo(): Promise<{
+export interface SeasonDetails {
   season: number
   city: string | null
   state: string | null
   buyIn: number | null
-}> {
-  const season = await currentSeason()
-  const [row] = await getSql()`
-    SELECT draft_city, draft_state, buy_in FROM seasons WHERE season = ${season}`
-  return {
-    season,
-    city: row?.draft_city ?? null,
-    state: row?.draft_state ?? null,
-    buyIn: row?.buy_in === null || row?.buy_in === undefined ? null : Number(row.buy_in),
+  championPrize: number | null
+  runnerUpPrize: number | null
+  thirdPrize: number | null
+  sideBet: number | null
+}
+
+export const SEASON_MONEY_FIELDS = ['buyIn', 'championPrize', 'runnerUpPrize', 'thirdPrize', 'sideBet'] as const
+
+export async function setSeasonDetails(d: SeasonDetails): Promise<ActionResult<null>> {
+  for (const f of SEASON_MONEY_FIELDS) {
+    const v = d[f]
+    if (v !== null && (!Number.isInteger(v) || v < 0 || v > 100_000)) {
+      return { ok: false, reason: 'Dollar amounts must be whole numbers between 0 and 100,000' }
+    }
   }
+  const sql = getSql()
+  const current = await currentSeason()
+  const city = d.city?.trim() || null
+  const stateName = d.state?.trim() || null
+
+  // The current season may not have a `seasons` row yet — it only gets one when
+  // the history import first sees it — so that year upserts. Any other year must
+  // already be on record: inventing a row for 2031 from a typo would put an
+  // empty season in the archive. Country is fixed: the history import writes
+  // 'USA' for every season, and it is a field nobody would ever fill in.
+  const rows =
+    d.season === current
+      ? await sql`
+          INSERT INTO seasons (season, draft_city, draft_state, draft_country, buy_in,
+                               champion_prize, runner_up_prize, third_prize, side_bet, data_tier)
+          VALUES (${d.season}, ${city}, ${stateName}, ${city ? 'USA' : null}, ${d.buyIn},
+                  ${d.championPrize}, ${d.runnerUpPrize}, ${d.thirdPrize}, ${d.sideBet}, 'weekly')
+          ON CONFLICT (season) DO UPDATE SET
+            draft_city      = excluded.draft_city,
+            draft_state     = excluded.draft_state,
+            draft_country   = COALESCE(excluded.draft_country, seasons.draft_country),
+            buy_in          = excluded.buy_in,
+            champion_prize  = excluded.champion_prize,
+            runner_up_prize = excluded.runner_up_prize,
+            third_prize     = excluded.third_prize,
+            side_bet        = excluded.side_bet
+          RETURNING season`
+      : await sql`
+          UPDATE seasons SET
+            draft_city      = ${city},
+            draft_state     = ${stateName},
+            draft_country   = COALESCE(${city ? 'USA' : null}, draft_country),
+            buy_in          = ${d.buyIn},
+            champion_prize  = ${d.championPrize},
+            runner_up_prize = ${d.runnerUpPrize},
+            third_prize     = ${d.thirdPrize},
+            side_bet        = ${d.sideBet}
+          WHERE season = ${d.season}
+          RETURNING season`
+  if (rows.length === 0) return { ok: false, reason: `No ${d.season} season on record` }
+  return { ok: true, data: null }
+}
+
+const nullableInt = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+
+/**
+ * Every season on record, newest first, plus the current one even if the
+ * history import has not given it a row yet. Its own read, never a field on
+ * `/api/state`: this changes about once a year and that payload is polled
+ * every 400ms.
+ */
+export async function listSeasonDetails(): Promise<{ current: number; seasons: SeasonDetails[] }> {
+  const current = await currentSeason()
+  const rows = await getSql()`
+    SELECT season, draft_city, draft_state, buy_in, champion_prize, runner_up_prize,
+           third_prize, side_bet
+    FROM seasons ORDER BY season DESC`
+  const seasons: SeasonDetails[] = rows.map((r) => ({
+    season: Number(r.season),
+    city: (r.draft_city as string | null) ?? null,
+    state: (r.draft_state as string | null) ?? null,
+    buyIn: nullableInt(r.buy_in),
+    championPrize: nullableInt(r.champion_prize),
+    runnerUpPrize: nullableInt(r.runner_up_prize),
+    thirdPrize: nullableInt(r.third_prize),
+    sideBet: nullableInt(r.side_bet),
+  }))
+  if (!seasons.some((x) => x.season === current)) {
+    seasons.unshift({
+      season: current, city: null, state: null, buyIn: null,
+      championPrize: null, runnerUpPrize: null, thirdPrize: null, sideBet: null,
+    })
+  }
+  return { current, seasons }
 }
 
 /** Rename a manager / change what the board calls them. */
@@ -504,4 +559,195 @@ export async function startNewSeason(year: number): Promise<ActionResult<{ seaso
   // has a row for it even if nobody re-draws before the draft.
   await snapshotOrder(year)
   return { ok: true, data: { season: year } }
+}
+
+/**
+ * Lift a PIN lockout without touching the PIN.
+ *
+ * `resetPin` also lifts a lock, but it hands the member a new PIN they did not
+ * ask for. When a seat is locked because someone fat-fingered it five times (or
+ * because a stranger guessed at it — see src/lib/pin-lockout.ts), the member's
+ * own PIN is still fine, and they should be able to use it.
+ */
+export async function unlockSeat(managerId: number): Promise<ActionResult<null>> {
+  const rows = await getSql()`
+    UPDATE managers SET pin_attempts = 0, pin_locked_until = NULL
+    WHERE id = ${managerId} RETURNING id`
+  if (rows.length === 0) return { ok: false, reason: 'Unknown manager' }
+  return { ok: true, data: null }
+}
+
+/**
+ * Make someone a commissioner, or stop them being one.
+ *
+ * ⚠️ There must always be at least one. A league with no commissioner cannot
+ * fix a pick, reset a PIN or start a season from the app, and the only way back
+ * would be a hand-written UPDATE.
+ *
+ * ⚠️ The guard has to LOCK the other commissioners, not just count them. The
+ * first version checked `EXISTS (another commissioner)` and lost a race the
+ * integration test caught: under READ COMMITTED, two commissioners removing
+ * each other at the same moment each update a *different* row, so neither
+ * waits, each sees the other still flagged, and both succeed — zero left.
+ * `FOR UPDATE` on the rows being counted makes the second statement wait for
+ * the first, then re-read those rows and see that the other has gone. Every
+ * commissioner row is locked — the caller's own included — in id order, so two
+ * concurrent removals queue behind each other instead of each holding one row
+ * the other needs (a deadlock). Still one statement, because Neon's HTTP driver
+ * has no interactive transactions.
+ *
+ * Bumps `draft.rev`: `isCommish` rides on `/api/state`'s managers list, and
+ * without the bump no client would notice the change until the next pick.
+ */
+export async function setCommish(managerId: number, on: boolean): Promise<ActionResult<null>> {
+  const sql = getSql()
+  const rows = await sql`
+    WITH commissioners AS (
+      SELECT id FROM managers WHERE is_commish ORDER BY id FOR UPDATE
+    )
+    UPDATE managers SET is_commish = ${on}
+    WHERE id = ${managerId}
+      AND (${on} OR (SELECT count(*) FROM commissioners c WHERE c.id <> ${managerId}) > 0)
+    RETURNING id`
+  if (rows.length === 0) {
+    const [exists] = await sql`SELECT id FROM managers WHERE id = ${managerId}`
+    return {
+      ok: false,
+      reason: exists ? 'There must always be at least one commissioner' : 'Unknown manager',
+    }
+  }
+  await bumpRev()
+  return { ok: true, data: null }
+}
+
+/**
+ * Record a sale outside the nomination order — "we bought him in the room but
+ * the app wouldn't let us enter it". The in-app version of `npm run draft:record`.
+ *
+ * It bypasses **whose turn it is** and nothing else. The lot and the pick are
+ * written by ONE statement with the same max-bid check and the same player
+ * snapshot as `awardLot()`, so a price that would strand a manager below $1 per
+ * empty slot is refused by the database exactly as it is in the room.
+ *
+ * The lot records the cursor as it stands, and the cursor does not move. That is
+ * what makes undo safe: `undoLastPick` rewinds `nomination_index` to the lot's
+ * recorded value — here "where it already was" — instead of falling back to
+ * `- 1` and stealing a turn from whoever is on the clock.
+ *
+ * The buyer is recorded as their own nominator. Inventing someone else's name in
+ * the permanent record would be a lie.
+ */
+export async function recordSale(
+  playerId: string,
+  managerId: number,
+  price: number,
+): Promise<ActionResult<{ pickNo: number; draftComplete: boolean }>> {
+  if (!Number.isInteger(price) || price < 1) {
+    return { ok: false, reason: 'Every player costs at least $1' }
+  }
+  const sql = getSql()
+  const [settings] = await sql`SELECT season, status FROM draft WHERE id = 1`
+  const season = Number(settings.season)
+  if (settings.status === 'setup') {
+    return { ok: false, reason: 'The draft has not started — start it first' }
+  }
+
+  const rows = await sql`
+    WITH lot AS (
+      INSERT INTO lots (season, player_id, nominator_id, nomination_index, sold_price, winner_id, status)
+      SELECT ${season}, p.id, ${managerId}, d.nomination_index, ${price}, ${managerId}, 'sold'
+      FROM players p CROSS JOIN draft d
+      WHERE p.id = ${playerId}
+        AND d.id = 1
+        AND ${price} <= (SELECT max_bid FROM manager_totals WHERE id = ${managerId})
+        AND NOT EXISTS (
+          SELECT 1 FROM picks pk WHERE pk.player_id = ${playerId} AND pk.season = ${season})
+        AND NOT EXISTS (
+          SELECT 1 FROM lots l
+          WHERE l.player_id = ${playerId} AND l.season = ${season} AND l.status = 'open')
+      RETURNING player_id, nominator_id
+    )
+    INSERT INTO picks (season, pick_no, player_id, player_name, player_team,
+                       player_position, player_rank, player_pos_rank,
+                       player_sleeper_id, manager_id, nominator_id, price)
+    SELECT ${season},
+           (SELECT COALESCE(MAX(pick_no), 0) FROM picks WHERE season = ${season}) + 1,
+           lot.player_id, p.name, p.team, p.position, p.search_rank, p.pos_rank,
+           p.sleeper_id,
+           ${managerId}, lot.nominator_id, ${price}
+    FROM lot JOIN players p ON p.id = lot.player_id
+    ON CONFLICT (season, player_id) DO NOTHING
+    RETURNING pick_no`
+
+  if (rows.length === 0) {
+    // Narrate the refusal after the fact; the database already decided it.
+    const [player] = await sql`SELECT name FROM players WHERE id = ${playerId}`
+    if (!player) return { ok: false, reason: 'Unknown player' }
+    const [drafted] = await sql`
+      SELECT m.display_name FROM picks pk JOIN managers m ON m.id = pk.manager_id
+      WHERE pk.player_id = ${playerId} AND pk.season = ${season}`
+    if (drafted) return { ok: false, reason: `${player.name} is already on ${drafted.display_name}'s roster` }
+    const [open] = await sql`
+      SELECT 1 AS x FROM lots WHERE player_id = ${playerId} AND season = ${season} AND status = 'open'`
+    if (open) return { ok: false, reason: `${player.name} is on the block right now — award or cancel that lot` }
+    const [t] = await sql`
+      SELECT t.budget, t.rostered, t.max_bid, m.display_name
+      FROM manager_totals t JOIN managers m ON m.id = t.id WHERE t.id = ${managerId}`
+    if (!t) return { ok: false, reason: 'Unknown manager' }
+    return {
+      ok: false,
+      reason:
+        `$${price} is over ${t.display_name}'s max bid of $${t.max_bid} ` +
+        `(budget $${t.budget}, ${t.rostered} rostered)`,
+    }
+  }
+
+  // Same completion rule as awardLot: every roster full means the draft is over.
+  const [after] = await sql`
+    UPDATE draft
+    SET status = CASE
+          WHEN status IN ('live', 'done')
+           AND NOT EXISTS (SELECT 1 FROM manager_totals t WHERE t.rostered < draft.roster_size)
+          THEN 'done' ELSE status END,
+        rev = rev + 1
+    WHERE id = 1
+    RETURNING status`
+  return {
+    ok: true,
+    data: { pickNo: Number(rows[0].pick_no), draftComplete: after?.status === 'done' },
+  }
+}
+
+/**
+ * Everything the members panel needs that `/api/state` must not carry.
+ *
+ * Lock state and attempt counts are commissioner business: they say who has been
+ * guessing at whose seat. They stay off the polling payload and the fingerprint,
+ * and `pin_hash` is never selected at all — only whether it is null.
+ */
+export interface AdminMember {
+  id: number
+  displayName: string
+  color: string
+  hasPin: boolean
+  pinAttempts: number
+  pinLockedUntil: string | null
+  isCommish: boolean
+}
+
+export async function listMembers(): Promise<AdminMember[]> {
+  const rows = await getSql()`
+    SELECT id, display_name, color, (pin_hash IS NOT NULL) AS has_pin, pin_attempts,
+           CASE WHEN pin_locked_until > now() THEN pin_locked_until END AS locked_until,
+           is_commish
+    FROM managers ORDER BY draft_slot, id`
+  return rows.map((r) => ({
+    id: Number(r.id),
+    displayName: r.display_name as string,
+    color: r.color as string,
+    hasPin: Boolean(r.has_pin),
+    pinAttempts: Number(r.pin_attempts),
+    pinLockedUntil: r.locked_until ? new Date(r.locked_until as string).toISOString() : null,
+    isCommish: Boolean(r.is_commish),
+  }))
 }

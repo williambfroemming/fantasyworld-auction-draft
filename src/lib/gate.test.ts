@@ -19,6 +19,8 @@ describe('isPublicPath', () => {
       '/board',
       '/draft',
       '/setup',
+      '/admin',
+      '/api/admin',
       '/api/state',
       '/api/ask',
       '/api/queue',

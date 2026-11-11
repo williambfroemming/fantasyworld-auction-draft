@@ -14,12 +14,18 @@ Everything here is doable from the app. No terminal required.
 
 ## Before people arrive
 
-- [ ] **Reset** if there was a rehearsal — `/setup` → **Reset draft**
-- [ ] **Clear PINs** — `/setup` → **Clear all PINs** (everyone then sets their own)
-- [ ] **Draw the order** — `/setup` → 🎲 **Randomize**, re-roll until the room's happy, then **Save order**
+Everything for the commissioner lives on one page: **your name (top right) → Admin panel**.
+Only commissioners see that menu item; anyone else who types `/admin` gets a 404.
+
+- [ ] **Reset** if there was a rehearsal — Admin panel → Export & reset → **Erase {year} draft**
+- [ ] PINs set during a rehearsal can stay — they are the members' own. If someone needs a
+      fresh one: Members & access → **Reset PIN** (shown once; tell them). There is no
+      "clear PIN" button any more: a cleared seat can be claimed by anyone who reaches the
+      public sign-in screen first
+- [ ] **Draw the order** — Admin panel → Draft order → 🎲 **Randomize**, re-roll until the room's happy, then **Save order**
 - [ ] Check the **Round 1 / Round 2 preview** matches what you announced
 - [ ] Send the link round. Everyone picks their name and sets a 4-digit PIN
-- [ ] **Start draft** (`/setup` → ▶ Start draft). Nobody can nominate until you do
+- [ ] **Start draft** (Admin panel → Live draft → ▶ Start draft). Nobody can nominate until you do
 
 > Sanity check: everyone should show **$200 / max $185** before the first nomination.
 
@@ -51,7 +57,7 @@ try again. Nothing is lost.
 
 ## Trades — players and auction dollars
 
-**Trades → ** in the header, or ⚙ Commish → Trades. Any signed-in manager can record one.
+**Draft → Trades** in the header, or Admin panel → Export & reset → Trades. Any signed-in manager can record one.
 
 Pick the two managers, tick the players each is giving up, add cash either way, and the
 panel shows both managers' budget, roster count and max bid **after** the deal before you
@@ -72,17 +78,22 @@ Refused means nothing is written — no half-done trades.
 
 ## When something goes wrong
 
-All of this is under **⚙ Commish** (bottom right, commissioner only).
+All of this is in the **Admin panel** (your name, top right → Admin panel). The page opens
+on **Live draft**, and it polls like the Draft Room, so it is safe to keep open in a second
+tab all night. There is no ⚙ Commish button in the Draft Room any more.
 
 | Problem | Fix |
 |---|---|
-| Need a break | **Pause** — blocks nominations and sales. The player on the block stays up |
-| Wrong player sold / wrong price | **Undo last pick** — refunds and returns them to the pool |
-| Price typed wrong | **Edit the last pick** → set price |
-| Player went to the wrong manager | **Edit the last pick** → reassign (moves the money too — this is a *correction*, not a trade) |
-| Someone nominated by mistake | **Cancel current lot** |
-| Someone's stepped away | **Skip nominator** |
-| Forgot their PIN | **Seats** → click their name to clear it |
+| Need a break | Live draft → **Pause** — blocks nominations and sales. The player on the block stays up |
+| Wrong player sold | Live draft → **Undo last pick** — refunds and returns them to the pool |
+| Price typed wrong (any pick, not just the last) | Picks → find it → **Edit** → set price |
+| Player went to the wrong manager | Picks → **Edit** → reassign (moves the money too — this is a *correction*, not a trade; not offered on a traded player) |
+| Bought in the room but can't be entered | Picks → **Record a sale** — skips whose turn it is, still enforces max bid |
+| Someone nominated by mistake | Live draft → **Cancel current lot** |
+| Someone's stepped away | Live draft → **Skip nominator** |
+| Seat in the wrong place after picks | Draft order → **swap two seats** |
+| Forgot their PIN | Members & access → **Reset PIN** — tell them the new one |
+| Locked out after five wrong PINs | Members & access → **Unlock** — their own PIN works again |
 | Someone's screen looks stuck | Have them refresh — nothing is lost, all state is on the server |
 
 > **Undo will refuse on a player who has been traded.** Reverse the trade first (record
@@ -95,7 +106,7 @@ wifi loses nothing. There is no clock to fall out of sync with.
 
 ## After the draft
 
-- [ ] **⚙ Commish → Download draft CSV** — pick #, nominator, player, team, position, owner, price
+- [ ] **Admin panel → Export & reset → Download draft CSV** — pick #, nominator, player, team, position, owner, price
 - [ ] Paste into the Google Sheet if you want the historical record in one place
 
 ---

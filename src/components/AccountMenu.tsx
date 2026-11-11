@@ -88,6 +88,18 @@ export function AccountMenu() {
             Signed in as <span className="font-semibold text-slate-100">{me.displayName}</span>
             {me.isCommish && <span className="block text-slate-500">Commissioner</span>}
           </p>
+          {/* Drawn for the commissioner only. Presentation, not protection: /admin
+              re-checks is_commish on the server and 404s anyone else. */}
+          {me.isCommish && (
+            <Link
+              role="menuitem"
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="block px-3 py-2 font-semibold text-slate-100 hover:bg-slate-800"
+            >
+              Admin panel
+            </Link>
+          )}
           <Link
             role="menuitem"
             href="/join"
