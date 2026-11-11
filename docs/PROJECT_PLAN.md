@@ -260,65 +260,12 @@ Three consequences, all handled in `src/lib/sleeper.ts` with tests:
 
 `[ ]` todo · `[~]` in progress · `[x]` done
 
-- [x] **1.** `docs/` scaffold + root `CLAUDE.md`
-- [ ] **2.** Provision Neon via Vercel Marketplace, `vercel env pull` *(needs the user's account — deferred, not blocking 3/4)*
-- [x] **3.** Scaffold Next.js + Tailwind + shadcn; Drizzle schema, `manager_totals` view, lazy `getDb()`
-- [x] **4.** `src/lib/draft.ts` + unit tests — **before any UI** *(26 tests passing)*
-- [ ] **5.** Sleeper sync + CSV import + `/setup` incl. draft-order shuffle
-- [ ] **6.** Join flow + PIN cookie
-- [ ] **7.** `/api/nominate`, `/api/bid`, `/api/state`, `/api/board`
-- [ ] **8.** `/draft` UI, polling hook, skew-corrected clock
-- [ ] **9.** League board / Budgets / Pick log tabs, `autoSlot`, drag override
-- [ ] **10.** Commissioner drawer
-- [ ] **11.** CSV export
-- [ ] **12.** Deploy to preview → dress rehearsal → full UAT
-- [x] **16.** **Called auction** — remove the clock, live bidding, soft close, lazy settlement and clock sync; `awardLot()` records the room's result. **Trades** of players and auction dollars, salary staying with the drafter.
-- [x] **20.** **Draft-screen pass** — nomination-order strip above the lot (current + next nine, projected tail labelled), position filters and sortable columns on the Picks tab, `$/slot` on Budgets, and a rebuilt My Roster header.
-- [x] **19.** **`/stats`** — spend by team, market pace, nomination analysis, and bargains/overpays, live and for every archived season. Plus the `picks.player_rank` snapshot, which had a hard deadline: rank stops being recoverable once the pool is re-imported.
-- [x] **18.** **§9 P0/P1 + backlog §3–§6** — `nominatorAt` no longer stalls near the end of a draft; a real "Draft Complete!" panel that distinguishes finished from stuck; the board grows bench rows so a manager with no defense doesn't lose a player; average remaining budget; on deck; market by position; the private player queue.
-- [x] **17.** **Seasons + archive** (BACKLOG §2) — `season` on every per-draft table, season-scoped `manager_totals`, the player snapshot on `picks`, `season_orders`, `/api/archive` and the year picker on `/board`. `season:new` replaces "reset and start over". The 2026 draft's final 8 picks recorded and the draft closed at 160.
-- [x] **26.** **Player news** (BACKLOG §1, now closed) — three tiers, most important first. "Is this guy hurt" is `players.injury_status`, a **stored column** from the Sleeper dump the pool already uses, with no runtime dependency at all; ESPN headlines and Sleeper trending sit on top as strictly optional, quarantined in `news-service.ts` behind 4s timeouts that degrade to an empty panel. `/api/news` always returns 200. `news.test.ts` enforces the never-on-the-polling-path rule structurally.
-- [x] **25.** **Cross-season player identity** (BACKLOG §2, and the hard half of §1) — `players.sleeper_id` and `picks.player_sleeper_id`, resolved at import by `resolveSleeperIds` and snapshotted onto every pick. The matcher tiers defenses on team code, then name+position+team, then name+position **only when unambiguous** — it refuses to guess rather than silently attributing one player's price history to another. The 2026 backfill resolved 160/160 picks and 498/503 pool players; the one miss it found (`JAC` vs `JAX`) became `TEAM_ALIASES`.
-- [x] **23.** **Queue reorder + nominate from the queue** (BACKLOG §4, now closed) — drag to reorder, sending the whole order so two drags cannot race, and a per-row Nominate button in the ★ view. A reorder renumbers the entire queue, because writing only the named rows collides with the ones it left alone whenever the caller's list is one entry stale.
-- [x] **22.** **The spend curve + sidebar positional split** (BACKLOG §7, now closed) — a **Curve** tab on `/stats`: the league's cumulative spend against an even-pace reference, then small multiples per manager on shared axes. Each manager's positional split rides under their name in Budgets as a thin stacked bar, its segment order set by colour-vision separation rather than by `SPEND_COLUMNS`.
-- [x] **21.** **§9 P2 + the rest of P1** — `lots.nomination_index` so undo and void hand the turn back to whoever nominated, across a run of skipped full rosters; the same root cause fixed on `skipNominator`; `draft.status` flips to `'done'` when the last slot fills and back on undo. Both rewinds became single data-modifying CTEs.
-- [x] **25.** **Theme toggle + the rule role** — Paper / Night / Auto in every header, off a single `color-scheme` property now that every token is a `light-dark()` pair. `--color-rule` split out of the slate ramp so panel edges are actually visible, solid-ink position badges, and the `rule-strong` section head.
-- [x] **24.** **Sunday Broadsheet** — the app gets a visual identity instead of Tailwind's default. Newsprint in light, Late Edition in dark, off one redefined set of scales whose ramp is semantic by position and inverts between themes. Oswald / Source Serif 4 / Geist Mono. `managers.color` becomes theme-aware via `--mgr-*`. Runner-up palette parked in BACKLOG §10.
+**Steps 1–37 are complete** — the auction app, the season archive, league history
+(Phase 2) and the Gazette. Their checklist and the draft-week timeline are in
+`docs/archive/BUILD_STEPS_1-37.md`; their log entries are in
+`docs/archive/PROGRESS_LOG_2026.md`.
 
-- [x] **27.** **Phase 2 H1 — the sources** (§12) — `data/history/*.csv` from the league's workbook and `data/sleeper/2020..2025/*.json` from the API, both committed with sha256 manifests so every importer is reproducible and offline. `src/lib/history-identity.ts` reconciles the three namespaces that have never agreed on a name (app / workbook / Sleeper), every lookup throwing rather than guessing. The Sleeper roster cross-check found a duplicated 2022 pick and recovered a missing one.
-
-- [x] **28.** **Phase 2 H2 — the history schema** (§12) — seven tables (`seasons`, `season_standings`, `season_matchups`, `season_lineups`, `player_weeks`, `player_seasons`, `legacy_champions`) via a hand-written idempotent migration. `seasons.data_tier` makes the two-era rule structural rather than a UI convention. The migration snapshots `manager_totals` before and after and refuses to finish if a single number moved, because history must never reach a live budget.
-
-- [x] **29.** **The glossary, and the prose that stopped needing to exist** — every calculation in the app written down once in `src/lib/glossary.ts` and rendered at `/glossary`, with a single `?` per panel linking to it. Roughly twenty blocks of methodology prose deleted from the analysis screens in exchange. Champions dropped from League Summary as a third telling of the same fact. `/stats` split into two header rows with the season as a dropdown, and `view`/`season` moved into the query string — which fixed the Past Auctions links that had been silently landing on the live season. **Draft DNA** on the member page: position mix, top-3 share, $1 picks, halfway pick and places gained, per auction. `memberProfile` was attributing draft spend to the current owner rather than the buyer, and now goes through `draftersByPick` like everything else that touches money.
-
-- [x] **30.** **The FantasyWorld Gazette** — a weekly, deliberately unkind newsletter, written by a model from a fact pack computed here and stored. Nine sections, three of which compound across a season (power rankings with movement, a Worst Manager belt that gets passed around, and a Ledger of the league's own side bet), plus all-time milestone crossings, this week in history, and one rotating **Stat of the Week** drawn from an open registry of generators ranked by rarity rather than magnitude. Issues are **ordered, not independent**: each carries `threads` into the next, so week nine knows what week eight said. Every issue snapshots the exact pack it was written from and the page renders its tables from that snapshot, which is what makes the **Tuesday** cadence safe while stat corrections are still settling. The eval gate is `ungroundedNumbers`, which runs in the script, in `--audit`, and as a vitest test over the committed archive — so a hallucinated score cannot reach `main`.
-
-- [x] **31.** **A front door** (BACKLOG §11, now closed) — `/` was the seat picker and bounced every signed-in manager onto a draft that finished in August. The picker moved to `/join`; `/` is now a server-rendered front page leading with the reigning champion, a roll of honour, the latest Gazette issue and the season's auction in three figures. The routing rule is a pure function with **four** cases, because the one a landing page silently breaks is *signed out on draft night* — so `landingDestination()` checks "is anybody unfilled?" before it looks at the session, and a live draft still goes straight through exactly as it did. Server-side `redirect()` made draft night faster rather than slower, at the price of `force-dynamic`. Design-wise the lesson was that a front page differs from the app's interior pages mostly in type size and measure, and that no amount of whitespace distribution fixes a page that is simply thin. Redesigned the same day as **Monument** after a five-direction pitch: the champion's name full-bleed at `16vw` as the only picture above the fold, every champion on record running as a continuous ribbon beneath it, and the Gazette letterboxed below with **art generated per issue** (`npm run gazette:art`, AI Gateway). The art prompt is written by the model that wrote the issue, from the issue — no house style — and forbids identifiable people, because the Gazette writes about ten real named men and must not publish invented pictures of them.
-
-- [x] **32.** **The season preview — the Gazette's week zero** — the auction is the biggest night of the league's year and the paper had nothing to say about it, because every edition is a week in review and there is no week. The preview is stored at week zero of the new season, which orders it after last season's final and before this season's opener everywhere the Gazette sorts itself, so the front page picked it up with no query change. It reads a **separate fact pack** (`seasonPreview()` — rosters, prices, positional market, repeat buys matched on `sleeper_id`, careers, doorstep milestones) and a **separate prompt** (`gazette-preview-prompt.ts`, versions numbered from 101 so a stored `prompt_version` identifies the file that wrote it). Value is scored **within a position**: the first cut compared price to overall board rank and returned six quarterbacks in a row, which is the superflex trap `AGENTS.md` and `draft-value.ts` both warn about in writing. `season_standings.place` turned out to be the regular-season table rather than the bracket — Jack placed first in 2025 and Gabes won it — so those fields are now named for what they are. The 2025 archive was rewritten at v12 in the same pass; weeks 12–14 had been orphaned against a week 11 that was regenerated after them. The committed-archive grounding test that build step 30 claims exists now actually does.
-
-- [x] **33.** **Gordon writes short stories now** (PROMPT_VERSION 13 → 15) — the Gazette read as a recap with thematic vocabulary on top; the target was a story whose plot is generated by what happened, such that removing the names and scores still leaves a recognisable Western. Theme became plot rather than diction: a bench mistake is a man locked in a room, a big score is somebody climbing out of a basement, ninety-nine career wins is a door with a brass hundred on it that will not open. The rule that made this compatible with the grounding gate was already in the prompt — *counts are written as words* — so an invented "three hours" is scenery and a bare digit is still a claim; the gate did not change. GAMENOTES were pulled out of the fiction to stay the plain record, which is the pressure valve that let the column go all the way in. Making the worlds vivid then made them collide, twice: the house calendar had always called itself "a suggestion", so v14 made it binding, and week nine — reassigned to a superspy thriller to move it off the gothic pair — promptly filed *week eleven's* Cold War espionage, two editions early. `priorLenses` could not catch that because week eleven had not been written, so v15 ships `reservedGenres`, every other week's assignment, in the pack. The weekly workflow also gained the art step it never had, and now commits `public/gazette/` — before this, every Tuesday issue would have shipped pictureless and any art generated would have died with the runner.
-
-- [x] **34.** **The cron picked the newest week, not the week it owed** — read three days before the 2026 opener, having never run against a live season. `npm run gazette` with no arguments took `max(week)` from `season_matchups`: correct whenever nothing fails, and permanently wrong the first time something does, because the write step carries `continue-on-error` and the following Tuesday's query simply returns a later week. A missed issue is not recoverable cheaply — issues thread off each other, so backfilling one means regenerating every issue after it. Selection moved to `nextIssueWeek()` in `src/lib/gazette.ts` (oldest played week not yet published, resuming from the last issue on record) with seven unit tests, because this is the `nomination_index` cursor bug in a new place. `lastPublishedWeek ?? -1` rather than `|| -1`: the preview is stored at **week zero**. The workflow gained a step that fails the job when the issue was not written — after the commit, so the Sleeper snapshot still lands — since a scheduled run going red is the only notification a weekly newsletter has. The art step moved from `--all` to a new `--latest`: `--all` would have generated nine images on the first real Tuesday and re-attempted the failures every week after, for a 2025 back catalogue nobody is waiting on.
-
-- [x] **35.** **The nav menus could not be opened on a phone** (BACKLOG §8, mobile + the first of the accessibility pass) — the section menus opened on `group-hover` / `group-focus-within` with the trigger itself a link, so on a touch screen a tap on "League History" navigated to `/history` and the six links under it were unreachable. The backlog had carried this for months as "the nav header overflows below 700px", which is not true and never was — every header is `flex-wrap` — and the wrong description is why it survived: narrowing a desktop window still leaves you a mouse. It stopped being an edge case the moment the auction ended, because the archive and the Gazette are read on a phone all season. Now `<details>`/`<summary>`: still hook-free and JavaScript-free, and keyboard operation, `aria-expanded` and the disclosure role come free. `name="sitenav"` makes the three exclusive natively; `key` includes `current` because React will not reset `open` across a client-side navigation; `static sm:relative` on the `<li>` anchors the panel to the `<nav>` on a narrow screen so the rightmost menu cannot open off the edge. Plus a skip link (`sr-only focus:not-sr-only`, `id="main"` on every `<main>`) and `scope` on the three tables read as reference — the head-to-head grid had no `scope="col"` at all, so a cell announced as "8-2" carried one name instead of two on a table where the association *is* the content. The era bands are `scope="colgroup"`. The colour-only legend turned out not to be one: every cell already carries its record as text.
-
-- [x] **36.** **The paper lands overnight, and the push that publishes it is blocked** — the weekly job moved from noon Eastern to **07:30 UTC, 12:30am Pacific**, so an issue is waiting when the league wakes up rather than arriving mid-afternoon. Pacific midnight rather than Eastern is a correctness choice: GitHub cron is fixed UTC and ignores DST, so every slot drifts an hour earlier in November with most of the season left, and the Eastern slot lands *inside* the Monday night game — which would import a half-played week and publish an issue about it, since a week counts as played the moment it has points. Week 1 of 2026 was forced by hand (`history:refresh`, `gazette`, `gazette:art -- --latest`) and is live. Doing that surfaced the larger problem: **`main` requires a pull request, so the workflow's own `git push` has never landed a commit.** The failure is invisible in the shape you would expect — the issue reaches Postgres and the site renders it, but the artwork dies with the runner because `issueArt()` reads `public/gazette/` off disk, and the job fails at the commit step before it can email anybody. Either `github-actions[bot]` gets a ruleset bypass, or the snapshot stops being committed, and the second option gives up the reproducible import.
-
-- [x] **37.** **Gordon is let go; Dale Brennan takes the column** (PROMPT_VERSION 16) — the short stories had stopped making sense: with the genre as plot, every number became an object in the world and each issue was the same piece in a new costume. The league wrote the new brief themselves — a mean, first-person, Simmons-style columnist who talks about fantasy football as fantasy football — and the genre survives only as the headline and a two-to-four sentence cold open that dresses up the people, never the numbers. His first issue opens with a note from management firing Gordon; weeks 1–4 stay as Gordon wrote them. The pack gained `rosters` (each team's top starters and biggest auction buy, with prices attributed to the drafter), because the column had been describing weeks through the bench since the bench was most of what it was given. Two fixes rode along: the perfect-lineup stat counted lineups from weeks after the one being written, and `issueArt()` could never see a committed image on Vercel because `public/` is not in a server trace.
-
-### Timeline
-
-| When | Steps | State at end |
-|---|---|---|
-| **Tue 8/11** | 1–7 | Backend correct and tested; draft runnable via API |
-| **Wed 8/12** | 8–9 | **Playable end to end** — cut line, a draft could be run on this |
-| **Thu 8/13** | 10–11, deploy, **dress rehearsal with the league** | Bugs found with a night left to fix them |
-| **Fri 8/14** | Fix rehearsal findings, full UAT | Draft night |
-
-**Thursday's rehearsal is the hard commitment, not Friday.** It's the only step that finds what scripted tests can't, and it's worthless after the code is frozen.
-
-**Fallback:** the Google Sheet stays untouched and usable all week. If Friday goes sideways, the old process still works.
+**Open steps start at 38 and are listed in §13.**
 
 ---
 
@@ -441,3 +388,51 @@ Location and buy-in are set from `/setup` (`setSeasonInfo`), and unlike budget a
 routinely settled late — the buy-in once everyone has actually paid, the city whenever somebody
 remembers. They are read by `/api/season-info`, deliberately not by `/api/state`: they change once a
 year, and that payload is fetched every 400ms by ten clients all night.
+
+---
+
+## 13. Analytics (Phase 3)
+
+Eight features chosen 2026-11-10. **The build instructions for every step are in
+`docs/ANALYTICS_ROADMAP.md`** — one self-contained section per step. This is only the
+checklist. `[ ]` todo · `[~]` in progress · `[x]` done
+
+**A. Ask the Oracle** — a question bar over the database
+- [ ] **38.** The database boundary: `oracle` schema of views, `oracle_reader` role, `oracle_log`
+- [ ] **39.** The SQL guard and the read-only runner
+- [ ] **40.** The schema notes the model reads, kept in step with the views by a test
+- [ ] **41.** The tool loop — `askOracle()`
+- [ ] **42.** `POST /api/ask` — session, daily cap, log
+- [ ] **43.** `/history/oracle` and the nav entry
+- [ ] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
+
+**B. Charts**
+- [ ] **45.** The chart kit — line, bar, stacked bar, donut
+- [ ] **46.** `/history/charts` — cumulative wins by year, and three more
+- [ ] **47.** Charts on the member and Past Auctions pages
+
+**C. Playoff odds, extended**
+- [ ] **48.** Seed distribution and win-or-lose leverage
+- [ ] **49.** Title odds
+
+**D. Positional scorecard**
+- [ ] **50.** `positionalScorecard()`
+- [ ] **51.** Member-page table and the season grid
+
+**E. How the roster was built**
+- [ ] **52.** `roster-origin.ts` — drafted, traded at the draft, added later, unknown
+- [ ] **53.** The stacked bars
+
+**F. Deeper record book**
+- [ ] **54.** Top-ten lists behind every record
+- [ ] **55.** The player record book
+
+**G. Rating over time**
+- [ ] **56.** `ratingHistory()`
+- [ ] **57.** `/history/ratings`
+
+**H. FAAB and waivers**
+- [ ] **58.** Pull Sleeper transactions
+- [ ] **59.** `season_transactions` and the importer
+- [ ] **60.** `faab.ts`
+- [ ] **61.** `/history/waivers`, and the Oracle learns about transactions

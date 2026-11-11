@@ -1,5 +1,7 @@
 # UAT — User Acceptance Testing
 
+> **Last run: before the 2026 draft (2026-08-14).** Kept live because it is re-run before every draft. Sections for features added since are appended at the end.
+
 Run this on the **live deployment**, on the machine you'll use on draft night, with at least three browser sessions open side by side (use incognito / a second browser for separate cookie jars). Multi-user behaviour has to be *seen*, not assumed.
 
 > The league confirmed everyone drafts on a laptop, so mobile layout is explicitly **out of scope**. If that changes, the grid and the winner buttons are the two things to re-check.

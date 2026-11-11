@@ -26,16 +26,18 @@ Stack: Next.js 16.3 (App Router) · React 19.2 · TypeScript · Tailwind 4 · Ne
 
 | File | What it is |
 |---|---|
-| `docs/PROJECT_PLAN.md` | The durable spec — context, locked decisions, rules, architecture, data model, build steps |
-| `docs/PROGRESS_LOG.md` | Append-only learnings, one entry per completed step. **Read before starting work** |
+| `docs/PROJECT_PLAN.md` | The durable spec — context, locked decisions, rules, architecture, data model. §13 is the open build checklist |
+| `docs/ANALYTICS_ROADMAP.md` | **The current work.** Steps 38–61, each written to be built on its own. Start here |
+| `docs/PROGRESS_LOG.md` | Append-only learnings, one entry per completed step, from step 38. **Read before starting work** |
 | `docs/UAT.md` | Acceptance checklist the user runs against the live deploy |
 | `docs/DRAFT_NIGHT.md` | One-page runbook for the commissioner on the night |
 | `docs/BACKLOG.md` | Parked ideas for 2027+. **Nothing here is for this season** — park it, don't build it |
+| `docs/archive/` | Finished material, read-only: the log for steps 1–37, build steps 1–37, shipped backlog sections. Search it when a comment cites an old step or `BACKLOG.md §N`; you do not need to read it to start work |
 
 ## The working rule — follow this on every completed build step
 
 1. Append a full entry to `docs/PROGRESS_LOG.md`, including **Learned** and **Watch out for**. An entry with nothing learned is a smell, not a clean run.
-2. Flip that step's box to `[x]` in `docs/PROJECT_PLAN.md` §10.
+2. Flip that step's box to `[x]` in `docs/PROJECT_PLAN.md` §13.
 3. Commit docs alongside the code so the tree and the docs never disagree.
 4. Move on. Don't batch several steps and reconstruct the log afterwards — the learnings are the first thing to evaporate.
 
@@ -54,6 +56,7 @@ These look like mistakes and are not. Read `docs/PROJECT_PLAN.md` §4 before cha
 - **A trade must bump `draft.rev`.** It changes no pick *count*, so it is invisible to the polling fingerprint otherwise. See `src/lib/version.ts`.
 - **`autoSlot()` is display-only** and must stay unreachable from any award path. Position slotting must never block a sale. Its `overflow` must always be **drawn**, not ignored: a manager who skips the DEFENSE slot has a 16th player with nowhere to sit, and the board grows a bench row for them (`slotRows`). Two managers had an invisible player on the 2026 board because the callers dropped `overflow`.
 - **The player queue is private and stays off the polling path.** It must never enter `/api/state` or the fingerprint in `src/lib/version.ts` — a league-wide payload would leak everyone's targets, and widening the fingerprint would make every client's 204 depend on one person's private edit. `/api/queue` takes the manager id from the session cookie and has no id field to send. There are integration tests for both properties.
+- **The Oracle's safety boundary is the database, not the prompt.** `/api/ask` lets a language model write SQL, so what it can reach is decided by Postgres: every query runs as the `oracle_reader` role, inside a read-only transaction, against the `oracle` schema of views and nothing else. `player_queue`, `managers.pin_hash`, `week_issues`, `draft`, `lots` and `oracle_log` must never get a view — the first two are private by the rules above, and a prompt instruction not to look is not a control. To let the Oracle answer something new, add a view in `scripts/migrate-oracle.ts` and its note in `src/lib/oracle-schema.ts` (a test keeps the two in step); never widen the role's grants and never hand it `public`. It is also the one outbound call on a request path, and it is allowed only because nothing polls that route — it stays off `/api/state` and out of the draft room. See `docs/ANALYTICS_ROADMAP.md` §A.
 - **`nominatorAt` has no index cap.** It returns null only when every roster is full. The old `n * rosterSize + n` bound stalled the live 2026 draft with 32 picks left, because a skipped seat consumes an index with no pick behind it. Scan a `2n` window, never `n`.
 - **Positional stats group on `players.position`, never the display slot.** A WR shown in FLEX is still a WR, and `positionMarket` excludes K and DEF on purpose (but `SPEND_COLUMNS` keeps them in an OTHER bucket, because a budget row that doesn't total what someone spent is a lie).
 - **`nomination_index` is a cursor, not a seat.** `nominatorAt` scans *forward* from it, so the seat it lands on can be several indices later when full rosters are skipped — which means arithmetic on the cursor (`- 1` to undo, `+ 1` to skip) does not do what it reads like. Void and undo restore `lots.nomination_index`; skip advances past `onTheClock.index`. Three functions had this bug; a single nominate-then-void passes either way, so test across a skip run.
@@ -96,6 +99,7 @@ npm run local -- <any command>   # run anything with the local DATABASE_URL/TEST
 npm run local -- npm run db:verify
 npm run local -- npm run test:int
 npm run db:local:setup-test  # same, for neondb_test
+npm run local -- npm run db:migrate-oracle   # re-run after every db:local:setup (it drops the oracle views)
 npm run db:local:down        # stop (keeps data) · db:local:reset throws the volume away
 ```
 
