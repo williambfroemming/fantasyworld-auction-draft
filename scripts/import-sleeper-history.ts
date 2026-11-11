@@ -24,10 +24,11 @@
  * and after and compared — history must never be able to move a live budget.
  */
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
 import '../src/db/neon-local'
+import { flattenTransactions, type RawTransaction } from '../src/lib/transactions'
 import {
   combinePoints,
   isScoredWeek,
@@ -50,6 +51,7 @@ import {
   managerIdForSleeperOwner,
   verifyLeagueChain,
 } from '../src/lib/history-identity'
+import { STAT_KEYS, statRows, type RawStatsWeek } from '../src/lib/player-stats'
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
@@ -96,6 +98,12 @@ const upsert = (keys: string[], cols: string[]) =>
     .filter((c) => !keys.includes(c))
     .map((c) => `${c} = excluded.${c}`)
     .join(', ')}`
+
+/** Whether `db:migrate-player-stats` has run here. */
+async function hasStatsTable(): Promise<boolean> {
+  const [{ exists }] = await sql`SELECT to_regclass('player_week_stats') IS NOT NULL AS exists`
+  return Boolean(exists)
+}
 
 // ---------------------------------------------------------------------------
 
@@ -322,6 +330,24 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
 
   // --- lineups and player weeks -------------------------------------------
   const players = read<PlayerMap>(SLEEPER, 'players-min.json')
+
+  // --- transactions ----------------------------------------------------------
+  // One row per player movement, failed claims included. `null` means the season has no
+  // transaction files on disk (pull with `history:pull -- --transactions-only`); in that case
+  // the table is left alone rather than emptied.
+  const seasonDir = join(SLEEPER, String(season))
+  const txFiles = readdirSync(seasonDir)
+    .filter((f) => /^transactions-\d+\.json$/.test(f))
+    .sort()
+  const txRows =
+    txFiles.length === 0
+      ? null
+      : flattenTransactions(
+          season,
+          txFiles.flatMap((f) => read<RawTransaction[]>(seasonDir, f)),
+          owner,
+          players,
+        )
   const lineupRows: unknown[][] = []
   const playerWeekRows: unknown[][] = []
   for (const [week, entries] of weeks) {
@@ -333,6 +359,20 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
         season, week, mgr(p.rosterId), p.playerId, p.playerName,
         p.position, p.nflTeam, p.isStarter, p.slot, p.points,
       ])
+    }
+  }
+
+  // --- player stat lines --------------------------------------------------
+  // Same weeks and same rostered ids as `player_weeks`, so every stat row has a
+  // player-week to join to. A season pulled before the stats existed has no
+  // stats files and simply yields no rows.
+  const statRowsOut: unknown[][] = []
+  for (const [week, entries] of weeks) {
+    const file = join(SLEEPER, String(season), `stats-${String(week).padStart(2, '0')}.json`)
+    if (!existsSync(file)) continue
+    const rostered = entries.flatMap((e) => [...(e.players ?? []), ...(e.starters ?? [])])
+    for (const r of statRows(season, week, read<RawStatsWeek>(file), rostered)) {
+      statRowsOut.push([r.season, r.week, r.playerId, r.gp, ...STAT_KEYS.map((k) => r.stats[k])])
     }
   }
 
@@ -356,7 +396,9 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
   if (dryRun) {
     console.log(
       `  ${season}  schedule ${scheduleRows.length} · standings ${standingRows.length} · matchups ${matchupRows.length} · ` +
-        `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length}`,
+        `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length} · ` +
+        `stat lines ${statRowsOut.length}` +
+        (txRows ? ` · transactions ${txRows.length}` : ''),
     )
   } else {
     // Clear only this season, so a re-run after a source change cannot leave
@@ -391,9 +433,58 @@ async function importSeason(data: Loaded, wb: ReturnType<typeof workbookStanding
     } else {
       console.warn(`  ${season}  ⚠ season_schedule missing — run npm run db:migrate-schedule. Schedule skipped.`)
     }
+    // Guarded like the schedule: the weekly job must not fail on a database that has not had
+    // `db:migrate-transactions` yet. Delete and insert go up as ONE atomic batch, so a failure
+    // halfway leaves last week's rows, not half of this week's.
+    const [{ tx_exists: txTable }] = await sql`SELECT to_regclass('season_transactions') IS NOT NULL AS tx_exists`
+    if (txRows && txTable) {
+      const cols = ['season','week','transaction_id','line','type','status','manager_id',
+        'counterparty_manager_id','player_id_added','player_id_dropped','added_name','added_position',
+        'dropped_name','dropped_position','faab_bid','faab_transferred','note','created_at']
+      const values = txRows.map((r) => [r.season, r.week, r.transactionId, r.line, r.type, r.status,
+        r.managerId, r.counterpartyManagerId, r.playerIdAdded, r.playerIdDropped, r.addedName,
+        r.addedPosition, r.droppedName, r.droppedPosition, r.faabBid, r.faabTransferred, r.note, r.createdAt])
+      const statements = [sql.query('DELETE FROM season_transactions WHERE season = $1', [season])]
+      const CHUNK = 400
+      for (let i = 0; i < values.length; i += CHUNK) {
+        const params: unknown[] = []
+        const tuples = values.slice(i, i + CHUNK).map((row) => `(${row.map((v) => { params.push(v); return `$${params.length}` }).join(',')})`)
+        statements.push(sql.query(`INSERT INTO season_transactions (${cols.join(',')}) VALUES ${tuples.join(',')}`, params))
+      }
+      await sql.transaction(statements)
+    } else if (txRows) {
+      console.warn(`  ${season}  ⚠ season_transactions missing — run npm run db:migrate-transactions. Transactions skipped.`)
+    }
+    // Guarded the same way, for the same reason: `db:migrate-player-stats`.
+    //
+    // Delete and insert go up as ONE atomic batch (`sql.transaction`), so a failure part-way
+    // leaves last run's rows rather than a season with no stat lines. Not one statement with the
+    // delete in a data-modifying CTE, which looks atomic but is not safe here:
+    // such a CTE does not let the INSERT see the DELETE, so re-importing a season that
+    // is already in the table failed on the primary key (it only worked into an empty table).
+    // ~2,800 rows x 32 columns is over Postgres's 65,535-parameter limit for a VALUES list, so
+    // the rows go up as one JSON parameter and are unpacked server-side.
+    if (await hasStatsTable()) {
+      const cols = ['season', 'week', 'player_id', 'gp', ...STAT_KEYS]
+      const types = ['integer', 'integer', 'text', 'integer', ...STAT_KEYS.map(() => 'numeric(8,2)')]
+      const payload = statRowsOut.map((row) => Object.fromEntries(cols.map((c, i) => [c, row[i]])))
+      await sql.transaction([
+        sql.query('DELETE FROM player_week_stats WHERE season = $1', [season]),
+        sql.query(
+          `INSERT INTO player_week_stats (${cols.join(', ')})
+           SELECT ${cols.join(', ')}
+             FROM jsonb_to_recordset($1::jsonb) AS r(${cols.map((c, i) => `${c} ${types[i]}`).join(', ')})`,
+          [JSON.stringify(payload)],
+        ),
+      ])
+    } else {
+      console.warn(`  ${season}  ⚠ player_week_stats missing — run npm run db:migrate-player-stats. Stats skipped.`)
+    }
     console.log(
       `  ${season}  ✓ schedule ${scheduleRows.length} · standings ${standingRows.length} · matchups ${matchupRows.length} · ` +
-        `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length}`,
+        `lineups ${lineupRows.length} · player-weeks ${playerWeekRows.length} · players ${playerSeasonRows.length} · ` +
+        `stat lines ${statRowsOut.length}` +
+        (txRows ? ` · transactions ${txRows.length}` : ''),
     )
   }
 
@@ -466,6 +557,11 @@ async function main() {
              (SELECT count(*)::int FROM season_lineups   x WHERE x.season = s.season) AS lineups,
              (SELECT count(*)::int FROM player_weeks     x WHERE x.season = s.season) AS player_weeks
         FROM seasons s ORDER BY s.season`
+    if (await hasStatsTable()) {
+      const lines = await sql`SELECT season, count(*)::int AS n FROM player_week_stats GROUP BY season`
+      const bySeason = new Map(lines.map((r) => [Number(r.season), Number(r.n)]))
+      for (const row of summary) row.stat_lines = bySeason.get(Number(row.season)) ?? 0
+    }
     console.table(summary)
   }
   console.log('✓ Sleeper era imported. manager_totals unchanged.\n')

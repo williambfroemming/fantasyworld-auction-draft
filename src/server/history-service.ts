@@ -21,6 +21,7 @@
  */
 import { getSql } from './sql'
 import type {
+  Coverage,
   HistoryInput,
   HistoryLineup,
   HistoryMatchup,
@@ -47,10 +48,12 @@ import {
   type PositionalScorecard,
   type StarterRow,
 } from '@/lib/positional'
+import { faabReport, type FaabSeason } from '@/lib/faab'
 import { playerRecords, type PlayerRecordBook } from '@/lib/player-records'
 import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
+import { STAT_KEYS, formatStatLine, type StatKey } from '@/lib/player-stats'
 import type { StatsTrade } from '@/lib/stats'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
@@ -822,6 +825,12 @@ export interface PlayerWeekPoint {
   isPlayoff: boolean
   managerId: number
   displayName: string
+  /**
+   * The NFL stat line, `23/31, 287 yds, 2 TD` — see `formatStatLine`. Null when
+   * he did not play, when Sleeper had no line (a bye), or before stats exist.
+   * Never zeros for a week he sat.
+   */
+  statLine: string | null
 }
 
 export interface PlayerHistory {
@@ -852,6 +861,11 @@ export interface PlayerHistory {
   best: PlayerWeekPoint | null
   /** Every week, oldest first. The series behind the chart. */
   weekly: PlayerWeekPoint[]
+  /**
+   * The seasons this player has NFL stat lines for, for the `EraBadge` beside
+   * them. Null when he has none — the page then says nothing about stats.
+   */
+  statsCoverage: Coverage | null
 }
 
 /** A `player_weeks` row joined to its manager, before aggregation. */
@@ -871,6 +885,8 @@ export interface PlayerWeekRow {
   isPlayoff: boolean
   playerName: string | null
   position: string | null
+  /** Optional so callers without stats (and the tests) need not pass it. */
+  statLine?: string | null
 }
 
 /** A draft row for this player, already attributed to the drafter. */
@@ -945,6 +961,7 @@ export function buildPlayerHistory(
       isPlayoff: r.isPlayoff,
       managerId: r.managerId,
       displayName: r.displayName,
+      statLine: r.statLine ?? null,
     }
     weekly.push(point)
     addSplit(r.isPlayoff ? careerPlayoff : careerRegular, r)
@@ -1026,6 +1043,7 @@ export function buildPlayerHistory(
     owners: [...careerOwners.values()].sort(byWeeksDesc).map(roundOwner),
     best,
     weekly,
+    statsCoverage: null,
   }
 }
 
@@ -1233,7 +1251,46 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
     }
   })
 
-  return buildPlayerHistory(sleeperId, rows, drafts)
+  // The stat lines, read separately so a database that has not had
+  // `db:migrate-player-stats` yet still renders the page, just without them.
+  const stats = await getPlayerStatLines(sleeperId)
+  for (const r of rows) {
+    r.statLine = formatStatLine(r.position, stats.get(`${r.season}:${r.week}`))
+  }
+
+  const history = buildPlayerHistory(sleeperId, rows, drafts)
+  if (!history) return null
+  const statSeasons = [...new Set(rows.filter((r) => r.statLine).map((r) => r.season))].sort((a, b) => a - b)
+  history.statsCoverage = statSeasons.length
+    ? { from: statSeasons[0], to: statSeasons[statSeasons.length - 1], seasons: statSeasons, label: 'NFL stats' }
+    : null
+  return history
+}
+
+/**
+ * One player's weekly NFL stats, keyed `season:week`.
+ *
+ * ⚠️ An empty map rather than an error when `player_week_stats` does not exist
+ * (Postgres 42P01): the player page shipped long before the stats did, and a
+ * deploy that lands before `db:migrate-player-stats` must not take it down.
+ */
+async function getPlayerStatLines(
+  sleeperId: string,
+): Promise<Map<string, Partial<Record<StatKey, number | null>>>> {
+  const sql = getSql()
+  try {
+    const rows = await sql`
+      SELECT * FROM player_week_stats WHERE player_id = ${sleeperId}`
+    return new Map(
+      rows.map((r) => [
+        `${Number(r.season)}:${Number(r.week)}`,
+        Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+      ]),
+    )
+  } catch (err) {
+    if ((err as { code?: string }).code === '42P01') return new Map()
+    throw err
+  }
 }
 
 /**
@@ -1418,13 +1475,19 @@ export async function getPositionalScorecards(
  */
 export async function getRosterOrigins(): Promise<Array<{ season: number; rows: RosterOrigin[] }>> {
   const sql = getSql()
-  const [input, weekRows, pickRows, tradeRows] = await Promise.all([
+  const [input, weekRows, pickRows, tradeRows, addRows] = await Promise.all([
     getHistoryInput(),
     sql`SELECT season, week, manager_id, player_id, points
           FROM player_weeks WHERE is_starter ORDER BY season, week`,
     sql`SELECT id, season, manager_id, player_sleeper_id FROM picks`,
     sql`SELECT id, created_at, manager_a_id, manager_b_id, picks_a_to_b, picks_b_to_a
           FROM trades ORDER BY created_at`,
+    // How each player was added, for the added-later split. Optional by design: a database that
+    // has not had `db:migrate-transactions` yet shows the unsplit chart rather than failing.
+    sql`SELECT season, week, manager_id, player_id_added AS player_id, type
+          FROM season_transactions
+         WHERE status = 'complete' AND player_id_added IS NOT NULL
+           AND type IN ('waiver', 'free_agent', 'trade', 'commissioner')`.catch(() => []),
   ])
   const rows = weekRows.map((r) => ({
     season: Number(r.season),
@@ -1467,7 +1530,17 @@ export async function getRosterOrigins(): Promise<Array<{ season: number; rows: 
       completeWeeks(input.matchups, season).complete.map(([week]) => `${season}:${week}`),
     )
     const keys = new Set([...regular].filter((k) => complete.has(k)))
-    return { season, rows: rosterOrigin(rows, picks, trades, season, keys) }
+    const added = addRows
+      .filter((r) => Number(r.season) === season)
+      .map((r) => ({
+        season,
+        week: Number(r.week),
+        managerId: Number(r.manager_id),
+        playerId: String(r.player_id),
+        kind: String(r.type) as 'waiver' | 'free_agent' | 'trade' | 'commissioner',
+      }))
+    // No transactions on record for the season: leave the share unsplit.
+    return { season, rows: rosterOrigin(rows, picks, trades, season, keys, added.length ? added : undefined) }
   })
 }
 
@@ -1507,5 +1580,70 @@ export async function getPlayerRecords(): Promise<PlayerRecordBook> {
       result: m.result,
     })),
     keys,
+  )
+}
+
+/**
+ * FAAB for every season with transactions (step 60). Points come from `player_weeks`: regular
+ * season, complete weeks only, the same week keys as the scorecard and roster origin, so a
+ * claim's points agree with every other page about which weeks count. A season with
+ * transactions but no weekly rows reports null points rather than zero.
+ */
+export async function getFaab(opts: { season?: number } = {}): Promise<FaabSeason[]> {
+  const sql = getSql()
+  // `season` narrows BOTH reads to one year: the front page asks only for the season in
+  // progress and must not pull six seasons of transactions to print ten numbers.
+  const only = opts.season ?? null
+  const [input, txRows, weekRows] = await Promise.all([
+    getHistoryInput(),
+    sql`SELECT season, week, transaction_id, type, status, manager_id, counterparty_manager_id,
+               player_id_added, player_id_dropped, added_name, added_position, dropped_name,
+               faab_bid, faab_transferred, note
+          FROM season_transactions
+         WHERE (${only}::int IS NULL OR season = ${only}::int)
+         ORDER BY season, week, created_at, transaction_id, line`,
+    sql`SELECT season, week, manager_id, player_id, position, is_starter, points
+          FROM player_weeks
+         WHERE (${only}::int IS NULL OR season = ${only}::int)
+           AND (season, player_id) IN (SELECT season, player_id_added FROM season_transactions
+                                        WHERE type = 'waiver' AND status = 'complete')`,
+  ])
+  const seasons = new Set(weekRows.map((r) => Number(r.season)))
+  const regular = regularSeasonWeekKeys(input.matchups)
+  const keys = new Set<string>()
+  for (const season of seasons) {
+    for (const [week] of completeWeeks(input.matchups, season).complete) {
+      if (regular.has(`${season}:${week}`)) keys.add(`${season}:${week}`)
+    }
+  }
+  const optional = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+  return faabReport(
+    txRows.map((r) => ({
+      season: Number(r.season),
+      week: Number(r.week),
+      transactionId: String(r.transaction_id),
+      type: String(r.type),
+      status: String(r.status),
+      managerId: Number(r.manager_id),
+      counterpartyManagerId: optional(r.counterparty_manager_id),
+      playerIdAdded: (r.player_id_added as string | null) ?? null,
+      playerIdDropped: (r.player_id_dropped as string | null) ?? null,
+      addedName: (r.added_name as string | null) ?? null,
+      addedPosition: (r.added_position as string | null) ?? null,
+      droppedName: (r.dropped_name as string | null) ?? null,
+      faabBid: optional(r.faab_bid),
+      faabTransferred: optional(r.faab_transferred),
+      note: (r.note as string | null) ?? null,
+    })),
+    weekRows.map((r) => ({
+      season: Number(r.season),
+      week: Number(r.week),
+      managerId: Number(r.manager_id),
+      playerId: String(r.player_id),
+      position: (r.position as string | null) ?? null,
+      isStarter: Boolean(r.is_starter),
+      points: num(r.points),
+    })),
+    { weekKeys: keys, weeklySeasons: new Set(input.matchups.map((m) => m.season)) },
   )
 }

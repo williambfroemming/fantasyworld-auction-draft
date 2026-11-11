@@ -864,7 +864,7 @@ describe('structural: nothing on a request path talks to a model', () => {
   const read = (p: string) => readFileSync(resolve(import.meta.dirname, p), 'utf8')
 
   it('the Gazette service performs no fetch', () => {
-    // /history/gazette is a Server Component reading this file. The app's first
+    // /gazette is a Server Component reading this file. The app's first
     // rule is that nothing on a request path makes an outbound call, and a
     // comment saying so is not enforcement -- reading the file is.
     expect(read('../server/gazette-service.ts')).not.toMatch(/\bfetch\(/)

@@ -422,7 +422,7 @@ export function GazetteTeaser({ issue }: { issue: IssueTeaser | null }) {
         <p className="mt-3 text-sm text-slate-400">
           No issues yet.{' '}
           <Link
-            href="/history/gazette"
+            href="/gazette"
             className="text-slate-300 underline-offset-4 hover:text-amber-300 hover:underline"
           >
             The archive
@@ -432,7 +432,7 @@ export function GazetteTeaser({ issue }: { issue: IssueTeaser | null }) {
     )
   }
 
-  const href = `/history/gazette/${issue.season}/${issue.week}`
+  const href = `/gazette/${issue.season}/${issue.week}`
 
   return (
     <section className="rule-strong pt-4">
@@ -468,7 +468,7 @@ export function GazetteTeaser({ issue }: { issue: IssueTeaser | null }) {
           </h2>
           <p className="mt-3 max-w-prose leading-relaxed text-slate-300">{issue.deck}</p>
           <Link
-            href="/history/gazette"
+            href="/gazette"
             className="mt-4 inline-block font-display text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-slate-400 underline-offset-4 hover:text-amber-300 hover:underline"
           >
             Every issue →
@@ -574,7 +574,7 @@ export function Contents({
 }) {
   return (
     <section className="rule-strong pt-4">
-      <div className="grid gap-x-10 gap-y-6 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-x-10 gap-y-6 md:grid-cols-4">
         {groups.map((g) => (
           <div key={g.label}>
             <p className="font-display text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-slate-500">

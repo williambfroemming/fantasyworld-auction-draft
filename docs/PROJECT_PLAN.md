@@ -428,14 +428,27 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **55.** The player record book
 
 **G. Rating over time**
-- [ ] **56.** `ratingHistory()`
-- [ ] **57.** `/history/ratings`
+- [x] **56.** `ratingHistory()`
+- [x] **57.** `/history/ratings`
 
 **H. FAAB and waivers**
-- [ ] **58.** Pull Sleeper transactions
-- [ ] **59.** `season_transactions` and the importer
-- [ ] **60.** `faab.ts`
-- [ ] **61.** `/history/waivers`, and the Oracle learns about transactions
+- [x] **58.** Pull Sleeper transactions
+- [x] **59.** `season_transactions` and the importer
+- [x] **60.** `faab.ts`
+- [x] **61.** `/history/waivers`, and the Oracle learns about transactions
 
 **I. Commissioner tools** — added 2026-11-11, outside the analytics roadmap
 - [x] **62.** The admin panel: `/admin` from the account menu, replacing the ⚙ Commish drawer and `/setup`; edit any pick, record a sale, unlock a seat, rename, commissioner role, per-season prize money, start a new season
+- [x] **63.** Site structure (`docs/SITE_STRUCTURE.md`): the top bar becomes The Gazette · History ▾ · Auction ▾; the Gazette and the Oracle move to `/gazette` and `/oracle` with permanent redirects; a global Ask the Oracle launcher, hidden on the draft pages; Glossary in the account menu
+
+**J. Activity** — added 2026-11-11, see `docs/ACTIVITY_ROADMAP.md`
+- [x] **63.** `page_visits` table and `npm run db:migrate-activity`; Oracle exclusion
+- [x] **64.** `src/lib/activity.ts` — path normalising, page groups, the visible-and-active clock, the summary
+- [x] **65.** `<ActivityBeacon>` and `POST /api/track`
+- [x] **66.** Admin panel → Activity, `GET /api/admin/activity`, and ship
+
+**K. Player stats** — added 2026-11-11. **Build instructions: `docs/PLAYER_STATS_ROADMAP.md`**
+- [x] **63.** Pull Sleeper's weekly stats, trimmed to rostered players and the whitelist, into `data/sleeper/{season}/stats-NN.json`
+- [x] **64.** `player_week_stats` and the importer
+- [x] **65.** The Oracle learns about stats
+- [x] **66.** Show the stat line

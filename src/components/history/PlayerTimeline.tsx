@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from 'react'
 import type { PlayerWeekPoint } from '@/server/history-service'
+import type { Coverage } from '@/lib/history'
+import { EraBadge } from './EraBadge'
 
 /**
  * Every week this player was on a roster, in order, with who owned them.
@@ -38,9 +40,12 @@ import type { PlayerWeekPoint } from '@/server/history-service'
  */
 export function PlayerTimeline({
   weekly,
+  statsCoverage = null,
   className = '',
 }: {
   weekly: PlayerWeekPoint[]
+  /** The seasons with NFL stat lines in the tooltip; null draws no badge. */
+  statsCoverage?: Coverage | null
   className?: string
 }) {
   const [hover, setHover] = useState<number | null>(null)
@@ -100,6 +105,9 @@ export function PlayerTimeline({
             Playoffs
           </span>
         </span>
+        {/* The stat lines in the tooltip cover fewer weeks than the columns:
+            a bye or an inactive week has a score of 0 and no line. */}
+        {statsCoverage && <EraBadge coverage={statsCoverage} />}
       </figcaption>
 
       <div
@@ -116,7 +124,7 @@ export function PlayerTimeline({
               <button
                 key={`${w.season}-${w.week}-${w.managerId}`}
                 type="button"
-                aria-label={`${w.season} week ${w.week}, ${w.points} points, ${w.displayName}`}
+                aria-label={`${w.season} week ${w.week}, ${w.points} points, ${w.displayName}${w.statLine ? `, ${w.statLine}` : ''}`}
                 className="group relative min-w-0 flex-1 cursor-default"
                 style={{ height: '100%' }}
                 onMouseEnter={() => setHover(i)}
@@ -197,6 +205,10 @@ export function PlayerTimeline({
             }}
           >
             <div className="font-mono font-bold tabular-nums">{active.points.toFixed(2)} pts</div>
+            {/* Nothing at all for a week he did not play, never "0 rec". */}
+            {active.statLine && (
+              <div className="font-mono tabular-nums text-slate-200">{active.statLine}</div>
+            )}
             <div className="text-slate-400">
               {active.season} · week {active.week} · {active.isPlayoff ? 'playoffs' : 'regular'}
             </div>

@@ -1,4 +1,1142 @@
 {
+  "2020": {
+    "league_id": "596553726760632320",
+    "previous_league_id": null,
+    "name": "Fantasy 101 XVI",
+    "roster_positions": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "DEF",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN"
+    ],
+    "playoff_week_start": 14,
+    "playoff_teams": 6,
+    "files": {
+      "league": {
+        "sha256": "4d97bfc9bac267b9cec084aa6cc9ba560875566a271a4bc6497e0d176c477a9a",
+        "count": null
+      },
+      "users": {
+        "sha256": "bb85118c34265d3d7e055a4932a4599806041f629682e4d178560987ce7d30b1",
+        "count": 10
+      },
+      "rosters": {
+        "sha256": "6d00152906fb9310d9a0852cb16be9bca7731dd161927541df45dc62b9795e8c",
+        "count": 10
+      },
+      "matchups-01": {
+        "sha256": "33f6099fe143dc3612a5746d999e8a3bf3d1cbe86271ef4d55c0173d1493f1e2",
+        "count": 10
+      },
+      "matchups-02": {
+        "sha256": "f61280077ca38d2324bc55207df5de9861b7d4e6c93138934c001886f65c1df1",
+        "count": 10
+      },
+      "matchups-03": {
+        "sha256": "c96b03625fbfa38b7aa2443f5c9bc7ed458d3c71c497233e4fbbbe644082a0d7",
+        "count": 10
+      },
+      "matchups-04": {
+        "sha256": "92b011700675dd0105239c42a2708e4ce6f69af6faa1fdb9d73743adc1b5b268",
+        "count": 10
+      },
+      "matchups-05": {
+        "sha256": "ff2cc4f57f8ab5a45fb02fe90cb907c412d0e6aa798602ffd6a910767acd7615",
+        "count": 10
+      },
+      "matchups-06": {
+        "sha256": "27e5f9f4014642285c16ef6259b4ccaed8fe1ff5ed0d66c61bd3f60b4bda3374",
+        "count": 10
+      },
+      "matchups-07": {
+        "sha256": "afea58db578fa80ee489184d05667f0334f01f17bb57f0dc5cbe6e17766c671e",
+        "count": 10
+      },
+      "matchups-08": {
+        "sha256": "124a0ed3dd9d4457809ac90c8b87bbb44422ef34a8bc0321f44897d6fafe4893",
+        "count": 10
+      },
+      "matchups-09": {
+        "sha256": "2cb981db99373a26f3dc436dca1a996eca4b74de7a6f8729b7779007b2850ad9",
+        "count": 10
+      },
+      "matchups-10": {
+        "sha256": "14f29f7cd61a877104646abfb9dcb6540319088e883865b8df65e4bba88f2b79",
+        "count": 10
+      },
+      "matchups-11": {
+        "sha256": "0b17f1ff424a4aa8c20c8fe76eef1dd9b1a6126382d019615dcfce605381d101",
+        "count": 10
+      },
+      "matchups-12": {
+        "sha256": "923053c49e4f41e9990d919fc87cc7952bbe1cf2fa1d23cae92833fddb82aedb",
+        "count": 10
+      },
+      "matchups-13": {
+        "sha256": "cb347c1c1f853b1328d7eb7eae0c70ad2de6bf7e29a405c79326bf95dcfc148c",
+        "count": 10
+      },
+      "matchups-14": {
+        "sha256": "b733fcdbcbb66899cc237bdda40e2a6499d705a87f025a8a6519886d750f1197",
+        "count": 10
+      },
+      "matchups-15": {
+        "sha256": "cf830b52eaadb3b238f926a2f34be8dbe1c6d3f7fff4d343cc4b0f84ba0d766e",
+        "count": 10
+      },
+      "matchups-16": {
+        "sha256": "e8efd04a5c8f20b2106b69c5aea502482aed86c161e74ad77622379cdcefc13e",
+        "count": 10
+      },
+      "winners_bracket": {
+        "sha256": "7e8c75930ea7b70975dc297d8f63b7e2127e6b70fba09488f523ae9c3de8b3dd",
+        "count": 7
+      },
+      "losers_bracket": {
+        "sha256": "1c28e3b1bcccd3aa4b2bc97831e5f7acc564a9f8930d820acdf03404a1b23b03",
+        "count": 4
+      },
+      "drafts": {
+        "sha256": "244fd78c400c019958ef04e81b53793eb87e699ec15860917736b10d391bedfa",
+        "count": 1
+      },
+      "draft_picks": {
+        "sha256": "bc542767334918183f5f3e5a85ed665114c6025a56eceff49f127c6306b0636b",
+        "count": 160
+      },
+      "transactions-01": {
+        "sha256": "e6c7f668a8e084263488bbe506c8c05c3d3427d91949e4a5cf6e611f7bd5cea4",
+        "count": 94
+      },
+      "transactions-02": {
+        "sha256": "a99c8005ed7ff3c2928406894569c958e26558392506c2f6ecbc7965cc5e40b2",
+        "count": 57
+      },
+      "transactions-03": {
+        "sha256": "6b098b7e69c229255ede5c89bda20a919bde297e4569aaf4639a93f37cde0bae",
+        "count": 53
+      },
+      "transactions-04": {
+        "sha256": "a000068378518eded822411b7fb3f1b95f5021957234441a589df5daf0f52473",
+        "count": 62
+      },
+      "transactions-05": {
+        "sha256": "f550c8b68451d0f84f374c685f2be6587ef7befaa9bf744e5422e0d05ee33d56",
+        "count": 69
+      },
+      "transactions-06": {
+        "sha256": "d74a1fb9315e2f66e6d4cceaaf275044220bb14fbb791eb231190d314cb914c5",
+        "count": 39
+      },
+      "transactions-07": {
+        "sha256": "40a2e902bb1631c5688fef917bc7b09d4ae8bbea7433c22d77f162a4d2c3809a",
+        "count": 75
+      },
+      "transactions-08": {
+        "sha256": "9a8c428f49bd76551bb8e8e52c486cb258e1de51313f59323d6dda1fc6ba1cda",
+        "count": 61
+      },
+      "transactions-09": {
+        "sha256": "634d7cf8e76eaf73d84b7d6fa9cc34a95b84c0447927a7761c628a775965af0e",
+        "count": 58
+      },
+      "transactions-10": {
+        "sha256": "10b9c4d9b62ed9100bdf051a26c3b9ef4d5a1734b8884ffdc2c308b2b636b848",
+        "count": 55
+      },
+      "transactions-11": {
+        "sha256": "3d545a8d0fc5114130e2550ac286512fef3bc6faeb572c10ef2324ba718d7088",
+        "count": 41
+      },
+      "transactions-12": {
+        "sha256": "8cc9efebf2b567ea4b94ff930fdb2b46871d7ee95e12ba7349d3d3ffdc93faf7",
+        "count": 53
+      },
+      "transactions-13": {
+        "sha256": "4aafbf15708fddd2e1bb94d6ca735ec09b681a8f1b8abcc003a8bb1d8e3b5020",
+        "count": 40
+      },
+      "transactions-14": {
+        "sha256": "f51144475e820f88f970a44feb4d2bb2dd03422cfcfac43e2b949394e945aa99",
+        "count": 19
+      },
+      "transactions-15": {
+        "sha256": "9b50ab597c74e25552f0f00f195f9664e5f5c92196d5bc548aaab12c11c59da7",
+        "count": 16
+      },
+      "transactions-16": {
+        "sha256": "b90826584198df8395bcbdbdc56b31dc01e330938edfda821df83528ecb868c5",
+        "count": 1
+      }
+    }
+  },
+  "2021": {
+    "league_id": "726144978962747392",
+    "previous_league_id": "596553726760632320",
+    "name": "Fantasy 101 XVI",
+    "roster_positions": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "DEF",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN"
+    ],
+    "playoff_week_start": 15,
+    "playoff_teams": 6,
+    "files": {
+      "league": {
+        "sha256": "ae63dfa21ceb954aabd7818b6358b2a8228f2ef95a36a1fb18cb87b00877f9cf",
+        "count": null
+      },
+      "users": {
+        "sha256": "38ba3f207063fbb2443ede254cd1dc1042d19dbbbe3130f19e202a6b02566196",
+        "count": 10
+      },
+      "rosters": {
+        "sha256": "0a8ce05b840f089a22c4d8fabeb17f1ef9966784951a1a29f3ba751784038d10",
+        "count": 10
+      },
+      "matchups-01": {
+        "sha256": "29ad9e62ad34cfb0696559f7c12d45d645f55c6db5565874e68c3c9bac032550",
+        "count": 10
+      },
+      "matchups-02": {
+        "sha256": "6baf2ea99b8af66a8657924eb291baaeee14eaf99b38cf25aa702c4ac69342a8",
+        "count": 10
+      },
+      "matchups-03": {
+        "sha256": "147b43166b5efd0e4a29e1926872ec4614a5119dae8ee875f11bfcc370ef6b9f",
+        "count": 10
+      },
+      "matchups-04": {
+        "sha256": "d1a674f3d317e26fc6546f0baece42e17bcb87a4bc72196c24f716504c8115f1",
+        "count": 10
+      },
+      "matchups-05": {
+        "sha256": "f78bb72f632a4451bdbb45e5e559ec8eefdea0874e925f75b9c6608f9efb10d7",
+        "count": 10
+      },
+      "matchups-06": {
+        "sha256": "9cb27b4fb4f5bac3c400d66ddd9975912d0580eba3fecb14464078a2f6a1a812",
+        "count": 10
+      },
+      "matchups-07": {
+        "sha256": "651aee9f5942912f85f56d59fac69d4dc45b43c55a205782cac8d321addd3b71",
+        "count": 10
+      },
+      "matchups-08": {
+        "sha256": "259816f0784d0a696208e67f7a1fab14711f3d23dfaaab233b6fcf52f210ceaa",
+        "count": 10
+      },
+      "matchups-09": {
+        "sha256": "424c42f23ada00e183e2bdd00407a9679d14bad294df0f4f9f6b3369c295a89a",
+        "count": 10
+      },
+      "matchups-10": {
+        "sha256": "482818ef37d8098b6e48ef04a8c667e1772472c19e52e430728b2384264a5a09",
+        "count": 10
+      },
+      "matchups-11": {
+        "sha256": "7ae3f3ca980f73c19cf2c4505876b978d77b589ab10f4827c98d9a12c37f1a7a",
+        "count": 10
+      },
+      "matchups-12": {
+        "sha256": "6e80c0d7311c7e9eeda96fd5971e391f988ace5c19b3fa69e614c685d36c71f7",
+        "count": 10
+      },
+      "matchups-13": {
+        "sha256": "b8f9b6b553ee6f3a92e973298cb4aa15f6c72303bdfe6224e9b30304bf92c125",
+        "count": 10
+      },
+      "matchups-14": {
+        "sha256": "9867b927d6570f5c5e7e3081cccd1086576f8c92797d48e84655ce006d51cd8d",
+        "count": 10
+      },
+      "matchups-15": {
+        "sha256": "ca3021049dac70304c5f1604a4504a2e8d7d2527b9b26570b6b33ecdb1fff787",
+        "count": 10
+      },
+      "matchups-16": {
+        "sha256": "75067cca355fbced07d372e9a6e52c6dfc277d65e99f4798f6151391c8599ab0",
+        "count": 10
+      },
+      "matchups-17": {
+        "sha256": "0f9f4c651874f9bd2e2fc63bb1dfea565f2acf503ab5baf835d8bbd5c4a1fb69",
+        "count": 10
+      },
+      "winners_bracket": {
+        "sha256": "aeecaf5e931a8059db2247c68fafd93b64d5dd110b901d12285119d30bb1c36d",
+        "count": 7
+      },
+      "losers_bracket": {
+        "sha256": "c03b30ff9c7c122125af51cbbaba99a76281d8a5eeeb508f8a6dd4943b863c87",
+        "count": 4
+      },
+      "drafts": {
+        "sha256": "5cc6f9af947366d3df76887e22d02d3e7c642fd736f4d8e079ff08250f08bb2f",
+        "count": 1
+      },
+      "draft_picks": {
+        "sha256": "d65d53541d3563b2afdb18b5cca8e8b963dd5b332fa236985487a95483d313ec",
+        "count": 160
+      },
+      "transactions-01": {
+        "sha256": "26aed19c019cd308cd49846c06ce3267a11dd90c43aa3eb9718e326de3d86c23",
+        "count": 61
+      },
+      "transactions-02": {
+        "sha256": "78312975d0009ab3340f4559c9d451d24b68a3de478cbfa895b48c061ed9117d",
+        "count": 35
+      },
+      "transactions-03": {
+        "sha256": "4696f18d57dcc625d4e95ee8c62adc57a0f2694ae99bbd14077acd74886da57c",
+        "count": 41
+      },
+      "transactions-04": {
+        "sha256": "fa8112b29a24173a4178eba67b4dc7b7f084516d7ab1ecb739ad1307a2571010",
+        "count": 44
+      },
+      "transactions-05": {
+        "sha256": "4dc4d3354c9a9b1c4fae07987d02182be22abef696e86ab1edead93de10385cd",
+        "count": 53
+      },
+      "transactions-06": {
+        "sha256": "6cb77cc60d21a92592ed3a73c57315a983e9e82f7ce8d2e763f13158289952b4",
+        "count": 44
+      },
+      "transactions-07": {
+        "sha256": "1037fedca7f66a6a4afe2b662deeea2c9a75768ee03d88838116bbdda39fdc10",
+        "count": 33
+      },
+      "transactions-08": {
+        "sha256": "a7566c7892d95c8abbb6c6b51a44a2358d8e37de1fae021c660c0999f057e47f",
+        "count": 56
+      },
+      "transactions-09": {
+        "sha256": "5bf6077fd782068bb890d377a68c625a0a0b0377d440f7e68163b8b9cdbee829",
+        "count": 46
+      },
+      "transactions-10": {
+        "sha256": "b79f0ba859c9b060a26b013c2e3d866fb3ecd87e1d31c44fcb409c05a77e9392",
+        "count": 39
+      },
+      "transactions-11": {
+        "sha256": "239b46eb055b9af07882f5dccf06482c7526b2eca49084199ff33c1f1cccf38e",
+        "count": 33
+      },
+      "transactions-12": {
+        "sha256": "9817ee3e4d4b68d2e447246b7c46f65a81fa6aa9a1cf6acb344920edbc13a9b7",
+        "count": 38
+      },
+      "transactions-13": {
+        "sha256": "2ac663e3a4f7f77b715d934662640226fc2281a5de8d5d5bf198ed10b7ddd49f",
+        "count": 31
+      },
+      "transactions-14": {
+        "sha256": "350162bdd85b92628f06e655791afa8ac7243de1bc9515f14001e517f383ef37",
+        "count": 41
+      },
+      "transactions-15": {
+        "sha256": "1925b1eb65fdfb650e2eacdb7a6070679d3cd746ae89ec555bc2c68240c9f593",
+        "count": 26
+      },
+      "transactions-16": {
+        "sha256": "dea5b3aaa4fd19d277c012ccf39cefd135ef5c212552b65f23ea9efd57fd987f",
+        "count": 35
+      },
+      "transactions-17": {
+        "sha256": "d19247617b1f59189b41b4cd210b8569d521dfb9360ac355d3f14b054c0e8b7d",
+        "count": 13
+      }
+    }
+  },
+  "2022": {
+    "league_id": "862818439088189440",
+    "previous_league_id": "726144978962747392",
+    "name": "Fantasy 101 XVII",
+    "roster_positions": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "SUPER_FLEX",
+      "DEF",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN"
+    ],
+    "playoff_week_start": 15,
+    "playoff_teams": 6,
+    "files": {
+      "league": {
+        "sha256": "78c087da55886688428eb55ec6226b37c915c83b0db4770ceccd1d113ac40356",
+        "count": null
+      },
+      "users": {
+        "sha256": "9a27f47053232b83622c1c2dcb96b3f05ad2eed7d36a4ec7b398925cc064ed9b",
+        "count": 10
+      },
+      "rosters": {
+        "sha256": "89caa4d8ba8c8d69b5d9083b73f1ec657de14211202973854b7a6717fe9553c8",
+        "count": 10
+      },
+      "matchups-01": {
+        "sha256": "47c453190f43daae976d5680af42a9af5b0a3222a8dbd3fdd797e4997467bba7",
+        "count": 10
+      },
+      "matchups-02": {
+        "sha256": "69270a3e95aad4cad4a963947c8776926e6533f4d097dda4f07871b9157a6a62",
+        "count": 10
+      },
+      "matchups-03": {
+        "sha256": "7598f8b17158b5bc76f37b5bed7f289afb1459b199573152efb86172f36010d3",
+        "count": 10
+      },
+      "matchups-04": {
+        "sha256": "48ed3f4f645c775273290632b04789bdaff0208b7071c13d7b661c3563098373",
+        "count": 10
+      },
+      "matchups-05": {
+        "sha256": "975cf25620c52383da2c9899c0282bcd11dd0770eb68c0694eb4f0d598e0adbe",
+        "count": 10
+      },
+      "matchups-06": {
+        "sha256": "3a13aa4c3daa39c641d30e347921d20322816e60bac3cc5ea6348074f0c890f4",
+        "count": 10
+      },
+      "matchups-07": {
+        "sha256": "9bee28a94b2bb8507e237916b0a0ba5f5434fab5b89371e0e7b969e32c7682b5",
+        "count": 10
+      },
+      "matchups-08": {
+        "sha256": "9e20460a44fa275cce6d67ea68f9af4340a17b2e014516585ad8b658e11cebf7",
+        "count": 10
+      },
+      "matchups-09": {
+        "sha256": "4133075c175c6933d0a5d78bc66f3c66c24d4dc46dccdcaa6c27fb357cf71af8",
+        "count": 10
+      },
+      "matchups-10": {
+        "sha256": "fcb1abef7589f3830401b0aba0a458d78f13bb088a2f28ca511a89b69f0ec512",
+        "count": 10
+      },
+      "matchups-11": {
+        "sha256": "72a96b6243a098fe5b8bb510eaa82ccfec2998d0d66b8b142f39f9ff77a234fb",
+        "count": 10
+      },
+      "matchups-12": {
+        "sha256": "5937d2a409428c9d8702eaad580e5e60ab2d2a3936d047ef4b8850c4bfd2b204",
+        "count": 10
+      },
+      "matchups-13": {
+        "sha256": "2f71b9d59de37402a5389f9d8ac42b901a1d7edd3dde5327b90e093b7e42a570",
+        "count": 10
+      },
+      "matchups-14": {
+        "sha256": "f05c92117fe3ea8382de8c834b4dc08d7698c247c78d033bc4dc0bcc7662502e",
+        "count": 10
+      },
+      "matchups-15": {
+        "sha256": "be7090ec940c88ec0bd534feb927a8cb22c3578798a6bba65f7941b973a75e0a",
+        "count": 10
+      },
+      "matchups-16": {
+        "sha256": "41c9e930c3bc8c3a1ee0067d1d635321b26b9ebea0a666800d3ea7217bb11399",
+        "count": 10
+      },
+      "matchups-17": {
+        "sha256": "1ee4a51b6b09845c5bcc4d7bc0ce7d8189954dbe6be85e607f3e3e01087cdb16",
+        "count": 10
+      },
+      "winners_bracket": {
+        "sha256": "96a0b3558c1b366138b0bb549474d55944abde2577efde3848e2380d1f75972b",
+        "count": 7
+      },
+      "losers_bracket": {
+        "sha256": "11148218044f1f02f0d19ebd3aba9bd2ef0313b26fc844bbfdf9f1389eb8f763",
+        "count": 4
+      },
+      "drafts": {
+        "sha256": "65cd96bd49e6d2d8df0cfefe04dea17b4373af1fc0a4e421352e428dafb107e1",
+        "count": 1
+      },
+      "draft_picks": {
+        "sha256": "902a10dbc27ddc7c9d8a2c54711925d6f41044b4e9ba3a576afae2d9fb17214c",
+        "count": 160
+      },
+      "transactions-01": {
+        "sha256": "c2f2466723976d5b52724a881813fc8330e11ad6e414149dfd1c48a04a753176",
+        "count": 48
+      },
+      "transactions-02": {
+        "sha256": "bd221759534a401985a66b3363ae1a9e0be7bb3dda15159ed7715de267f15161",
+        "count": 42
+      },
+      "transactions-03": {
+        "sha256": "bd428da847be75cb3109fb701016bcb16e63df13145b21884c335f552d444e81",
+        "count": 40
+      },
+      "transactions-04": {
+        "sha256": "1e55605a053333c194a365de23f682f475fd49ccb9b6a9d359607ca7f70495bb",
+        "count": 62
+      },
+      "transactions-05": {
+        "sha256": "b4ca147f1e6a97e2d67828d8dc0b04a504193dd60107c3ac36ed92bde6447a48",
+        "count": 48
+      },
+      "transactions-06": {
+        "sha256": "c1731ac2942c86257dcf4fba90bece72a9419e905841b83e24b3b05a2bd09ede",
+        "count": 41
+      },
+      "transactions-07": {
+        "sha256": "e7c5264ef143d62e63e11c8889cb838256b00952c3f975b32669441688cc72d3",
+        "count": 45
+      },
+      "transactions-08": {
+        "sha256": "ebc8b4cd020011e66eee9746d81a27f7b1db7af287fab4e45f1239b29c72bf9d",
+        "count": 46
+      },
+      "transactions-09": {
+        "sha256": "98ba644f6ee52fd4323d87e70feb117c27f4af74f651a18c3900256fc8908e6b",
+        "count": 45
+      },
+      "transactions-10": {
+        "sha256": "fdbdb925918089ac7962edd87408cb631b53ebaffebe4f3311b595921998e978",
+        "count": 60
+      },
+      "transactions-11": {
+        "sha256": "8fc8c56db852f567bcd8b674399ffea38b9feffb1a4404625888e0c42db68e02",
+        "count": 58
+      },
+      "transactions-12": {
+        "sha256": "ddb45a9ef714e81270913792b395daaea02d22d9dd6de8fcd329ff30f76bfc7a",
+        "count": 47
+      },
+      "transactions-13": {
+        "sha256": "b7c5cdc50df608cc1a6bdcd13594b6d99b207ada372fd975e450c8c9c7a63db3",
+        "count": 52
+      },
+      "transactions-14": {
+        "sha256": "878bb9d47f9f1d5e0fcc65fe52bd5ffde11e1e7ef7300958502382a1f77a6253",
+        "count": 58
+      },
+      "transactions-15": {
+        "sha256": "79913bb833ecf8867caec8a474c016c3d787c5604fb5ef61fa1417de24e9356a",
+        "count": 19
+      },
+      "transactions-16": {
+        "sha256": "c0c27be6bd0b5c80bd8226b62a5715ea06e08f6d6325fbb6a1fdc5c010bfb73a",
+        "count": 12
+      },
+      "transactions-17": {
+        "sha256": "7db28d01f83086271a657f5f2807c7c55ffb01dfc450810d7bce8ed01b5785a5",
+        "count": 7
+      }
+    }
+  },
+  "2023": {
+    "league_id": "994041566085910528",
+    "previous_league_id": "862818439088189440",
+    "name": "Fantasy 101 XVIII",
+    "roster_positions": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "SUPER_FLEX",
+      "DEF",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN"
+    ],
+    "playoff_week_start": 15,
+    "playoff_teams": 6,
+    "files": {
+      "league": {
+        "sha256": "804f6d3b4e63c84e75fdc28f032d72fc905b9ad8077959347e8de95d7395f6ba",
+        "count": null
+      },
+      "users": {
+        "sha256": "aaf114fff238c475e218e0f9c87e4c7d4ede81e34fac149166d92f4f28634ed9",
+        "count": 11
+      },
+      "rosters": {
+        "sha256": "56e3090da3ad3c2059a6b981a685d1894717b4fa72cdfde100fe478bf2c47441",
+        "count": 10
+      },
+      "matchups-01": {
+        "sha256": "a85cbdc189ba5b953d003c52d1f60fa8621d2ab74b3bd035bf17c7d58abfa02c",
+        "count": 10
+      },
+      "matchups-02": {
+        "sha256": "7c6cb3fd3d272af57e3336270bfd733abc4ccde894db94e1fe53beaec28e4926",
+        "count": 10
+      },
+      "matchups-03": {
+        "sha256": "5f5f0fb337407eb4594f709b15fd38946ec370036396b8a4498892afadf7c9f6",
+        "count": 10
+      },
+      "matchups-04": {
+        "sha256": "068b2fc0b25289ee53e45a4f097a2e64f740bcde80cc37e583342bb8c37ff905",
+        "count": 10
+      },
+      "matchups-05": {
+        "sha256": "272a4e2577deeacc3d1c1902b525fa5b31ca68a50a0eef5d81a8b7e5dbbb5c1f",
+        "count": 10
+      },
+      "matchups-06": {
+        "sha256": "cc8c49bf5cb5699039d7103771f2a044d1f1d9e85310d051b194a8bf19d8d0fd",
+        "count": 10
+      },
+      "matchups-07": {
+        "sha256": "f1661d9d58cd62a999cb7b7eb0c1eea5dd1adb29a970961af58147df2a3a257d",
+        "count": 10
+      },
+      "matchups-08": {
+        "sha256": "d58fc8a294be342b4c25b670f5e223e1bcd9b15d54dd71882935ba44d1e7a33b",
+        "count": 10
+      },
+      "matchups-09": {
+        "sha256": "a49541c553d632cca67fe5419bef0cfa631a35d72e064ffb5aa6cef00ee98071",
+        "count": 10
+      },
+      "matchups-10": {
+        "sha256": "30f6380a5cba6f6b622e6110e3c76d44f1a0ac51ec583049ac54175670ebf5ad",
+        "count": 10
+      },
+      "matchups-11": {
+        "sha256": "8ca49b907b4ca67968f4cd2507faf0452d9583907a3f0c12d185c3b40f0c1776",
+        "count": 10
+      },
+      "matchups-12": {
+        "sha256": "33ecdf7de28d81a70cdc77758df5c92bced51ae35711d863b325751a3d9646b6",
+        "count": 10
+      },
+      "matchups-13": {
+        "sha256": "1015aa99b744292fe4fc4721d25ced06ac0488ed6ec57c66de24730ff5db4fe2",
+        "count": 10
+      },
+      "matchups-14": {
+        "sha256": "c8b73a7cd8e22aa812d4993ab826eb2a60e9656b44ea7f5fb4cdf63674e8a69a",
+        "count": 10
+      },
+      "matchups-15": {
+        "sha256": "03a95fcf85880eb238048b1ff34331661bf605069b438be56766b34518623f2b",
+        "count": 10
+      },
+      "matchups-16": {
+        "sha256": "f1bee1e8e9ceec3b26f3c39934f63f3b28636ba6130c9fdf28542c5a77220b99",
+        "count": 10
+      },
+      "matchups-17": {
+        "sha256": "744999347420962fbab9d9f55563b539a6062a9bd6fc8d9e95f6e6c488f8c64b",
+        "count": 10
+      },
+      "winners_bracket": {
+        "sha256": "63d7a8a4c7989f44da23ac425c7aed95cf4ae7620cabb714b41b16956fbbb0fb",
+        "count": 7
+      },
+      "losers_bracket": {
+        "sha256": "f9eebbba6e3aa41004eeeabf04ab2d554c088440b3cfa917207b62126351ed68",
+        "count": 4
+      },
+      "drafts": {
+        "sha256": "e71755e382716899a1109ad97f9f15ec4d605cf9063a754c805a8ecb38ebe3cb",
+        "count": 1
+      },
+      "draft_picks": {
+        "sha256": "a1f50015b564c4e97c2f12b264d45f005a14e80ddf9539e07362833a301600c1",
+        "count": 160
+      },
+      "transactions-01": {
+        "sha256": "85cec047cc3ffa9d916b4739e736a486323fbb9ccba08c090abe09596545b6b9",
+        "count": 79
+      },
+      "transactions-02": {
+        "sha256": "86e624b76aa857ca2bcf9e57a46ab5199f6053a21e71f27c82231d989a69a93e",
+        "count": 41
+      },
+      "transactions-03": {
+        "sha256": "baeeef187e76f52527a9eadb2785f0dd6b7e88e9d16d3a211a97a035c48b403f",
+        "count": 46
+      },
+      "transactions-04": {
+        "sha256": "fc53d6fea9e44fed94e203dbcde433f9db431589b2aa47f1104a2d5c606df689",
+        "count": 62
+      },
+      "transactions-05": {
+        "sha256": "405111c8fc049f5e86b66604b4cf56ea9ee7a305fe78a5974b5f7364bebac85a",
+        "count": 39
+      },
+      "transactions-06": {
+        "sha256": "78c492ba6985f238049d5feb80ee5937b12c4acca60fd68b5cffe014d925c321",
+        "count": 42
+      },
+      "transactions-07": {
+        "sha256": "ce3cb09d17c190f9a8bfc04a181e48b1164bdce82fb92abad1e2e6b13b41832e",
+        "count": 48
+      },
+      "transactions-08": {
+        "sha256": "1e1c8eb860e94820e61980959dc912309efbf0debf8ac90dd5623f2aad0da95a",
+        "count": 41
+      },
+      "transactions-09": {
+        "sha256": "74ab19ae61333830650394119bbcc10b8de53e6bcb1a03bab3d8c6a2870853bc",
+        "count": 56
+      },
+      "transactions-10": {
+        "sha256": "d774c4e94347e618f6d594718bd84b2493db286c99a87466496a0be6b6c05456",
+        "count": 39
+      },
+      "transactions-11": {
+        "sha256": "436f02cb3609b6afca7f4a057db67fb9d5d9d7fc812dde7b29e926b82ed1a218",
+        "count": 46
+      },
+      "transactions-12": {
+        "sha256": "14262d935465c8c9d5115cd2ef920934a2eff47e3683eefeaa368a3f70eab78b",
+        "count": 34
+      },
+      "transactions-13": {
+        "sha256": "5d75be341d21dce1adec19b8a3d6cba8d324ef73bc5a12bc11664fd319b5b7e9",
+        "count": 30
+      },
+      "transactions-14": {
+        "sha256": "e85b53162fdbbc936e6e09fe0b6b8a52ab1fff0b68619f41deb3b583bcfe4d06",
+        "count": 36
+      },
+      "transactions-15": {
+        "sha256": "ec8c68e02a859c5ab4e1b34e58bae47e9775f18e3d7a5efb09faf11a5c70cf46",
+        "count": 19
+      },
+      "transactions-16": {
+        "sha256": "6599875166e89ce86a5cda44eb7b1f499fc6aa4e15ad93959742d6129f577707",
+        "count": 12
+      },
+      "transactions-17": {
+        "sha256": "125b83b8e82df9f6b09f014e8b957f9801fbd9138e3ab15dc6e1843dda62ace8",
+        "count": 5
+      }
+    }
+  },
+  "2024": {
+    "league_id": "1124822672346198016",
+    "previous_league_id": "994041566085910528",
+    "name": "Fantasy 101 XIX",
+    "roster_positions": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "SUPER_FLEX",
+      "DEF",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN"
+    ],
+    "playoff_week_start": 15,
+    "playoff_teams": 6,
+    "files": {
+      "league": {
+        "sha256": "4aac56c6d3c84bb1f1ebca54788d21fa3f43ad505bfdbc1bf7fd22a2d40650e6",
+        "count": null
+      },
+      "users": {
+        "sha256": "d52367dbba580ad64938d575917d8c4524dd38ac5694ac9dbd29d9c293dc73a7",
+        "count": 11
+      },
+      "rosters": {
+        "sha256": "fbfa69360419a3057d35a5d18e4ea630830ac4d71eec330940c7e6a2f585c961",
+        "count": 10
+      },
+      "matchups-01": {
+        "sha256": "6cbbf93ddf99e4e8ea0b2fe876fe3327d2f590ae6bf6a390d742d3cc8a8e824e",
+        "count": 10
+      },
+      "matchups-02": {
+        "sha256": "f263aa06c7bf912356a507da760ce1c21ef16640697e4354aec19cfc8d0e65d7",
+        "count": 10
+      },
+      "matchups-03": {
+        "sha256": "ed68d579239214d11743d6264026577340605a6c6dcc1f6632ffeb6ed0d17f18",
+        "count": 10
+      },
+      "matchups-04": {
+        "sha256": "f1c8de359321ba0399b5fd44b3b1f8d07e58cc80dfe73aaa8034bee693c79e78",
+        "count": 10
+      },
+      "matchups-05": {
+        "sha256": "c482342e16b448a48a5a1bf3ddf9b82dc90b1fd7daceb52b7cd80d32bcf9f18b",
+        "count": 10
+      },
+      "matchups-06": {
+        "sha256": "bdfe9995811818db6e6aa66559fb6301422772be10350d18c19871346ff7e229",
+        "count": 10
+      },
+      "matchups-07": {
+        "sha256": "d84f1cac5eddc07e0a56fd35f86b405512cd4970f22780215684d9f88466b78d",
+        "count": 10
+      },
+      "matchups-08": {
+        "sha256": "b66f5bb9a1a24431fca43899dc62b59982ca0a891626bb64ab274e1d281547e5",
+        "count": 10
+      },
+      "matchups-09": {
+        "sha256": "8154d40eeee2c743427c6d9973e878fad76b17cb43853d9db0801d1269f3a2ea",
+        "count": 10
+      },
+      "matchups-10": {
+        "sha256": "e72800521b48d58e2a1fc971a3a35fbbdcf5914bdd903bf60e3c5d54a4a764a1",
+        "count": 10
+      },
+      "matchups-11": {
+        "sha256": "616b542ea38148a3bc3fcdca0b19cd5e9fc9111e870b1e801a551314a8fb3fb7",
+        "count": 10
+      },
+      "matchups-12": {
+        "sha256": "744e092881f2e50d9969b5baf272479be59dd71f500688991e3f20b36c00fd8a",
+        "count": 10
+      },
+      "matchups-13": {
+        "sha256": "bd36c0287613d06d93dc9593fa6c569d6b1e48e4caec7be2c7747ffd1932e2e3",
+        "count": 10
+      },
+      "matchups-14": {
+        "sha256": "5b522783ec68bb5c43a0169be05be6ace6bdaf4b7f550fe479810baf56918183",
+        "count": 10
+      },
+      "matchups-15": {
+        "sha256": "589b73b30b7c898783105ba3ef3cd865b9398c21a6ec60c5c3b8bb797c73fc21",
+        "count": 10
+      },
+      "matchups-16": {
+        "sha256": "312010da67be893df976b727557fa8329789ff9a49c9c523fcfa1dc18ae0ef05",
+        "count": 10
+      },
+      "matchups-17": {
+        "sha256": "abc25a9dae54a32f818ee1018a8b9cbbfb01c76ce79edb420a9648e764d9d878",
+        "count": 10
+      },
+      "winners_bracket": {
+        "sha256": "2d2c4b8b380979d156af89ad1e414ae058e42965649a97e387a08379622a7e50",
+        "count": 7
+      },
+      "losers_bracket": {
+        "sha256": "a2cbe5cb665a59852554ae6291c7b54322a3d74c970d91d3ffa78c30ba885673",
+        "count": 4
+      },
+      "drafts": {
+        "sha256": "3ecb118ff11ee8f47d7b8eff1d1b8072876559ed5fa2b3b8648299fce2e447d1",
+        "count": 1
+      },
+      "draft_picks": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "count": 0
+      },
+      "transactions-01": {
+        "sha256": "105107a422e6c82d78eee94c2d356644fb2f2b6c5507058958b727a5a911b6c9",
+        "count": 218
+      },
+      "transactions-02": {
+        "sha256": "d1df95d74a1a47cc9e25edfa03b0c588402421023388679d7fc65568b8494c34",
+        "count": 44
+      },
+      "transactions-03": {
+        "sha256": "959d0ace444ea09a7f46ac118fd424639c0500c8e6c285a86dcf0affed58c076",
+        "count": 62
+      },
+      "transactions-04": {
+        "sha256": "d256203693954b13620d1cc19ee1d0f0012f11ebbbba2c1272281c44f3f02d58",
+        "count": 57
+      },
+      "transactions-05": {
+        "sha256": "8111f1ed5464334335e796d7095b672ced337955ae43f502280a4992bd726c56",
+        "count": 63
+      },
+      "transactions-06": {
+        "sha256": "b1190f2935da2a89eacd2c037d789b06c13a731df224076fcb95395af8f6a321",
+        "count": 72
+      },
+      "transactions-07": {
+        "sha256": "5effcf81dcd67f34d647f311b89686f3e9c6c1193988d5e01db9b8d098981750",
+        "count": 73
+      },
+      "transactions-08": {
+        "sha256": "c1ce20a8cc57604c5640a8d3b2a6d98fe7ccb764247f35fb8fafeefbec10b8d5",
+        "count": 38
+      },
+      "transactions-09": {
+        "sha256": "0b3d9fea6bc916726005632af27f652b278b91868b70e6e992fc99d9a7366864",
+        "count": 37
+      },
+      "transactions-10": {
+        "sha256": "e5f7d9c17238a99562087d77d5d9dcb96a4b5b3980d501198b62307ac3024863",
+        "count": 40
+      },
+      "transactions-11": {
+        "sha256": "09b5aedc9b528c09075c1d3607e4f31262814a5fabaa3b5803d28ea12114e57d",
+        "count": 40
+      },
+      "transactions-12": {
+        "sha256": "2a67785ef1a08a8c12b5c8f8b15bb9cf5d8dbaa6941992ce068abf176e0d887c",
+        "count": 34
+      },
+      "transactions-13": {
+        "sha256": "c5c1eb57e8439f093baa21cde98229e99de3d7a97a0d78d06b627788dff1865d",
+        "count": 43
+      },
+      "transactions-14": {
+        "sha256": "b32911516e0d8a8332c2fa08e640cbdf8c4a1ac03279b253ee03660cd0d42813",
+        "count": 36
+      },
+      "transactions-15": {
+        "sha256": "80fa8a9dd4175e61180dcca777ece558153041b2ecf7ce78231579ea04478ccb",
+        "count": 18
+      },
+      "transactions-16": {
+        "sha256": "10c6ec9bf430d3862f009bce0adc295ceeb92571e71dab266b96e6f17f5ec874",
+        "count": 17
+      },
+      "transactions-17": {
+        "sha256": "b33dadcb14cc3cf7ff16b9a894d8f552bea6c86369a5b26f1d6b4c3b62789a85",
+        "count": 7
+      }
+    }
+  },
+  "2025": {
+    "league_id": "1257436698095136768",
+    "previous_league_id": "1124822672346198016",
+    "name": "Fantasy 101 XIX",
+    "roster_positions": [
+      "QB",
+      "RB",
+      "RB",
+      "WR",
+      "WR",
+      "WR",
+      "TE",
+      "FLEX",
+      "SUPER_FLEX",
+      "DEF",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN",
+      "BN"
+    ],
+    "playoff_week_start": 15,
+    "playoff_teams": 6,
+    "files": {
+      "league": {
+        "sha256": "9ae5e994e5d32626118b1a4074fdc6e1707acf94c9dc10023009050de6ea03cc",
+        "count": null
+      },
+      "users": {
+        "sha256": "51063bf49a8180ff5eb09776deec27a1a88b43e69ba09a2e8f2f6697c9e72a9b",
+        "count": 11
+      },
+      "rosters": {
+        "sha256": "bb93d76eca944fd8ea7f6256762507098921140081ef67e2d0c5b8993ab5997e",
+        "count": 10
+      },
+      "matchups-01": {
+        "sha256": "c55bf7288809265432c39b7996a09c76de544d4f91cc579a4ee3314d10fc348b",
+        "count": 10
+      },
+      "matchups-02": {
+        "sha256": "16e51ff1123b3287cfdafa07c42a23a03e40d2d3c782b9ace3892fc81e205010",
+        "count": 10
+      },
+      "matchups-03": {
+        "sha256": "83f14630355dd53532edce318eb1f12d2063a95675aaca15e3c24d52760cc9a4",
+        "count": 10
+      },
+      "matchups-04": {
+        "sha256": "ccfbe9b8fe1c9b2d2193742a75b6787924e325ca7234143ed8fde5f90af114a5",
+        "count": 10
+      },
+      "matchups-05": {
+        "sha256": "5b4ecc9ecd3439558e171814bbe91ac452fc963c1d3230495fdd4ba9ef626e10",
+        "count": 10
+      },
+      "matchups-06": {
+        "sha256": "2e36d927e2555b7a05cc3a35a75f61002f281ab424e5fe89cf3ea8395b89eaca",
+        "count": 10
+      },
+      "matchups-07": {
+        "sha256": "02f31020140c72dd4bd762189d7fff35637bb010de821ea52bcdcbb5e5e61943",
+        "count": 10
+      },
+      "matchups-08": {
+        "sha256": "9b32deaee6d3c5c360aef7c82f4919e8569fe8a5ac257aab3e10772410fcd599",
+        "count": 10
+      },
+      "matchups-09": {
+        "sha256": "9cebea8153e66e8a6471ddb89b5325c3f5fd52082eb8e73d3ae86de4317585c6",
+        "count": 10
+      },
+      "matchups-10": {
+        "sha256": "a3024ce1f86e35142a2008d546e95e31d00c6a5edcab7ac553a4d1943cd36924",
+        "count": 10
+      },
+      "matchups-11": {
+        "sha256": "910c14c9cae602cf0e437b7ba7a85bfa224bce961dc6e5f08bb7ae1069bc0388",
+        "count": 10
+      },
+      "matchups-12": {
+        "sha256": "951fdb4da4896cb4af6af71daaefb3ebf36cec76e12ee9df8e954c7b466be643",
+        "count": 10
+      },
+      "matchups-13": {
+        "sha256": "4f761c18cb712e389b67eb1824f9bd3b55a95b961c855368ad984cd7150b69ed",
+        "count": 10
+      },
+      "matchups-14": {
+        "sha256": "910454a32f4db17dd04eb3cb3ecca9218f507038aae53c113f7384788f0464b0",
+        "count": 10
+      },
+      "matchups-15": {
+        "sha256": "2616844c04d37934b13db1be7a1a91038fd1a37e0494b5fee67a786a4d3ee159",
+        "count": 10
+      },
+      "matchups-16": {
+        "sha256": "c8df53a2f8006eb1ef2e2dc423f7f088be54482312efae99ae1f2da02e05158b",
+        "count": 10
+      },
+      "matchups-17": {
+        "sha256": "f22436cef9fa5d5de9bd52970860eec232fde67f617b2bc04bacc389e6f899af",
+        "count": 10
+      },
+      "winners_bracket": {
+        "sha256": "3e85364764744c6da54b720dfe6e4cf3cd746f046cae8e23a78c9aa3080d9d5b",
+        "count": 7
+      },
+      "losers_bracket": {
+        "sha256": "dab02086357b921de76f5012a63b562a76a030e0e805ff0b698b5945c5e495f2",
+        "count": 4
+      },
+      "drafts": {
+        "sha256": "02115ebf7b8d0de3ed5cfac309fae363dfa0e5c0a4c26c724b0fc14ef68745a4",
+        "count": 1
+      },
+      "draft_picks": {
+        "sha256": "c7aee2e36467fdda626da1f7976f9af1912da5a431ad0c243a37cb30aebfa7cb",
+        "count": 160
+      },
+      "transactions-01": {
+        "sha256": "fba8ecc4bce9313b74273a0e3c7fe1728b9716372715665295b3660a558c4de7",
+        "count": 58
+      },
+      "transactions-02": {
+        "sha256": "67af4bdfd1578329496686eaf6b3c3ca3f1ff032cff5405c9bb4300c0e028a80",
+        "count": 57
+      },
+      "transactions-03": {
+        "sha256": "8c94d5b84256c0406a879c631d0beee72d92f3d59269b94a828a067b0e4a9c9f",
+        "count": 56
+      },
+      "transactions-04": {
+        "sha256": "da44210223a4b5fde44a5fd389c7c30b541351da92c3165bd0e519e46498c312",
+        "count": 35
+      },
+      "transactions-05": {
+        "sha256": "f73489aaf9352f7b4e7247b2cb642f697a11838cbd7d3535229d5c71a41b0310",
+        "count": 64
+      },
+      "transactions-06": {
+        "sha256": "f1e64e1425bb9ba232d9233fe618a55240a89164a4070c58ad0c5e8cbd1e81c3",
+        "count": 49
+      },
+      "transactions-07": {
+        "sha256": "e7b9deb832cb96b7f7fcdaed865f3edaf23aea8b419e40683cb1c2d05eaa3d29",
+        "count": 46
+      },
+      "transactions-08": {
+        "sha256": "0559860f4b610941e85151fec61b4c6de0fe087fd7166495b8eeb49bf121f6f0",
+        "count": 64
+      },
+      "transactions-09": {
+        "sha256": "a079cdebdf5416bb994c4f553c0e7daea7fde0c5bb4859d56890fb8c06b1f276",
+        "count": 58
+      },
+      "transactions-10": {
+        "sha256": "542a82dd10262431d21a1ccb51dfa7ceac6798da59c9f3cfc349d34c56cea946",
+        "count": 41
+      },
+      "transactions-11": {
+        "sha256": "49cbc654dd455bb132f07355ebae74f811b4482749ea2ee42c46cc047653f30b",
+        "count": 52
+      },
+      "transactions-12": {
+        "sha256": "e49097cc46e13a79fbd33e249a1db9b5fb4c68f56c569822eaaef209db0e68ff",
+        "count": 49
+      },
+      "transactions-13": {
+        "sha256": "73eb9510ddcea0f674165f64fd1477ec31c37901d639898e5fc9dfd160dd1d37",
+        "count": 37
+      },
+      "transactions-14": {
+        "sha256": "6bc152e06af4844e09bb563a97dbd378a974c711b51271c401dc0318653d70ca",
+        "count": 23
+      },
+      "transactions-15": {
+        "sha256": "f8e27aebca6f782801a9e9878491ade36db28504fe0546e594e047e81182fac5",
+        "count": 36
+      },
+      "transactions-16": {
+        "sha256": "1856a78a8037f3c97cf2449c4bc03b2de6bab2f55f0965b4b03cdfaa27e251d2",
+        "count": 29
+      },
+      "transactions-17": {
+        "sha256": "ccb3037a6d7da417f87cc295550b0878e8aef9d6eca21af2826d308dce81bf66",
+        "count": 7
+      }
+    }
+  },
   "2026": {
     "league_id": "1389719640493551616",
     "previous_league_id": "1257436698095136768",
@@ -25,7 +1163,7 @@
     "playoff_teams": 6,
     "files": {
       "league": {
-        "sha256": "b43d558a721fd1754d5a4e9df5d2e7c345ae26c857c2f27176f39a6b507cf91b",
+        "sha256": "931b3f8e693f978f93dcc3fa01d1a0821ea9055417ad42ee49686eadd5e494fe",
         "count": null
       },
       "users": {
@@ -33,83 +1171,151 @@
         "count": 11
       },
       "rosters": {
-        "sha256": "0938a8076aae166e99799c270848fafd421af73ad4ac10b96244d94f01510197",
+        "sha256": "3a04d1724bbc14e5368d298d3fc7b4980f4fcc43bbe3a9f7fd4fb0b245152b96",
         "count": 10
       },
       "matchups-01": {
         "sha256": "298f7bb2dc3561f33ae51db6ff2a779439ae544e3b69c94ca2729c7f98cb786e",
         "count": 10
       },
+      "stats-01": {
+        "sha256": "cb6dbc75fe122de0d38d360e5280888b085580c6f539132185edf0fc5af745b9",
+        "count": 164
+      },
       "matchups-02": {
-        "sha256": "4e8d192601dee291b08a96c679b3bc667031ce735cbbdcab560acacf672f8e4f",
+        "sha256": "6b99144537201c302f033638b19cddc62f6d45e985a1a658c1137c59f3cffb71",
         "count": 10
+      },
+      "stats-02": {
+        "sha256": "3d36bf4aa267e57c6f8f53de6e3f9355f271f09303f77ec15b5e503d4e7ab478",
+        "count": 158
       },
       "matchups-03": {
-        "sha256": "5837cc5b1ba52cd74baab789a9ef1e42074e7cf16872763bfcf4adc79ae43f6d",
+        "sha256": "c3f8c3dddf43293a4328c3d01e3375d96da5ed779471aa2994782aa2fc6b2090",
         "count": 10
+      },
+      "stats-03": {
+        "sha256": "af15e682768fce27ec0063a47798fd997c7b3e6e3c88e686570f0fbc19a7f558",
+        "count": 159
       },
       "matchups-04": {
-        "sha256": "a328b644b16c4d7889fbf4641bb86969c303c938b57ef87bbb283cf9eb52122d",
+        "sha256": "f2fc851970325cbc03400a0d48dd721965d9624ff67abe9f7751e37f6c50cf83",
         "count": 10
+      },
+      "stats-04": {
+        "sha256": "511bd02737cd64912d922d9f5aca4a03f3300e3370d1e3418b5a3b57b2f4d261",
+        "count": 157
       },
       "matchups-05": {
-        "sha256": "db4278728d093b8741fdb7950b7b108556cff0cc75b44ff25a8973a7709dff77",
+        "sha256": "05dca51764e40a9a8bcffe9c84bad74b538d5960cc20939a38589fe7aa4615f5",
         "count": 10
+      },
+      "stats-05": {
+        "sha256": "ac5e78511319915bf9d5ce84f67a5c36778ca1ed2e30d38780e906dbd6eba924",
+        "count": 150
       },
       "matchups-06": {
-        "sha256": "63286502069e40d2ba00e59222e29737b5a690ae592aec6bca70e991b5ead0fd",
+        "sha256": "e7263a11347d2634dddbc1c34249a5f7e59e2675c1be8297657a6cae76896b1b",
         "count": 10
+      },
+      "stats-06": {
+        "sha256": "14a61c2ca1fd18d2807c2c55898ad89ab41a2331b8f002ad4c4cd08603e0c479",
+        "count": 139
       },
       "matchups-07": {
-        "sha256": "7f0e04b0d5ee1816096dfb5a3c2626633f6eb623f5e7a4112b6249eff7d9adab",
+        "sha256": "0cb40a70b6f9c82a0e8d7db0b5a447a2b3c61581ebd8ebc20d96521b49ced235",
         "count": 10
+      },
+      "stats-07": {
+        "sha256": "e9326be93a1201fb0b98b43b2d498c15df211eb9ae1496d1b368ffbd57afbd71",
+        "count": 135
       },
       "matchups-08": {
-        "sha256": "b6e1d8ae2775f4588e4b9502278a20a0b44b4554f73e76670c512176cb3e6579",
+        "sha256": "f8c227e3e818dcfd058d12e1adcc2fc03bbdb7f247b9f97ecf9e1070d3c7fe06",
         "count": 10
+      },
+      "stats-08": {
+        "sha256": "0182f49629e63bbb32ec7e01004d7b433ffc10f956bd8f77d6026d9782cdc821",
+        "count": 141
       },
       "matchups-09": {
-        "sha256": "d5637adba6a3286d954ad47ca5979ec0525de42e79193c0320471cab5760a218",
+        "sha256": "d7a4233b3fb7230cc51f96a1c02aa41482c4d3a171e2a0e24e01b4401f05b410",
         "count": 10
+      },
+      "stats-09": {
+        "sha256": "8f58e54a1a3ed2dc0be2086bbf074a565b9c9d042bea677bed6d60ef54272b94",
+        "count": 146
       },
       "matchups-10": {
-        "sha256": "e407689ae628c62abae736d59f833c87c817303b24042bd5b4512c49fa14bc42",
+        "sha256": "e7ce3961b6a61f8a341325a4c825052e8e54d85b9970e52bfde6fa4cd4f3e69c",
         "count": 10
+      },
+      "stats-10": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-11": {
-        "sha256": "735629d2c5742edfdcebce53f4346f5096efe948d1b4da09025e057949453c20",
+        "sha256": "b95d1efb34a6b29b82acbbab800260f8bd1d7ffd92c9c2f0b077b77c25c1a237",
         "count": 10
+      },
+      "stats-11": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-12": {
-        "sha256": "5837cc5b1ba52cd74baab789a9ef1e42074e7cf16872763bfcf4adc79ae43f6d",
+        "sha256": "b92db49276f18d806b5a900d939aece54f25fd15ffbfabb0ebd069e4c78046bd",
         "count": 10
+      },
+      "stats-12": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-13": {
-        "sha256": "a328b644b16c4d7889fbf4641bb86969c303c938b57ef87bbb283cf9eb52122d",
+        "sha256": "525e90a0772a4da0921df52269bf0403efa2aaed3670fbcd317850e5fa2bcc44",
         "count": 10
+      },
+      "stats-13": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-14": {
-        "sha256": "db4278728d093b8741fdb7950b7b108556cff0cc75b44ff25a8973a7709dff77",
+        "sha256": "a334293b44a2e90b2f9135cb102440f0a7b13d2dde9a532e87d0f0e0fc85e9ca",
         "count": 10
+      },
+      "stats-14": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-15": {
-        "sha256": "63286502069e40d2ba00e59222e29737b5a690ae592aec6bca70e991b5ead0fd",
+        "sha256": "f0b66d41a23fd6b3a8a6cb1d46978eaf7ccd63d623fc83cf6f1e35402955f39b",
         "count": 10
+      },
+      "stats-15": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-16": {
-        "sha256": "7f0e04b0d5ee1816096dfb5a3c2626633f6eb623f5e7a4112b6249eff7d9adab",
+        "sha256": "456ae52e3c3da7eee56e3771083053b810ac1213ed5dcdd05c3e86dd58624182",
         "count": 10
+      },
+      "stats-16": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
       },
       "matchups-17": {
-        "sha256": "b6e1d8ae2775f4588e4b9502278a20a0b44b4554f73e76670c512176cb3e6579",
+        "sha256": "e5a5a1eccff0a78a29672c0d44de705b70a1b392f0193267b01d5fa8307fb9f1",
         "count": 10
       },
+      "stats-17": {
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "count": 0
+      },
       "winners_bracket": {
-        "sha256": "95134b12f0f11c17eebb1dd90de3f841fb7a1d1257e057be1a4957b1bf4ceb3c",
+        "sha256": "c54f87f1a342d388fb26b675188c3101c1dac89b3ef2a43eb6a18ea3aac6ec4f",
         "count": 7
       },
       "losers_bracket": {
-        "sha256": "6cfd56c6cd03bfd0ed65f0aca3a43eca20ec0ff170525221eb13b300b0ecfc07",
+        "sha256": "dbcf4bb6e2e9e2e4d415a547ff65a7f11580d0324a9dd13fdca4dd0a9e5bb962",
         "count": 4
       },
       "drafts": {
@@ -119,6 +1325,74 @@
       "draft_picks": {
         "sha256": "82d23504158573797ee763775dbb14d89a30324855474adf8a8cb0a814c0df8c",
         "count": 160
+      },
+      "transactions-01": {
+        "sha256": "73f3e9e93ad4010a8ef30dc2b337e80e802caf6d9d6e6b84bcc6f564cc730ac0",
+        "count": 50
+      },
+      "transactions-02": {
+        "sha256": "b5dc680e92514c2a30fac619a5badf1b021fd59c9add4246e0ebdc3fc3c94f75",
+        "count": 51
+      },
+      "transactions-03": {
+        "sha256": "796500c1c742b275e79371fb8e1156e1718d6ffdb2a9c1f684d3f9df80e5110d",
+        "count": 48
+      },
+      "transactions-04": {
+        "sha256": "6998a7c3c9346a56138ab233ae8906edd565845df39e567aad858f6929af0d82",
+        "count": 47
+      },
+      "transactions-05": {
+        "sha256": "a62ae2bc66641a74d589077205d68d6d108ff8565b464dadaca82030af8ce617",
+        "count": 47
+      },
+      "transactions-06": {
+        "sha256": "41da6787c99a887f295e9d7f7b274051b8915a5327346a08fc6ff926db1f0cfd",
+        "count": 50
+      },
+      "transactions-07": {
+        "sha256": "cede888870bb2b3cfc147ce55bdad2aa767a121c9ca178ebbfbe51e8ddfa7d9f",
+        "count": 51
+      },
+      "transactions-08": {
+        "sha256": "7027e3d26ae5803713bf7aa4cfdfdeab61b49145b393e77510c5055277e4df30",
+        "count": 46
+      },
+      "transactions-09": {
+        "sha256": "ada412dd2f440a8a8d8ba603bcc68ce67b1727c6ad654dcbfa3ae19d684e9211",
+        "count": 84
+      },
+      "transactions-10": {
+        "sha256": "7235f7f266ade1463797bb120774b366520b3141f360e6ec9874d34ab19a19eb",
+        "count": 5
+      },
+      "transactions-11": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "count": 0
+      },
+      "transactions-12": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "count": 0
+      },
+      "transactions-13": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "count": 0
+      },
+      "transactions-14": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "count": 0
+      },
+      "transactions-15": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "count": 0
+      },
+      "transactions-16": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "count": 0
+      },
+      "transactions-17": {
+        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "count": 0
       }
     }
   }

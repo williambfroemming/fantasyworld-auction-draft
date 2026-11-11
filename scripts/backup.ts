@@ -25,6 +25,7 @@ const TABLES = [
   'picks',
   'trades',
   'budget_adjustments',
+  'page_visits',
 ] as const
 
 async function main() {

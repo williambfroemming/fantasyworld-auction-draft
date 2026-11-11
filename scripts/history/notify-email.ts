@@ -107,7 +107,7 @@ async function main() {
     process.exit(1)
   }
 
-  const url = `${SITE}/history/gazette/${issue.season}/${issue.week}`
+  const url = `${SITE}/gazette/${issue.season}/${issue.week}`
   const label = Number(issue.week) === 0 ? 'Season preview' : `Week ${issue.week}`
   /**
    * Set to `[TEST] ` by the test workflow, empty everywhere else.

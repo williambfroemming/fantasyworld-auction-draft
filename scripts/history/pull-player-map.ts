@@ -2,6 +2,7 @@
  * Build a minimal player id → name/position/team map for the pulled seasons.
  *
  *   npm run history:player-map
+ *   npm run history:player-map -- --add-missing   # ONLY add ids from transactions
  *
  * Computing an optimal lineup needs the **position of every rostered player**,
  * not just the ones who started: the whole question is whether somebody better
@@ -67,7 +68,55 @@ async function collectIds(): Promise<Set<string>> {
   return ids
 }
 
+/**
+ * Add the players who appear in transactions but on no weekly roster (claimed and dropped
+ * inside a week, or a claim that failed). Strictly additive: an id already in the map is never
+ * rewritten, because the lineup optimiser reads this file and a refetch would replace every
+ * position and team with today's.
+ */
+async function addMissing() {
+  const existing = JSON.parse(await readFile(OUT, 'utf8')) as Record<string, MinPlayer>
+  const wanted = new Set<string>()
+  for (const season of await readdir(SLEEPER_DIR)) {
+    if (!/^\d{4}$/.test(season)) continue
+    for (const file of await readdir(join(SLEEPER_DIR, season))) {
+      if (!file.startsWith('transactions-')) continue
+      const txs = JSON.parse(await readFile(join(SLEEPER_DIR, season, file), 'utf8')) as Array<{
+        adds: Record<string, number> | null
+        drops: Record<string, number> | null
+      }>
+      for (const t of txs) for (const id of [...Object.keys(t.adds ?? {}), ...Object.keys(t.drops ?? {})]) wanted.add(id)
+    }
+  }
+  const missing = [...wanted].filter((id) => !existing[id])
+  console.log(`\n  ${wanted.size} players in transactions, ${missing.length} not in the map`)
+  if (missing.length === 0) return
+  const res = await fetch('https://api.sleeper.app/v1/players/nfl', { cache: 'no-store' })
+  if (!res.ok) throw new Error(`Sleeper returned ${res.status} ${res.statusText}`)
+  const dump = (await res.json()) as Record<string, RawPlayer>
+  let added = 0
+  const unmapped: string[] = []
+  for (const id of missing.sort()) {
+    const p = dump[id]
+    if (!p) {
+      if (/^[A-Z]{2,3}$/.test(id)) existing[id] = [id, 'DEF', id]
+      else {
+        unmapped.push(id)
+        continue
+      }
+    } else {
+      const name = p.full_name ?? ([p.first_name, p.last_name].filter(Boolean).join(' ') || id)
+      existing[id] = [name, p.position ?? p.fantasy_positions?.[0] ?? 'UNKNOWN', p.team ?? null]
+    }
+    added++
+  }
+  // Keep the file's existing key order; new ids go on the end in sorted order.
+  await writeFile(OUT, `${JSON.stringify(existing, null, 0)}\n`, 'utf8')
+  console.log(`  added ${added}, still unmapped ${unmapped.length}${unmapped.length ? ` (${unmapped.slice(0, 12).join(', ')})` : ''}\n`)
+}
+
 async function main() {
+  if (process.argv.includes('--add-missing')) return addMissing()
   console.log('\nBuilding the player map\n')
   const ids = await collectIds()
   console.log(`  ${ids.size} distinct players across the committed seasons`)

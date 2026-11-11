@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -11,6 +13,7 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { STAT_KEYS, type StatKey } from '../lib/player-stats'
 
 /**
  * The 10 league managers.
@@ -424,6 +427,47 @@ export const playerQueue = pgTable(
   ],
 )
 
+/**
+ * Which pages league members use, by whom, and for how long: first-party
+ * activity tracking (docs/ACTIVITY_ROADMAP.md).
+ *
+ * One row per *segment*: a stretch of visible, recently-interacted-with time
+ * on one path. A segment ends on navigation, on the tab hiding, on page exit,
+ * or on five minutes without input, so a draft board left on a TV all night
+ * does not read as nine hours.
+ *
+ *  - **Commissioner-only.** Read through `checkCommish()`; never in
+ *    `/api/state`, never in the fingerprint, never a view in the `oracle` schema.
+ *  - **`manager_id` comes from the session cookie**, never the request body.
+ *  - **`path` is the raw pathname** (no query string). The grouping into page
+ *    labels is derived at read time (`pageGroup()` in src/lib/activity.ts), so a
+ *    better grouping later rewrites no data.
+ *
+ * Not season-scoped: it records the app being used, not a draft.
+ */
+export const pageVisits = pgTable(
+  'page_visits',
+  {
+    id: serial('id').primaryKey(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    path: text('path').notNull(),
+    /** Client-reported, clamped server-side to the last day. */
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    /** 1–1800. A CHECK in the migration enforces the same bounds. */
+    activeSeconds: integer('active_seconds').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('page_visits_manager_time_idx').on(t.managerId, t.createdAt),
+    index('page_visits_time_idx').on(t.createdAt),
+    // Same name Postgres gives the inline CHECK in scripts/migrate-activity.ts.
+    check('page_visits_active_seconds_check', sql`${t.activeSeconds} BETWEEN 1 AND 1800`),
+  ],
+)
+export type PageVisit = typeof pageVisits.$inferSelect
+
 // ---------------------------------------------------------------------------
 // League history (Phase 2) — see docs/PROJECT_PLAN.md §12
 //
@@ -687,6 +731,56 @@ export const seasonSchedule = pgTable(
 )
 
 /**
+ * Every Sleeper transaction, one row per player movement (step 59): waiver claims (won AND
+ * failed), free-agent adds and drops, trades, commissioner moves, and the FAAB dollars that
+ * changed hands inside trades (`type = 'trade_faab'`).
+ *
+ * The roadmap's column list plus what the data turned out to need: `commissioner` as a type,
+ * `faab_transferred` for money in trades, `note` for why a claim failed, and a snapshot of the
+ * player's name and position because the Sleeper player map is a pool and this is an archive
+ * (same principle as `picks`). Names are null when the player never appeared on a roster.
+ *
+ * A failed claim's `faab_bid` was never spent: anything adding money up must filter on
+ * `status = 'complete'`. Rewritten per season by the importer, created on Neon by
+ * `scripts/migrate-transactions.ts`. Both, or neither.
+ */
+export const seasonTransactions = pgTable(
+  'season_transactions',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    transactionId: text('transaction_id').notNull(),
+    /** Position inside the transaction, so a two-for-one trade shares one id. */
+    line: integer('line').notNull(),
+    /** waiver | free_agent | trade | commissioner | trade_faab */
+    type: text('type').notNull(),
+    /** Sleeper's word: complete | failed */
+    status: text('status').notNull(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    counterpartyManagerId: integer('counterparty_manager_id').references(() => managers.id),
+    playerIdAdded: text('player_id_added'),
+    playerIdDropped: text('player_id_dropped'),
+    addedName: text('added_name'),
+    addedPosition: text('added_position'),
+    droppedName: text('dropped_name'),
+    droppedPosition: text('dropped_position'),
+    faabBid: integer('faab_bid'),
+    faabTransferred: integer('faab_transferred'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.season, t.transactionId, t.line] }),
+    index('season_transactions_manager_idx').on(t.season, t.managerId),
+    index('season_transactions_added_idx').on(t.playerIdAdded),
+  ],
+)
+
+/**
  * What a manager scored against the best they could have scored, per week.
  *
  * **Kept separate from `season_matchups` despite the identical grain.** In the
@@ -757,6 +851,49 @@ export const playerWeeks = pgTable(
   ],
 )
 
+const statColumn = (name: string) => numeric(name, { precision: 8, scale: 2 })
+/** One nullable `numeric(8,2)` per whitelisted stat, named exactly as stored. */
+const statColumns = Object.fromEntries(STAT_KEYS.map((k) => [k, statColumn(k)])) as {
+  [K in StatKey]: ReturnType<typeof statColumn>
+}
+
+/**
+ * A rostered player's NFL stat line for one week — yards, touchdowns, targets,
+ * sacks. Sleeper's numbers, **not** this league's points: those are
+ * `player_weeks.points`, and Sleeper's own `pts_*` are deliberately not stored.
+ *
+ * Keyed by the player, not the manager: join to `player_weeks` on
+ * `(season, week, player_id)` for who held him. One row per player-week that
+ * appears on a roster in this league, 2020 on — not an NFL-wide table.
+ *
+ * ⚠️ **NULL is "did not play", 0 is a real zero.** A row with `gp` NULL is a
+ * player Sleeper listed but who never took the field, and every stat is NULL.
+ * A player who played has 0 in every column of his own group and NULL in the
+ * other (a WR has no `pts_allow`). A player on a bye has no row at all. See
+ * `src/lib/player-stats.ts`.
+ *
+ * Built by `scripts/migrate-player-stats.ts`; rewritten per season by
+ * `history:import-sleeper`.
+ */
+export const playerWeekStats = pgTable(
+  'player_week_stats',
+  {
+    season: integer('season')
+      .notNull()
+      .references(() => seasons.season),
+    week: integer('week').notNull(),
+    /** Sleeper player id, or a team code for a defense — same as `player_weeks`. */
+    playerId: text('player_id').notNull(),
+    gp: integer('gp'),
+    ...statColumns,
+  },
+  (t) => [
+    primaryKey({ columns: [t.season, t.week, t.playerId] }),
+    index('player_week_stats_player_idx').on(t.playerId),
+    index('player_week_stats_season_idx').on(t.season),
+  ],
+)
+
 /**
  * A player's season line, league-wide — not per manager.
  *
@@ -810,7 +947,7 @@ export const legacyChampions = pgTable('legacy_champions', {
  *
  * ## Why the prose is stored rather than generated on request
  *
- * The same reason `seasons.draft_recap` is: `/history/gazette` is a Server
+ * The same reason `seasons.draft_recap` is: `/gazette` is a Server
  * Component, a finished week never changes, and the app's first rule is that
  * nothing on a request path makes an outbound call. An issue is written once by
  * `npm run gazette`, stored here, and read back as text.

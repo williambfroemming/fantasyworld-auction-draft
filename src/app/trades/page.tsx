@@ -45,14 +45,14 @@ export default function TradesPage() {
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="draft" current="/trades" isCommish={myManager?.isCommish} />
+        <SiteNav section="auction" current="/trades" isCommish={myManager?.isCommish} />
         {state.lot && (
           <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
             {state.lot.playerName} is on the block
           </span>
         )}
         <div className="ml-auto flex items-center gap-3">
-          <HeaderControls />
+          <HeaderControls hideOracle />
           {myManager && (
           <span
             className="rounded-full px-3 py-1 text-xs font-semibold"
