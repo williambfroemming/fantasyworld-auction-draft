@@ -12,7 +12,7 @@ import { ORACLE_RULES, ORACLE_VIEWS, oracleSchemaText } from './oracle-schema'
 function migrationViews(): Array<{ name: string; columns: string[] }> {
   const text = readFileSync(join(__dirname, '../../scripts/migrate-oracle.ts'), 'utf8')
   const out: Array<{ name: string; columns: string[] }> = []
-  const re = /name: '(\w+)',\s*from: '[^']+',\s*select: [`'](.*?)[`'],/gs
+  const re = /name: '(\w+)',\s*from: '[^']+',\s*select: [`']([\s\S]*?)[`'],/g
   for (const m of text.matchAll(re)) {
     const columns = m[2]
       .split(',')

@@ -1,3 +1,4 @@
+import { ORACLE_RULES, oracleSchemaText } from '@/lib/oracle-schema'
 import { ROW_LIMIT, guardSql } from '@/lib/oracle-sql'
 import { getSql } from './sql'
 
@@ -72,4 +73,222 @@ export async function runOracleQuery(input: string): Promise<OracleQueryResult> 
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) }
   }
+}
+
+// ---------------------------------------------------------------------------
+// The tool loop (step 41)
+// ---------------------------------------------------------------------------
+
+export const ORACLE_MODEL = 'claude-sonnet-5-5'
+export const MAX_STEPS = 5
+
+/** Rows the model is shown from any one result. The page still gets all (up to 200). */
+const ROWS_SHOWN_TO_MODEL = 50
+
+/** Per request to the API. The route allows 60s in total. */
+const API_TIMEOUT_MS = 40_000
+
+export interface OracleStep {
+  sql: string
+  ok: boolean
+  columns: string[]
+  rows: unknown[][]
+  truncated: boolean
+  error: string | null
+  ms: number
+}
+
+export interface OracleResult {
+  ok: boolean
+  answer: string | null
+  steps: OracleStep[]
+  error: string | null
+  inputTokens: number
+  outputTokens: number
+}
+
+type Block =
+  | { type: 'text'; text: string }
+  | { type: 'tool_use'; id: string; name: string; input: { sql?: unknown } }
+  | { type: string; [k: string]: unknown }
+
+interface ApiMessage {
+  role: 'user' | 'assistant'
+  content: string | unknown[]
+}
+
+interface ApiResponse {
+  stop_reason?: string
+  content: Block[]
+  usage?: { input_tokens?: number; output_tokens?: number }
+}
+
+const TOOLS = [
+  {
+    name: 'query',
+    description: 'Run one read-only SQL SELECT against the league database and get the rows back.',
+    input_schema: {
+      type: 'object',
+      properties: { sql: { type: 'string' } },
+      required: ['sql'],
+    },
+  },
+]
+
+/**
+ * Answer a question by letting the model write SQL, one query at a time.
+ *
+ * One tool, `query`; at most MAX_STEPS queries; the model answers from the rows. A plain
+ * `fetch` to the Messages API, the same way scripts/history/gazette.ts does it — no SDK,
+ * not streamed. Never throws: every failure is an `{ ok: false, error }` result carrying
+ * whatever steps were taken, so the log can show how far it got.
+ *
+ * `run` is injectable only so the loop can be tested without a database; the route always
+ * uses the default, which is the guarded read-only runner above.
+ */
+export async function askOracle(
+  question: string,
+  run: (sql: string) => Promise<OracleQueryResult> = runOracleQuery,
+): Promise<OracleResult> {
+  const steps: OracleStep[] = []
+  let inputTokens = 0
+  let outputTokens = 0
+  const fail = (error: string): OracleResult => ({
+    ok: false,
+    answer: null,
+    steps,
+    error,
+    inputTokens,
+    outputTokens,
+  })
+
+  const key = process.env.ANTHROPIC_API_KEY?.trim()
+  if (!key) return fail('The Oracle is not configured: ANTHROPIC_API_KEY is not set.')
+
+  const system = `${ORACLE_RULES}\n\nThe views:\n\n${oracleSchemaText()}`
+  const messages: ApiMessage[] = [{ role: 'user', content: question }]
+
+  // One send per query plus a final one to answer after the last result comes back.
+  for (let round = 0; round <= MAX_STEPS; round++) {
+    let body: ApiResponse
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: ORACLE_MODEL,
+          max_tokens: 2000,
+          system,
+          tools: TOOLS,
+          messages,
+        }),
+        signal: AbortSignal.timeout(API_TIMEOUT_MS),
+      })
+      if (!res.ok) return fail(`The Oracle could not reach its model (status ${res.status}).`)
+      body = (await res.json()) as ApiResponse
+    } catch (err) {
+      const timedOut = err instanceof Error && err.name === 'TimeoutError'
+      return fail(
+        timedOut ? 'The Oracle took too long to answer.' : 'The Oracle could not reach its model.',
+      )
+    }
+
+    inputTokens += body.usage?.input_tokens ?? 0
+    outputTokens += body.usage?.output_tokens ?? 0
+
+    if (body.stop_reason === 'refusal') return fail('The Oracle declined to answer that.')
+
+    const toolUses = body.content.filter(
+      (b): b is Extract<Block, { type: 'tool_use' }> => b.type === 'tool_use',
+    )
+
+    if (body.stop_reason !== 'tool_use' || toolUses.length === 0) {
+      const answer = body.content
+        .filter((b): b is Extract<Block, { type: 'text' }> => b.type === 'text')
+        .map((b) => b.text)
+        .join('\n')
+        .trim()
+      if (!answer) {
+        return fail(
+          body.stop_reason === 'max_tokens'
+            ? 'The Oracle ran out of room before it finished answering.'
+            : 'The Oracle came back with nothing to say.',
+        )
+      }
+      return { ok: true, answer, steps, error: null, inputTokens, outputTokens }
+    }
+
+    // The model wants more queries. If it has already had all it is allowed, stop.
+    if (steps.length >= MAX_STEPS) {
+      return fail('The Oracle could not work that out in five queries.')
+    }
+
+    messages.push({ role: 'assistant', content: body.content })
+
+    const results: unknown[] = []
+    for (const block of toolUses) {
+      if (steps.length >= MAX_STEPS) {
+        results.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: 'Query budget used up. Answer from the rows you already have.',
+          is_error: true,
+        })
+        continue
+      }
+      const sql = typeof block.input?.sql === 'string' ? block.input.sql : ''
+      const r = await run(sql)
+      if (r.ok) {
+        steps.push({
+          sql,
+          ok: true,
+          columns: r.columns,
+          rows: r.rows,
+          truncated: r.truncated,
+          error: null,
+          ms: r.ms,
+        })
+        const shown = r.rows.slice(0, ROWS_SHOWN_TO_MODEL)
+        results.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify({
+            columns: r.columns,
+            rows: shown,
+            rowCount: r.rows.length,
+            ...(r.rows.length > shown.length || r.truncated
+              ? {
+                  note: r.truncated
+                    ? `More than ${r.rows.length} rows matched; you see the first ${shown.length}. Aggregate or filter in SQL instead of reading rows.`
+                    : `${r.rows.length} rows matched; you see the first ${shown.length}. Aggregate or filter in SQL instead of reading rows.`,
+                }
+              : {}),
+          }),
+        })
+      } else {
+        steps.push({
+          sql,
+          ok: false,
+          columns: [],
+          rows: [],
+          truncated: false,
+          error: r.reason,
+          ms: 0,
+        })
+        results.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: r.reason,
+          is_error: true,
+        })
+      }
+    }
+    messages.push({ role: 'user', content: results })
+  }
+
+  return fail('The Oracle could not work that out in five queries.')
 }

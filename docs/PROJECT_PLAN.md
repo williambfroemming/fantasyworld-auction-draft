@@ -401,7 +401,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **38.** The database boundary: `oracle` schema of views, `oracle_reader` role, `oracle_log`
 - [x] **39.** The SQL guard and the read-only runner
 - [x] **40.** The schema notes the model reads, kept in step with the views by a test
-- [ ] **41.** The tool loop — `askOracle()`
+- [x] **41.** The tool loop — `askOracle()`
 - [ ] **42.** `POST /api/ask` — session, daily cap, log
 - [ ] **43.** `/history/oracle` and the nav entry
 - [ ] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
