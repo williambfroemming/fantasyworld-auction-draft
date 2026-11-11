@@ -1,8 +1,7 @@
 # Site structure: top-bar modules
 
-Status: **approved, not started.** Build it in one branch (`site-nav`, off `main`), following the
-working rule in `AGENTS.md`: write a progress-log entry, add a box to `docs/PROJECT_PLAN.md` §13, and
-commit the docs with the code.
+Status: **done** (2026-11-11, step 63 in `docs/PROJECT_PLAN.md` §13; see `docs/PROGRESS_LOG.md`).
+Built on the `worktree-organize-ui` branch off `main`.
 
 ## Why
 
@@ -141,14 +140,14 @@ all of them past seasons.
 
 - `npm test`, `npx tsc --noEmit`, `npm run build`.
 - `npm run db:local:up`, then `npm run dev:local`, then check:
-  - [ ] Every menu at 360px and on desktop: no overflow, navigating closes the menu, the current
+  - [x] Every menu at 360px and on desktop: no overflow, navigating closes the menu, the current
         page is marked.
-  - [ ] "The Gazette" goes straight to `/gazette`, and an issue page highlights it.
-  - [ ] `/history/gazette/2025/7` returns 308 to `/gazette/2025/7`, and `/history/oracle` returns
+  - [x] "The Gazette" goes straight to `/gazette`, and an issue page highlights it.
+  - [x] `/history/gazette/2025/7` returns 308 to `/gazette/2025/7`, and `/history/oracle` returns
         308 to `/oracle`.
-  - [ ] The Ask button opens the panel, a question returns an answer with its SQL, and Esc closes it.
-  - [ ] The Ask button is **absent** on `/draft`, `/board` and `/trades`.
-  - [ ] The Network tab shows no request caused by the launcher until it is opened.
-  - [ ] Signed out, `/gazette` and `/oracle` redirect to `/join?next=…`.
-  - [ ] With the Oracle switched off in `/setup`, the panel shows the "switched off" message.
-  - [ ] Glossary is reachable from the account menu.
+  - [x] The Ask button opens the panel, a question returns an answer with its SQL, and Esc closes it.
+  - [x] The Ask button is **absent** on `/draft`, `/board` and `/trades`.
+  - [x] The Network tab shows no request caused by the launcher until it is opened.
+  - [x] Signed out, `/gazette` and `/oracle` redirect to `/join?next=…`.
+  - [x] With the Oracle switched off (Admin panel, which replaced `/setup`), the panel shows the "switched off" message.
+  - [x] Glossary is reachable from the account menu.
