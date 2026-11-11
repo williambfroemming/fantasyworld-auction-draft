@@ -114,3 +114,44 @@ export function rosterOrigin(
   }
   return [...out.values()].sort((a, b) => a.managerId - b.managerId)
 }
+
+export const ORIGIN_PARTS = ['drafted', 'tradedAtDraft', 'addedLater', 'unknown'] as const
+export type OriginPart = (typeof ORIGIN_PARTS)[number]
+
+export const ORIGIN_LABELS: Record<OriginPart, string> = {
+  drafted: 'Drafted',
+  tradedAtDraft: 'Traded at the draft',
+  addedLater: 'Added later',
+  unknown: 'Unknown',
+}
+
+/**
+ * The parts worth drawing for a season. A part that is zero for EVERY manager is dropped, so
+ * a chart never carries a legend entry that is always empty: imported seasons have no recorded
+ * trades, and `unknown` is zero unless a pick could not be matched. `drafted` and
+ * `addedLater` always stay, even at zero, because they are the question the chart asks.
+ */
+export function visibleParts(rows: RosterOrigin[]): OriginPart[] {
+  return ORIGIN_PARTS.filter(
+    (p) => p === 'drafted' || p === 'addedLater' || rows.some((r) => r[p] > 0),
+  )
+}
+
+export interface MemberOriginSeason {
+  season: number
+  parts: OriginPart[]
+  row: RosterOrigin
+}
+
+/** One manager's line from each season, newest first. A season they have no started points in is skipped. */
+export function memberRosterOrigin(
+  seasons: Array<{ season: number; rows: RosterOrigin[] }>,
+  managerId: number,
+): MemberOriginSeason[] {
+  return [...seasons]
+    .sort((a, b) => b.season - a.season)
+    .flatMap((s) => {
+      const row = s.rows.find((r) => r.managerId === managerId)
+      return row ? [{ season: s.season, parts: visibleParts(s.rows), row }] : []
+    })
+}

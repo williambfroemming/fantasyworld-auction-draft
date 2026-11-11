@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rosterOrigin, type OriginPick, type OriginRow } from './roster-origin'
+import { memberRosterOrigin, rosterOrigin, visibleParts, type OriginPick, type OriginRow } from './roster-origin'
 import type { StatsTrade } from './stats'
 
 const S = 2025
@@ -90,5 +90,28 @@ describe('rosterOrigin', () => {
     const o = rosterOrigin([row(1, 'a', 10)], [pick(1, 1, 'a', 2024)], [], S, keys)
     expect(o[0].drafted).toBe(0)
     expect(o[0].addedLater).toBe(10)
+  })
+})
+
+describe('visibleParts and memberRosterOrigin', () => {
+  const r = (managerId: number, d: number, t: number, a: number, u = 0) => ({
+    managerId, drafted: d, tradedAtDraft: t, addedLater: a, unknown: u, total: d + t + a + u,
+  })
+  it('drops a part that is zero for everyone, keeps the two that carry the question', () => {
+    expect(visibleParts([r(1, 0, 0, 0), r(2, 5, 0, 5)])).toEqual(['drafted', 'addedLater'])
+  })
+  it('keeps a part any manager has', () => {
+    expect(visibleParts([r(1, 5, 2, 1), r(2, 5, 0, 5)])).toContain('tradedAtDraft')
+  })
+  it("returns one manager's seasons newest first and skips seasons without them", () => {
+    const out = memberRosterOrigin(
+      [
+        { season: 2021, rows: [r(1, 1, 0, 1)] },
+        { season: 2023, rows: [r(1, 2, 0, 2)] },
+        { season: 2022, rows: [r(2, 3, 0, 3)] },
+      ],
+      1,
+    )
+    expect(out.map((o) => o.season)).toEqual([2023, 2021])
   })
 })
