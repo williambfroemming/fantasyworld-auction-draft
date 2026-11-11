@@ -15,6 +15,8 @@ const tool = (id: string, sql: string): Reply => ({
 })
 
 function stubApi(replies: Reply[], status = 200) {
+  // The request bodies are inspected loosely: this is a test double, not a contract.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const calls: Array<Record<string, any>> = []
   const fn = vi.fn(async (_url: string, init: { body: string }) => {
     calls.push(JSON.parse(init.body))

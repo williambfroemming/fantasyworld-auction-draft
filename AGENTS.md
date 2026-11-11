@@ -122,6 +122,8 @@ npm run db:migrate-seasons        # the one-draft -> season-per-year migration (
 npm run db:migrate-seasons -- --test
 npm run db:migrate-queue          # adds the private player_queue table
 npm run db:migrate-queue -- --test
+npm run db:migrate-oracle         # the Oracle's schema of views, restricted role and log table
+npm run db:migrate-oracle -- --test
 npm run db:migrate-pick-ranks     # snapshots pool rank onto picks. RE-RUN AFTER EVERY DRAFT,
                                   # BEFORE the next season's rankings CSV is imported
 npm run db:migrate-lot-index      # adds lots.nomination_index (no backfill -- see the script)
