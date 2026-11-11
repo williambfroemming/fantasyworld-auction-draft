@@ -3,6 +3,7 @@ import { OracleBar } from '@/components/OracleBar'
 import { SiteNav } from '@/components/SiteNav'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { currentManagerId } from '@/server/session'
+import { oracleEnabled } from '@/server/settings-service'
 
 /**
  * Ask the Oracle (docs/ANALYTICS_ROADMAP.md §A).
@@ -15,7 +16,8 @@ import { currentManagerId } from '@/server/session'
 export const metadata = { title: 'Ask the Oracle — FantasyWorld' }
 
 export default async function OraclePage() {
-  const signedIn = (await currentManagerId()) !== null
+  const [managerId, enabled] = await Promise.all([currentManagerId(), oracleEnabled()])
+  const signedIn = managerId !== null
 
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
@@ -38,7 +40,11 @@ export default async function OraclePage() {
           answer so you can check it.
         </p>
 
-        {signedIn ? (
+        {!enabled ? (
+          <p className="text-base text-amber-300">
+            The Oracle is switched off right now. Ask the commissioner if you need it back.
+          </p>
+        ) : signedIn ? (
           <OracleBar />
         ) : (
           <p className="text-base text-slate-200">

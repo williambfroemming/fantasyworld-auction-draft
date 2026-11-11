@@ -23,7 +23,7 @@ async function main() {
   const sql = neon(process.env.DATABASE_URL!)
 
   if (args.includes('--clear')) {
-    await sql`UPDATE managers SET pin_hash = NULL`
+    await sql`UPDATE managers SET pin_hash = NULL, pin_attempts = 0, pin_locked_until = NULL`
     console.log('✓ cleared every PIN — each manager sets their own on first join\n')
   } else if (args.includes('--set')) {
     const pin = flagValue('--set')

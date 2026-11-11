@@ -30,6 +30,14 @@ export const managers = pgTable(
     color: text('color').notNull().default('#64748b'),
     /** scrypt hash; null until the manager claims their seat and sets a PIN. */
     pinHash: text('pin_hash'),
+    /**
+     * Wrong PINs since the last good one. Counted BEFORE the PIN is checked, in one
+     * statement, so parallel guesses cannot all slip under the limit
+     * (src/server/pin-service.ts). Policy in src/lib/pin-lockout.ts.
+     */
+    pinAttempts: integer('pin_attempts').notNull().default(0),
+    /** Set when the limit is hit; sign-in is refused until it passes. Null = not locked. */
+    pinLockedUntil: timestamp('pin_locked_until', { withTimezone: true }),
     /** 0-indexed seat in the snake order. Re-drawn every season at setup. */
     draftSlot: integer('draft_slot').notNull(),
     isCommish: boolean('is_commish').notNull().default(false),
@@ -897,6 +905,20 @@ export const oracleLog = pgTable(
   },
   (t) => [index('oracle_log_manager_idx').on(t.managerId, t.createdAt)],
 )
+
+/**
+ * Small switches the commissioner can flip without a deploy. One row per key.
+ * Absent means "use the default", so adding a switch never needs a data migration.
+ * Created by scripts/migrate-access.ts on Neon and by the bootstrap locally.
+ *
+ * Currently: `oracle_enabled` ('true' | 'false') — the cost kill-switch for Ask the Oracle.
+ */
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: integer('updated_by').references(() => managers.id),
+})
 
 export type Manager = typeof managers.$inferSelect
 export type Player = typeof players.$inferSelect

@@ -211,3 +211,15 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | `/setup` → Member PINs: **Reset PIN** shows a new 4-digit PIN once; the member signs in with it and their old PIN stops working | |
 | ⬜ | A member who forgot their PIN sees "ask the commissioner" on the PIN screen | |
 | ⬜ | A signed-in non-commissioner calling `/api/commish` `resetPin` gets 403 | |
+
+## L. PIN lockout and the Oracle switch
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | Five wrong PINs on a seat: tries-left counts down 4, 3, 2, 1, then it locks with a "try again in 15 minutes" message | |
+| ⬜ | While locked, even the correct PIN is refused | |
+| ⬜ | `/setup` → Member PINs → Reset PIN unlocks the seat; the new PIN works at once | |
+| ⬜ | `/setup` → Ask the Oracle shows On/Off, the last 24 hours of questions and tokens, and who asked most | |
+| ⬜ | Turn it **Off**: the next question is refused in words, `/history/oracle` shows the switched-off notice, and no `oracle_log` row is added | |
+| ⬜ | Turn it **On** again: questions work with no redeploy | |
+| ⬜ | A non-commissioner calling `/api/oracle-admin` gets 403 | |

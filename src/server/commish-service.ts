@@ -300,7 +300,7 @@ export async function swapSeats(aId: number, bId: number): Promise<ActionResult<
 
 /** Let someone re-set a forgotten PIN. */
 export async function clearPin(managerId: number): Promise<ActionResult<null>> {
-  await getSql()`UPDATE managers SET pin_hash = NULL WHERE id = ${managerId}`
+  await getSql()`UPDATE managers SET pin_hash = NULL, pin_attempts = 0, pin_locked_until = NULL WHERE id = ${managerId}`
   return { ok: true, data: null }
 }
 
@@ -312,13 +312,14 @@ export async function clearPin(managerId: number): Promise<ActionResult<null>> {
  * sign-in screen is public. Here there is no unclaimed moment. The member signs in with
  * the PIN they are given and can ask for another any time.
  *
- * Random, so the commissioner is not choosing (or reusing) a PIN.
+ * Random, so the commissioner is not choosing (or reusing) a PIN. Also lifts a lockout.
  */
 export async function resetPin(managerId: number): Promise<ActionResult<{ pin: string }>> {
   const sql = getSql()
   const pin = String(randomInt(0, 10_000)).padStart(4, '0')
   const rows = await sql`
-    UPDATE managers SET pin_hash = ${await hashPin(pin)} WHERE id = ${managerId} RETURNING id`
+    UPDATE managers SET pin_hash = ${await hashPin(pin)}, pin_attempts = 0, pin_locked_until = NULL
+    WHERE id = ${managerId} RETURNING id`
   if (rows.length === 0) return { ok: false, reason: 'Unknown manager' }
   return { ok: true, data: { pin } }
 }
