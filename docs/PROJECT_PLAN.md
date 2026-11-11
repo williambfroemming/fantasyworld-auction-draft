@@ -434,7 +434,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 **H. FAAB and waivers**
 - [x] **58.** Pull Sleeper transactions
 - [x] **59.** `season_transactions` and the importer
-- [ ] **60.** `faab.ts`
+- [x] **60.** `faab.ts`
 - [ ] **61.** `/history/waivers`, and the Oracle learns about transactions
 
 **I. Commissioner tools** — added 2026-11-11, outside the analytics roadmap
