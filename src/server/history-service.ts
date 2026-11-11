@@ -54,7 +54,7 @@ import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import { STAT_KEYS, formatStatLine, type StatKey } from '@/lib/player-stats'
-import { playerStatTotals, type PlayerStatTotals, type StatWeek } from '@/lib/player-stat-totals'
+import { headlineStat, playerStatTotals, type PlayerStatTotals, type StatWeek } from '@/lib/player-stat-totals'
 import type { StatsTrade } from '@/lib/stats'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
@@ -832,6 +832,11 @@ export interface PlayerWeekPoint {
    * Never zeros for a week he sat.
    */
   statLine: string | null
+  /**
+   * The position's headline stat for the week (`headlineStat`): passing yards for a quarterback,
+   * and so on. Null when he did not play or has no stat row. Never 0 for a week he sat.
+   */
+  headline: number | null
 }
 
 export interface PlayerHistory {
@@ -872,6 +877,8 @@ export interface PlayerHistory {
    * Null when he has no stat rows at all.
    */
   statTotals: PlayerStatTotals | null
+  /** What `weekly[].headline` measures, e.g. `Pass yd`. Null for a position with no headline stat. */
+  headline: { label: string; title: string } | null
 }
 
 /** A `player_weeks` row joined to its manager, before aggregation. */
@@ -893,6 +900,7 @@ export interface PlayerWeekRow {
   position: string | null
   /** Optional so callers without stats (and the tests) need not pass it. */
   statLine?: string | null
+  headline?: number | null
 }
 
 /** A draft row for this player, already attributed to the drafter. */
@@ -968,6 +976,7 @@ export function buildPlayerHistory(
       managerId: r.managerId,
       displayName: r.displayName,
       statLine: r.statLine ?? null,
+      headline: r.headline ?? null,
     }
     weekly.push(point)
     addSplit(r.isPlayoff ? careerPlayoff : careerRegular, r)
@@ -1051,6 +1060,7 @@ export function buildPlayerHistory(
     weekly,
     statsCoverage: null,
     statTotals: null,
+    headline: null,
   }
 }
 
@@ -1262,7 +1272,9 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
   // `db:migrate-player-stats` yet still renders the page, just without them.
   const stats = await getPlayerStatLines(sleeperId)
   for (const r of rows) {
-    r.statLine = formatStatLine(r.position, stats.get(`${r.season}:${r.week}`)?.stats)
+    const line = stats.get(`${r.season}:${r.week}`)
+    r.statLine = formatStatLine(r.position, line?.stats)
+    r.headline = headlineStat(r.position)?.value(line?.stats) ?? null
   }
 
   const history = buildPlayerHistory(sleeperId, rows, drafts)
@@ -1279,6 +1291,8 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
     return line ? [{ season: r.season, week: r.week, isPlayoff: r.isPlayoff, gp: line.gp, stats: line.stats }] : []
   })
   history.statTotals = playerStatTotals(statWeeks, history.position)
+  const headline = headlineStat(history.position)
+  history.headline = headline && history.weekly.some((w) => w.headline !== null) ? { label: headline.label, title: headline.title } : null
   return history
 }
 

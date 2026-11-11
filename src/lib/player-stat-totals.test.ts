@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { playerStatTotals, statColumns, sumStats, type StatWeek } from './player-stat-totals'
+import {
+  gameLogCell,
+  headlineStat,
+  playerStatTotals,
+  statColumns,
+  sumStats,
+  type StatWeek,
+} from './player-stat-totals'
 
 /** A played week with the given stats; unmentioned keys are 0 in the player's own group. */
 const wr = (
@@ -231,5 +238,57 @@ describe('values stay under the right headers', () => {
       expect(s.regular.values).toHaveLength(t.columns.length)
       expect(s.playoff.values).toHaveLength(t.columns.length)
     }
+  })
+})
+
+describe('headlineStat', () => {
+  it('is one position-appropriate number', () => {
+    expect(headlineStat('QB')!.value({ pass_yd: 287 })).toBe(287)
+    expect(headlineStat('RB')!.value({ rush_yd: 80, rec_yd: 25 })).toBe(105)
+    expect(headlineStat('WR')!.value({ rec_yd: 143 })).toBe(143)
+    expect(headlineStat('TE')!.value({ rec_yd: 61 })).toBe(61)
+    expect(headlineStat('DEF')!.value({ sack: 4 })).toBe(4)
+  })
+
+  it('is null for a week he did not play, never 0', () => {
+    expect(headlineStat('QB')!.value({ pass_yd: null })).toBeNull()
+    expect(headlineStat('RB')!.value({ rush_yd: null, rec_yd: null })).toBeNull()
+    expect(headlineStat('WR')!.value({})).toBeNull()
+    expect(headlineStat('WR')!.value(null)).toBeNull()
+  })
+
+  it('a played week with no yards is a real 0', () => {
+    expect(headlineStat('WR')!.value({ rec_yd: 0 })).toBe(0)
+    expect(headlineStat('RB')!.value({ rush_yd: 0, rec_yd: 0 })).toBe(0)
+  })
+
+  it('has none for a position it does not know, and never mixes positions', () => {
+    expect(headlineStat('K')).toBeNull()
+    expect(headlineStat(null)).toBeNull()
+    // A receiver's headline never reads a passing or rushing figure.
+    expect(headlineStat('WR')!.value({ pass_yd: 300, rush_yd: 90, rec_yd: 10 })).toBe(10)
+    expect(headlineStat('QB')!.value({ rec_yd: 50, pass_yd: 200 })).toBe(200)
+  })
+})
+
+describe('gameLogCell', () => {
+  it('prints a stat line as it is', () => {
+    expect(gameLogCell('6 rec / 9 tgt, 80 yds, 1 TD', 14.5)).toEqual({
+      kind: 'line',
+      text: '6 rec / 9 tgt, 80 yds, 1 TD',
+    })
+  })
+
+  it('says "did not play" only for a week with no line and exactly 0 points', () => {
+    expect(gameLogCell(null, 0)).toEqual({ kind: 'did-not-play' })
+  })
+
+  it('never says "did not play" for a week with points: that is unknown, a dash', () => {
+    expect(gameLogCell(null, 12.4)).toEqual({ kind: 'unknown' })
+    expect(gameLogCell(null, -1.2)).toEqual({ kind: 'unknown' })
+  })
+
+  it('a line wins even at 0 points (a played week that scored nothing)', () => {
+    expect(gameLogCell('0 rec / 2 tgt, 0 yds', 0).kind).toBe('line')
   })
 })

@@ -172,7 +172,7 @@ toggle changes the axis label and values and nothing else; keyboard focus works 
 
 Add a position filter (All, QB, RB, WR, TE, DEF) and a season filter (All 2020 on, or one season)
 to the existing search. When a season and a position are both chosen, show one **headline stat**
-column for that position (QB pass yd, RB rush yd, WR/TE rec yd, DEF sacks) and allow sorting by
+column for that position, from the shared `headlineStat(position)` built in step 68 (QB pass yd, RB scrimmage yd, WR/TE rec yd, DEF sacks) and allow sorting by
 it. Default sort stays total fantasy points.
 
 **The rule that makes this safe:** the stat column and the stat sort exist **only when exactly one

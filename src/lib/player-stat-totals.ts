@@ -262,3 +262,78 @@ export function playerStatTotals(
     hasPlayoffGames: unique.some((w) => w.isPlayoff && played(w)),
   }
 }
+
+// ---------------------------------------------------------------------------
+// The headline stat
+// ---------------------------------------------------------------------------
+
+export interface HeadlineStat {
+  id: string
+  /** Short label for a chart axis or a column. */
+  label: string
+  /** What it means, for a tooltip. */
+  title: string
+  /** One week's value from its stat map; null when he did not play (the stats are null). */
+  value: (stats: StatMap | null | undefined) => number | null
+}
+
+const nv = (v: number | null | undefined) => (v === null || v === undefined ? null : v)
+
+/**
+ * The one number that best sums up a position's week, used where a single figure has to stand
+ * for a stat line (the timeline's second metric; the players index in step 69): a quarterback's
+ * passing yards, a running back's yards from scrimmage (rushing plus receiving), a receiver's or
+ * tight end's receiving yards, a defense's sacks. Null for a position without one.
+ *
+ * It is only ever compared within a position. A quarterback's 300 and a receiver's 100 are not
+ * the same size of thing, and nothing may rank them against each other.
+ */
+export function headlineStat(position: string | null | undefined): HeadlineStat | null {
+  switch (position) {
+    case 'QB':
+      return {
+        id: 'pass_yd',
+        label: 'Pass yd',
+        title: 'Passing yards',
+        value: (s) => nv(s?.pass_yd),
+      }
+    case 'RB':
+      return {
+        id: 'scrimmage_yd',
+        label: 'Scrimmage yd',
+        title: 'Yards from scrimmage (rushing plus receiving)',
+        value: (s) => add(nv(s?.rush_yd), nv(s?.rec_yd)),
+      }
+    case 'WR':
+    case 'TE':
+      return {
+        id: 'rec_yd',
+        label: 'Rec yd',
+        title: 'Receiving yards',
+        value: (s) => nv(s?.rec_yd),
+      }
+    case 'DEF':
+      return { id: 'sack', label: 'Sacks', title: 'Sacks', value: (s) => nv(s?.sack) }
+    default:
+      return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The game log's stat cell
+// ---------------------------------------------------------------------------
+
+export type GameLogCell =
+  { kind: 'line'; text: string } | { kind: 'did-not-play' } | { kind: 'unknown' }
+
+/**
+ * What a game-log row says in its stat column. A stat line prints as is. A week with no line is
+ * "did not play" ONLY when its fantasy points were exactly 0: every rostered week on record with
+ * no stat row scored 0, so that reading is safe there. Any other week with no line (one from
+ * before stats were loaded, say) is **unknown** and prints a dash, so a gap can never read as an
+ * answer about a week that was actually played.
+ */
+export function gameLogCell(statLine: string | null, points: number): GameLogCell {
+  if (statLine) return { kind: 'line', text: statLine }
+  return points === 0 ? { kind: 'did-not-play' } : { kind: 'unknown' }
+}
