@@ -15,6 +15,8 @@ export interface Fmt {
   thousands?: boolean
   /** Print a year as its last two digits: 2024 -> '24. */
   shortYear?: boolean
+  /** Always show the sign: +120, −45, 0. For differences from an average. */
+  signed?: boolean
 }
 
 export function formatValue(spec: Fmt | undefined, v: number): string {
@@ -26,8 +28,16 @@ export function formatValue(spec: Fmt | undefined, v: number): string {
     f.thousands === false
       ? n.toFixed(d)
       : n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
-  const sign = body.startsWith('-') ? '-' : ''
-  return `${sign}${f.prefix ?? ''}${sign ? body.slice(1) : body}${f.suffix ?? ''}`
+  const negative = body.startsWith('-')
+  const magnitude = negative ? body.slice(1) : body
+  if (f.signed) {
+    // A real minus, and a value that rounds to zero carries no sign at all.
+    const zero = Number(magnitude.replace(/,/g, '')) === 0
+    const sign = zero ? '' : negative ? '\u2212' : '+'
+    return `${sign}${f.prefix ?? ''}${magnitude}${f.suffix ?? ''}`
+  }
+  const sign = negative ? '-' : ''
+  return `${sign}${f.prefix ?? ''}${magnitude}${f.suffix ?? ''}`
 }
 
 /**
