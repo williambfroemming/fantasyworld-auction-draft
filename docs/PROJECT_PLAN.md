@@ -435,7 +435,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **58.** Pull Sleeper transactions
 - [x] **59.** `season_transactions` and the importer
 - [x] **60.** `faab.ts`
-- [ ] **61.** `/history/waivers`, and the Oracle learns about transactions
+- [x] **61.** `/history/waivers`, and the Oracle learns about transactions
 
 **I. Commissioner tools** — added 2026-11-11, outside the analytics roadmap
 - [x] **62.** The admin panel: `/admin` from the account menu, replacing the ⚙ Commish drawer and `/setup`; edit any pick, record a sale, unlock a seat, rename, commissioner role, per-season prize money, start a new season

@@ -8,7 +8,10 @@ import { draftersByPick, type StatsTrade } from '@/lib/stats'
  * - `drafted`       the manager bought the player at that season's auction (and still has them)
  * - `tradedAtDraft` the player was bought by someone else and reached this manager in a trade
  * - `addedLater`    the player is on no auction pick of this manager's: waiver, free agency,
- *                   or a player nobody bought. Step 61 will split this into waiver and trade.
+ *                   or a player nobody bought. When the season's transactions are supplied
+ *                   it is split, and the parts always add up to it, into `waiver`,
+ *                   `freeAgent`, `tradedLater` (traded for after the draft) and `otherAdded`
+ *                   (a commissioner move, or no add on record).
  * - `unknown`       the manager owns or bought an auction pick that has no `player_sleeper_id`,
  *                   and this started player matches no other pick, so he may be that player.
  *
@@ -50,11 +53,26 @@ export interface OriginPick {
   sleeperId: string | null
 }
 
+/** A completed add, from `season_transactions`: how a manager came to hold a player. */
+export interface OriginAcquisition {
+  season: number
+  /** Sleeper's filing week. The player's first game for the manager is the NEXT week. */
+  week: number
+  managerId: number
+  playerId: string
+  kind: 'waiver' | 'free_agent' | 'trade' | 'commissioner'
+}
+
 export interface RosterOrigin {
   managerId: number
   drafted: number
   tradedAtDraft: number
   addedLater: number
+  /** The four below add up to `addedLater`. All zero when no transactions were supplied. */
+  waiver: number
+  freeAgent: number
+  tradedLater: number
+  otherAdded: number
   unknown: number
   /** All started points: the four parts added up. */
   total: number
@@ -66,6 +84,8 @@ export function rosterOrigin(
   trades: StatsTrade[],
   season: number,
   weekKeys: Set<string>,
+  /** Completed adds for the season. Omit to leave `addedLater` unsplit. */
+  acquisitions?: OriginAcquisition[],
 ): RosterOrigin[] {
   const seasonPicks = picks.filter((p) => p.season === season)
   const buyer = draftersByPick(seasonPicks, trades)
@@ -89,11 +109,42 @@ export function rosterOrigin(
     if (b !== undefined) hasUnresolved.add(b)
   }
 
+  // (manager, player) -> adds, oldest first, so the row's own acquisition is the latest one
+  // before it.
+  const adds = new Map<string, OriginAcquisition[]>()
+  for (const a of acquisitions ?? []) {
+    if (a.season !== season) continue
+    const key = `${a.managerId}:${a.playerId}`
+    const list = adds.get(key) ?? []
+    list.push(a)
+    adds.set(key, list)
+  }
+  const KIND = { waiver: 'waiver', free_agent: 'freeAgent', trade: 'tradedLater', commissioner: 'otherAdded' } as const
+  /** How he got there: the latest add before this week (week 1 also takes a week-1 add, which is pre-kickoff). */
+  const howAdded = (row: OriginRow): 'waiver' | 'freeAgent' | 'tradedLater' | 'otherAdded' => {
+    let found: OriginAcquisition | null = null
+    for (const a of adds.get(`${row.managerId}:${row.playerId}`) ?? []) {
+      if ((a.week < row.week || (a.week === 1 && row.week === 1)) && (!found || a.week >= found.week)) found = a
+    }
+    return found ? KIND[found.kind] : 'otherAdded'
+  }
+
   const out = new Map<number, RosterOrigin>()
   const get = (managerId: number) => {
     let r = out.get(managerId)
     if (!r) {
-      r = { managerId, drafted: 0, tradedAtDraft: 0, addedLater: 0, unknown: 0, total: 0 }
+      r = {
+        managerId,
+        drafted: 0,
+        tradedAtDraft: 0,
+        addedLater: 0,
+        waiver: 0,
+        freeAgent: 0,
+        tradedLater: 0,
+        otherAdded: 0,
+        unknown: 0,
+        total: 0,
+      }
       out.set(managerId, r)
     }
     return r
@@ -110,31 +161,55 @@ export function rosterOrigin(
     else if (!pick && hasUnresolved.has(row.managerId)) part = 'unknown'
     else part = 'addedLater'
     r[part] += row.points
+    if (part === 'addedLater' && acquisitions) r[howAdded(row)] += row.points
     r.total += row.points
   }
   return [...out.values()].sort((a, b) => a.managerId - b.managerId)
 }
 
-export const ORIGIN_PARTS = ['drafted', 'tradedAtDraft', 'addedLater', 'unknown'] as const
+export const ORIGIN_PARTS = [
+  'drafted',
+  'tradedAtDraft',
+  'waiver',
+  'freeAgent',
+  'tradedLater',
+  'addedLater',
+  'otherAdded',
+  'unknown',
+] as const
 export type OriginPart = (typeof ORIGIN_PARTS)[number]
 
 export const ORIGIN_LABELS: Record<OriginPart, string> = {
   drafted: 'Drafted',
   tradedAtDraft: 'Traded at the draft',
+  waiver: 'Waiver claim',
+  freeAgent: 'Free agent',
+  tradedLater: 'Traded for in season',
   addedLater: 'Added later',
+  otherAdded: 'Other or unrecorded',
   unknown: 'Unknown',
 }
+
+const SPLIT = ['waiver', 'freeAgent', 'tradedLater', 'otherAdded'] as const
 
 /**
  * The parts worth drawing for a season. A part that is zero for EVERY manager is dropped, so
  * a chart never carries a legend entry that is always empty: imported seasons have no recorded
- * trades, and `unknown` is zero unless a pick could not be matched. `drafted` and
- * `addedLater` always stay, even at zero, because they are the question the chart asks.
+ * draft-night trades, and `unknown` is zero unless a pick could not be matched. `drafted` is
+ * always kept, because it is the question the chart asks.
+ *
+ * The added-later share is drawn split (waiver, free agent, traded for, other) when the
+ * season's transactions were supplied, and whole (`addedLater`) when they were not. Never
+ * both: the split parts add up to `addedLater`, so drawing both would count them twice.
  */
 export function visibleParts(rows: RosterOrigin[]): OriginPart[] {
-  return ORIGIN_PARTS.filter(
-    (p) => p === 'drafted' || p === 'addedLater' || rows.some((r) => r[p] > 0),
-  )
+  const split = rows.some((r) => SPLIT.some((p) => r[p] > 0))
+  return ORIGIN_PARTS.filter((p) => {
+    if (p === 'drafted') return true
+    if (p === 'addedLater') return !split
+    if (p === 'waiver' || p === 'freeAgent') return split
+    return rows.some((r) => r[p] > 0)
+  })
 }
 
 export interface MemberOriginSeason {

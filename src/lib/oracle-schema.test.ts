@@ -27,7 +27,7 @@ function migrationViews(): Array<{ name: string; columns: string[] }> {
 
 describe('oracle schema notes', () => {
   it('parses the migration (guards the parser itself)', () => {
-    expect(migrationViews().length).toBe(10)
+    expect(migrationViews().length).toBe(11)
   })
 
   it('names exactly the views the migration creates', () => {

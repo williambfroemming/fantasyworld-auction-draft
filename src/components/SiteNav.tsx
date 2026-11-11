@@ -118,6 +118,7 @@ export const SECTIONS: SectionDef[] = [
       { href: '/history/records', label: 'Records', hint: 'Highs, lows and streaks' },
       { href: '/history/charts', label: 'Charts', hint: 'The league, drawn' },
       { href: '/history/ratings', label: 'Ratings', hint: 'Who has looked strong, week by week' },
+      { href: '/history/waivers', label: 'Waivers', hint: 'FAAB, claims and lost bids' },
       { href: '/history/members', label: 'Members', hint: 'One career at a time' },
       { href: '/history/players', label: 'Players', hint: 'Who owned whom, and when' },
       { href: '/history/h2h', label: 'Head to Head', hint: 'Everyone against everyone' },

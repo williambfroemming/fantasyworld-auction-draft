@@ -126,6 +126,15 @@ const VIEWS: OracleView[] = [
     comment: 'Draft-night trades only.',
   },
   {
+    name: 'transactions',
+    from: 'public.season_transactions',
+    select: `season, week, transaction_id, type, status, manager_id, counterparty_manager_id,
+      player_id_added, player_id_dropped, added_name, added_position, dropped_name,
+      dropped_position, faab_bid, faab_transferred, note, created_at`,
+    comment:
+      'Waiver claims (won and failed), free-agent moves, trades and FAAB inside trades, 2020 on. A failed claim bid was never spent.',
+  },
+  {
     name: 'legacy_champions',
     from: 'public.legacy_champions',
     select: 'season, champion_name, money_won',

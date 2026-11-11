@@ -95,10 +95,17 @@ describe('rosterOrigin', () => {
 
 describe('visibleParts and memberRosterOrigin', () => {
   const r = (managerId: number, d: number, t: number, a: number, u = 0) => ({
-    managerId, drafted: d, tradedAtDraft: t, addedLater: a, unknown: u, total: d + t + a + u,
+    managerId, drafted: d, tradedAtDraft: t, addedLater: a, waiver: 0, freeAgent: 0, tradedLater: 0,
+    otherAdded: 0, unknown: u, total: d + t + a + u,
   })
-  it('drops a part that is zero for everyone, keeps the two that carry the question', () => {
+  it('drops a part that is zero for everyone, keeps drafted and the unsplit added-later', () => {
     expect(visibleParts([r(1, 0, 0, 0), r(2, 5, 0, 5)])).toEqual(['drafted', 'addedLater'])
+  })
+  it('draws the split INSTEAD of added-later, never both', () => {
+    const split = { ...r(1, 5, 0, 6), waiver: 4, freeAgent: 2 }
+    const parts = visibleParts([split])
+    expect(parts).toEqual(['drafted', 'waiver', 'freeAgent'])
+    expect(parts).not.toContain('addedLater')
   })
   it('keeps a part any manager has', () => {
     expect(visibleParts([r(1, 5, 2, 1), r(2, 5, 0, 5)])).toContain('tradedAtDraft')
@@ -113,5 +120,44 @@ describe('visibleParts and memberRosterOrigin', () => {
       1,
     )
     expect(out.map((o) => o.season)).toEqual([2023, 2021])
+  })
+})
+
+describe('splitting added-later with transactions', () => {
+  const acq = (managerId: number, playerId: string, week: number, kind: 'waiver' | 'free_agent' | 'trade' | 'commissioner') => ({
+    season: S, week, managerId, playerId, kind,
+  })
+  const picks = [pick(1, 1, 'a')]
+  const rows = [
+    row(1, 'w', 10, 1), row(1, 'w', 10, 2), // claimed in week 1 (filed under 1, plays 2)
+    row(1, 'f', 4, 2), // free agent
+    row(1, 't', 3, 2), // traded for
+    row(1, 'c', 2, 2), // commissioner
+    row(1, 'z', 1, 2), // no add on record
+    row(1, 'a', 20, 2), // drafted
+  ]
+  const a = [acq(1, 'w', 1, 'waiver'), acq(1, 'f', 1, 'free_agent'), acq(1, 't', 1, 'trade'), acq(1, 'c', 1, 'commissioner')]
+  const m = rosterOrigin(rows, picks, [], S, keys, a)[0]
+
+  it('splits by how the player was added', () => {
+    expect(m).toMatchObject({ drafted: 20, waiver: 20, freeAgent: 4, tradedLater: 3, otherAdded: 3 })
+  })
+  it('the split always adds up to added-later, and the whole still adds up to the total', () => {
+    expect(m.waiver + m.freeAgent + m.tradedLater + m.otherAdded).toBeCloseTo(m.addedLater, 9)
+    expect(m.drafted + m.tradedAtDraft + m.addedLater + m.unknown).toBeCloseTo(m.total, 9)
+  })
+  it('without transactions it leaves the split at zero and added-later whole', () => {
+    const plain = rosterOrigin(rows, picks, [], S, keys)[0]
+    expect(plain.addedLater).toBe(m.addedLater)
+    expect([plain.waiver, plain.freeAgent, plain.tradedLater, plain.otherAdded]).toEqual([0, 0, 0, 0])
+  })
+  it('credits a player to the LATEST add before the week', () => {
+    const later = rosterOrigin(
+      [row(1, 'x', 5, 6)],
+      picks, [], S, new Set([`${S}:6`]),
+      [acq(1, 'x', 1, 'waiver'), acq(1, 'x', 4, 'free_agent')],
+    )[0]
+    expect(later.freeAgent).toBe(5)
+    expect(later.waiver).toBe(0)
   })
 })
