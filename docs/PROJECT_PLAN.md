@@ -398,7 +398,7 @@ Eight features chosen 2026-11-10. **The build instructions for every step are in
 checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 
 **A. Ask the Oracle** — a question bar over the database
-- [ ] **38.** The database boundary: `oracle` schema of views, `oracle_reader` role, `oracle_log`
+- [x] **38.** The database boundary: `oracle` schema of views, `oracle_reader` role, `oracle_log`
 - [ ] **39.** The SQL guard and the read-only runner
 - [ ] **40.** The schema notes the model reads, kept in step with the views by a test
 - [ ] **41.** The tool loop — `askOracle()`
