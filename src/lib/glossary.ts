@@ -348,6 +348,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'playoffOdds() — src/lib/playoff-odds.ts',
   },
   {
+    id: 'roster-origin',
+    term: 'How the roster was built',
+    group: 'league',
+    where: 'Records \u00b7 Member page',
+    formula: 'each manager\u2019s STARTED points, split by where the player came from: bought at that season\u2019s auction, traded for at the draft, or added later',
+    note: 'Matched on Sleeper id, never on name. \u201cDrafted\u201d means the manager who bought him at the auction is the one holding him; \u201cadded later\u201d is anyone on no auction pick of theirs (waiver, free agency, or a player nobody bought). \u201cUnknown\u201d appears only when an auction pick could not be matched to a player id. Draft-night trades were not recorded for the imported seasons, so the traded segment is empty before this app ran the draft. Regular season only; the parts add up to the manager\u2019s started total. Needs an auction and weekly data: 2021 on.',
+    source: 'rosterOrigin() \u2014 src/lib/roster-origin.ts',
+  },
+  {
     id: 'positional-scorecard',
     term: 'Points by position',
     group: 'league',

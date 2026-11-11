@@ -1,10 +1,11 @@
 import { EraBadge } from '@/components/history/EraBadge'
 import { RecordLine } from '@/components/history/RecordLine'
+import { PlayerRecordsSection } from '@/components/history/PlayerRecordsSection'
 import { SeasonReviewCard } from '@/components/history/SeasonReviewCard'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
-import { getBestPickups, getRecordBook, getSeasonReviews } from '@/server/history-service'
+import { getBestPickups, getPlayerRecords, getRecordBook, getRosterOrigins, getSeasonReviews } from '@/server/history-service'
 
 /**
  * The record book, and a card for every season.
@@ -38,10 +39,12 @@ const FORMAT: Record<string, (n: number) => string> = {
 }
 
 export default async function RecordsPage() {
-  const [{ book, members }, { reviews }, pickups] = await Promise.all([
+  const [{ book, lists, members }, { reviews }, pickups, origins, playerBook] = await Promise.all([
     getRecordBook(),
     getSeasonReviews(),
     getBestPickups(3),
+    getRosterOrigins(),
+    getPlayerRecords(),
   ])
 
   return (
@@ -56,7 +59,7 @@ export default async function RecordsPage() {
 
       <div className="mx-auto max-w-[92rem] px-4 py-6">
         <div className="grid gap-8 lg:grid-cols-3">
-          <section>
+          <section className="min-w-0">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
               <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
                 Single game
@@ -65,7 +68,13 @@ export default async function RecordsPage() {
             </div>
             <ul>
               {book.games.map((r) => (
-                <RecordLine key={r.key} record={r} members={members} format={points} />
+                <RecordLine
+                  key={r.key}
+                  record={r}
+                  members={members}
+                  format={FORMAT[r.key] ?? points}
+                  list={lists[r.key]}
+                />
               ))}
             </ul>
             {book.games.length === 0 && (
@@ -73,7 +82,7 @@ export default async function RecordsPage() {
             )}
           </section>
 
-          <section>
+          <section className="min-w-0">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
               <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">Season</h2>
               <EraBadge coverage={book.seasonCoverage} />
@@ -85,6 +94,7 @@ export default async function RecordsPage() {
                   record={r}
                   members={members}
                   format={FORMAT[r.key] ?? points}
+                  list={lists[r.key]}
                   showEra={r.coverage.from !== book.seasonCoverage.from}
                 />
               ))}
@@ -95,7 +105,7 @@ export default async function RecordsPage() {
             */}
           </section>
 
-          <section>
+          <section className="min-w-0">
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
               <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">Career</h2>
               <EraBadge coverage={book.seasonCoverage} />
@@ -138,6 +148,8 @@ export default async function RecordsPage() {
           </section>
         </div>
 
+        <PlayerRecordsSection book={playerBook} members={members} />
+
         <section className="mt-10">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
             <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
@@ -154,6 +166,7 @@ export default async function RecordsPage() {
                 review={r}
                 members={members}
                 pickups={pickups.get(r.season) ?? []}
+                origin={origins.find((o) => o.season === r.season)?.rows ?? []}
               />
             ))}
           </div>
