@@ -1,6 +1,9 @@
 import { managerColor } from '@/lib/colors'
 import type { HistoryMember, SeasonReview } from '@/lib/history'
 import type { BestPickup } from '@/server/history-service'
+import type { RosterOrigin } from '@/lib/roster-origin'
+import { EraBadge } from '@/components/history/EraBadge'
+import { RosterOriginChart } from '@/components/history/RosterOriginChart'
 
 /**
  * One season at a glance.
@@ -38,11 +41,14 @@ export function SeasonReviewCard({
   review,
   members,
   pickups = [],
+  origin = [],
 }: {
   review: SeasonReview
   members: HistoryMember[]
   /** Best players nobody rostered in week 1. Empty before the weekly era. */
   pickups?: BestPickup[]
+  /** Where each manager's started points came from. Empty before an auction and weekly data coexist. */
+  origin?: RosterOrigin[]
 }) {
   const r = review
   const place = (v: number | null) => <Who id={v} members={members} />
@@ -61,7 +67,7 @@ export function SeasonReviewCard({
     )
 
   return (
-    <section className="border border-rule p-3">
+    <section className="min-w-0 border border-rule p-3">
       <header className="mb-2 flex items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5">
         <h3 className="font-display text-base font-bold tracking-[0.06em]">{r.season}</h3>
         {r.city && (
@@ -127,6 +133,18 @@ export function SeasonReviewCard({
         claimed by another is a trade of sorts; a player nobody owned is a find.
         Ranked by points STARTED, because points on your bench won nothing.
       */}
+      {origin.length > 0 && (
+        <div className="mt-2 border-t border-rule pt-2">
+          <h4 className="mb-1 flex flex-wrap items-baseline justify-between gap-2 font-display text-[0.6rem] uppercase tracking-[0.12em] text-slate-500">
+            How the roster was built
+            <EraBadge
+              coverage={{ from: r.season, to: r.season, seasons: [r.season], label: 'Auction + weekly' }}
+            />
+          </h4>
+          <RosterOriginChart origin={origin} members={members} />
+        </div>
+      )}
+
       {pickups.length > 0 && (
         <div className="mt-2 border-t border-rule pt-2">
           <h4 className="mb-1 font-display text-[0.6rem] uppercase tracking-[0.12em] text-slate-500">

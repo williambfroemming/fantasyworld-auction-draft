@@ -33,6 +33,7 @@ import {
   leagueSummary,
   memberProfile,
   records,
+  recordLists,
   regularSeasonWeekKeys,
   seasonInReview,
   type HistoryPick,
@@ -46,6 +47,8 @@ import {
   type PositionalScorecard,
   type StarterRow,
 } from '@/lib/positional'
+import { playerRecords, type PlayerRecordBook } from '@/lib/player-records'
+import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import type { StatsTrade } from '@/lib/stats'
@@ -320,7 +323,7 @@ export async function getChampionshipLineup(season: number): Promise<Championshi
 
 export async function getRecordBook() {
   const input = await getHistoryInput()
-  return { book: records(input), members: input.members }
+  return { book: records(input), lists: recordLists(input), members: input.members }
 }
 
 /**
@@ -1405,4 +1408,104 @@ export async function getPositionalScorecards(
     )
     return positionalScorecard(starters, season, keys)
   })
+}
+
+/**
+ * How each season's started points were built, per manager (step 52). Regular season,
+ * complete weeks only: the same week keys as the positional scorecard, so a manager's four
+ * parts add up to the team score the rest of the site prints. 2021 on in practice (a season
+ * needs both an auction and weekly data); 2020 comes back empty rather than all "addedLater".
+ */
+export async function getRosterOrigins(): Promise<Array<{ season: number; rows: RosterOrigin[] }>> {
+  const sql = getSql()
+  const [input, weekRows, pickRows, tradeRows] = await Promise.all([
+    getHistoryInput(),
+    sql`SELECT season, week, manager_id, player_id, points
+          FROM player_weeks WHERE is_starter ORDER BY season, week`,
+    sql`SELECT id, season, manager_id, player_sleeper_id FROM picks`,
+    sql`SELECT id, created_at, manager_a_id, manager_b_id, picks_a_to_b, picks_b_to_a
+          FROM trades ORDER BY created_at`,
+  ])
+  const rows = weekRows.map((r) => ({
+    season: Number(r.season),
+    week: Number(r.week),
+    managerId: Number(r.manager_id),
+    playerId: String(r.player_id),
+    isStarter: true,
+    points: num(r.points),
+  }))
+  const picks = pickRows.map((r) => ({
+    id: Number(r.id),
+    season: Number(r.season),
+    managerId: Number(r.manager_id),
+    sleeperId: r.player_sleeper_id === null ? null : String(r.player_sleeper_id),
+  }))
+  const trades: StatsTrade[] = tradeRows.map((r) => ({
+    id: Number(r.id),
+    createdAt: new Date(r.created_at as string).toISOString(),
+    managerAId: Number(r.manager_a_id),
+    managerBId: Number(r.manager_b_id),
+    players: [
+      ...((r.picks_a_to_b as number[]) ?? []).map((id) => ({
+        pickId: Number(id),
+        toManagerId: Number(r.manager_b_id),
+      })),
+      ...((r.picks_b_to_a as number[]) ?? []).map((id) => ({
+        pickId: Number(id),
+        toManagerId: Number(r.manager_a_id),
+      })),
+    ],
+  }))
+
+  const regular = regularSeasonWeekKeys(input.matchups)
+  const auctioned = new Set(picks.map((p) => p.season))
+  const seasons = [...new Set(rows.map((r) => r.season))]
+    .filter((s) => auctioned.has(s))
+    .sort((a, b) => b - a)
+  return seasons.map((season) => {
+    const complete = new Set(
+      completeWeeks(input.matchups, season).complete.map(([week]) => `${season}:${week}`),
+    )
+    const keys = new Set([...regular].filter((k) => complete.has(k)))
+    return { season, rows: rosterOrigin(rows, picks, trades, season, keys) }
+  })
+}
+
+/**
+ * The player record book (step 55): rostered players, regular season, complete weeks, 2020 on.
+ * Same week keys as the positional scorecard and roster origin, so every page agrees about
+ * which weeks count.
+ */
+export async function getPlayerRecords(): Promise<PlayerRecordBook> {
+  const sql = getSql()
+  const [input, rows] = await Promise.all([
+    getHistoryInput(),
+    sql`SELECT season, week, manager_id, player_id, player_name, position, is_starter, points
+          FROM player_weeks ORDER BY season, week, manager_id, player_id`,
+  ])
+  const regular = regularSeasonWeekKeys(input.matchups)
+  const complete = new Set<string>()
+  for (const season of new Set(rows.map((r) => Number(r.season)))) {
+    for (const [week] of completeWeeks(input.matchups, season).complete) complete.add(`${season}:${week}`)
+  }
+  const keys = new Set([...regular].filter((k) => complete.has(k)))
+  return playerRecords(
+    rows.map((r) => ({
+      season: Number(r.season),
+      week: Number(r.week),
+      managerId: Number(r.manager_id),
+      playerId: String(r.player_id),
+      playerName: (r.player_name as string | null) ?? null,
+      position: (r.position as string | null) ?? null,
+      isStarter: Boolean(r.is_starter),
+      points: num(r.points),
+    })),
+    input.matchups.map((m) => ({
+      season: m.season,
+      week: m.week,
+      managerId: m.managerId,
+      result: m.result,
+    })),
+    keys,
+  )
 }

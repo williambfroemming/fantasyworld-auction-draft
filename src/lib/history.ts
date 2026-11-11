@@ -759,6 +759,175 @@ export function longestStreaks(matchups: HistoryMatchup[]): {
   return { wins, losses }
 }
 
+/** One record's candidates, best first. `items[0]` is the holder. */
+interface Ranked {
+  key: string
+  label: string
+  items: Extreme[]
+  coverage: Coverage
+}
+
+/** Sort candidates best first. The sort is stable, so a tie keeps the earliest: one holder. */
+function rank<T>(
+  rows: T[],
+  by: (r: T) => number,
+  prefer: 'max' | 'min',
+  toExtreme: (r: T) => Extreme,
+): Extreme[] {
+  return rows
+    .map((r) => ({ v: by(r), r }))
+    .sort((a, b) => (prefer === 'max' ? b.v - a.v : a.v - b.v))
+    .map((x) => toExtreme(x.r))
+}
+
+/** Every run of wins and of losses, one best run per manager-season. Same walk as {@link longestStreaks}. */
+function streakRuns(matchups: HistoryMatchup[]): { wins: Extreme[]; losses: Extreme[] } {
+  const groups = new Map<string, HistoryMatchup[]>()
+  for (const m of matchups) {
+    if (m.isPlayoff) continue
+    const key = `${m.season}:${m.managerId}`
+    const list = groups.get(key) ?? []
+    list.push(m)
+    groups.set(key, list)
+  }
+  const wins: Extreme[] = []
+  const losses: Extreme[] = []
+  for (const [, games] of groups) {
+    games.sort((a, b) => a.week - b.week)
+    let runW = 0
+    let runL = 0
+    let bestW: Extreme | null = null
+    let bestL: Extreme | null = null
+    for (const g of games) {
+      runW = g.result === 'W' ? runW + 1 : 0
+      runL = g.result === 'L' ? runL + 1 : 0
+      const shared = { managerId: g.managerId, season: g.season, week: g.week, opponentManagerId: null }
+      if (runW > (bestW?.value ?? 0)) bestW = { ...shared, value: runW, detail: `${runW} straight` }
+      if (runL > (bestL?.value ?? 0)) bestL = { ...shared, value: runL, detail: `${runL} straight` }
+    }
+    if (bestW) wins.push(bestW)
+    if (bestL) losses.push(bestL)
+  }
+  return { wins, losses }
+}
+
+/**
+ * Every single-game and season record, with ALL its candidates ranked. `records()` takes
+ * the first of each; `recordLists()` takes the first ten. One source, so the holder shown
+ * on the record is always entry one of its list.
+ */
+function recordRankings(
+  input: HistoryInput,
+  ctx: { finished: HistoryStanding[]; gameCoverage: Coverage; seasonCoverage: Coverage },
+): { games: Ranked[]; seasons: Ranked[] } {
+  const { matchups } = input
+  const { finished, gameCoverage, seasonCoverage } = ctx
+  const regular = matchups.filter((m) => !m.isPlayoff)
+  const playoff = matchups.filter(isCountedPlayoff)
+
+  const asExtreme = (m: HistoryMatchup, value: number): Extreme => ({
+    value,
+    managerId: m.managerId,
+    season: m.season,
+    week: m.week,
+    opponentManagerId: m.opponentManagerId,
+    detail: null,
+  })
+  // A margin is only a "win by" from the winner's side; taking it from both
+  // sides would make every blowout also the smallest loss.
+  const wonRegular = regular.filter((m) => m.result === 'W')
+  const wonPlayoff = playoff.filter((m) => m.result === 'W')
+  const score = (m: HistoryMatchup) => asExtreme(m, m.points)
+  const margin = (m: HistoryMatchup) => asExtreme(m, m.points - m.opponentPoints)
+  const game = (key: string, label: string, items: Extreme[]): Ranked => ({
+    key, label, items, coverage: gameCoverage,
+  })
+
+  const games: Ranked[] = [
+    game('highScore', 'Highest score, regular season', rank(regular, (r) => r.points, 'max', score)),
+    game('lowScore', 'Lowest score, regular season', rank(regular, (r) => r.points, 'min', score)),
+    game('highPlayoffScore', 'Highest score, playoffs', rank(playoff, (r) => r.points, 'max', score)),
+    game('lowPlayoffScore', 'Lowest score, playoffs', rank(playoff, (r) => r.points, 'min', score)),
+    game('biggestBlowout', 'Biggest blowout, regular season',
+      rank(wonRegular, (r) => r.points - r.opponentPoints, 'max', margin)),
+    game('closestGame', 'Narrowest win, regular season',
+      rank(wonRegular, (r) => r.points - r.opponentPoints, 'min', margin)),
+    game('biggestPlayoffBlowout', 'Biggest blowout, playoffs',
+      rank(wonPlayoff, (r) => r.points - r.opponentPoints, 'max', margin)),
+    game('closestPlayoffGame', 'Narrowest win, playoffs',
+      rank(wonPlayoff, (r) => r.points - r.opponentPoints, 'min', margin)),
+  ]
+
+  const toExtreme = (s: HistoryStanding, value: number, display?: string): Extreme => ({
+    value,
+    managerId: s.managerId,
+    season: s.season,
+    week: null,
+    opponentManagerId: null,
+    detail: null,
+    display: display ?? null,
+  })
+  const withPoints = finished.filter((s) => s.pointsFor !== null)
+  const withAgainst = finished.filter((s) => s.pointsAgainst !== null)
+  // ⚠️ Ranked by win PERCENTAGE, not by wins minus losses. The league played
+  // 13-game seasons through 2020 and 14 from 2021, so a margin comparison
+  // quietly favours the longer seasons: 12-2 (.857) would beat 11-2 (.846) on
+  // percentage and also on margin, but 12-3 (.800) would beat 11-2 on margin
+  // alone despite being the worse season.
+  // ⚠️ A rate over a finished season only. One game into a new year a 1-0 is
+  // 1.000 and a 0-1 is .000, and both beat anything a full season can do.
+  const played = finished.filter((r) => r.wins + r.losses + r.ties > 0)
+  const pct = (r: HistoryStanding) => r.wins / (r.wins + r.losses + r.ties)
+  const record = (s: HistoryStanding) => toExtreme(s, s.wins, `${s.wins}-${s.losses}`)
+  const season = (key: string, label: string, items: Extreme[], coverage = seasonCoverage): Ranked => ({
+    key, label, items, coverage,
+  })
+  const streaks = streakRuns(matchups)
+
+  return {
+    games,
+    seasons: [
+      season('mostPointsSeason', 'Most points in a season',
+        rank(withPoints, (r) => r.pointsFor!, 'max', (s) => toExtreme(s, s.pointsFor!))),
+      season('fewestPointsSeason', 'Fewest points in a season',
+        rank(withPoints, (r) => r.pointsFor!, 'min', (s) => toExtreme(s, s.pointsFor!))),
+      season('mostPointsAgainstSeason', 'Most points against in a season',
+        rank(withAgainst, (r) => r.pointsAgainst!, 'max', (s) => toExtreme(s, s.pointsAgainst!))),
+      season('bestRecord', 'Best regular-season record', rank(played, pct, 'max', record)),
+      season('worstRecord', 'Worst regular-season record', rank(played, pct, 'min', record)),
+      season('longestWinStreak', 'Longest winning streak',
+        rank(streaks.wins, (e) => e.value, 'max', (e) => e), gameCoverage),
+      season('longestLossStreak', 'Longest losing streak',
+        rank(streaks.losses, (e) => e.value, 'max', (e) => e), gameCoverage),
+    ],
+  }
+}
+
+/**
+ * The top ten behind every single-game and season record, keyed like `records()`.
+ * Entry one of each list is the record's own holder (a test asserts it for every key).
+ * Careers are not listed: they are one row per manager already.
+ */
+export function recordLists(input: HistoryInput, top = 10): Record<string, RecordEntry[]> {
+  const finished = completedStandings(input.standings, input.seasons)
+  const gameCoverage = coverageFor(input.seasons, ['weekly'], 'since Sleeper', playedSeasons(input.matchups))
+  const seasonCoverage = coverageFor(
+    input.seasons,
+    ['standings', 'weekly'],
+    'all-time',
+    playedSeasons(finished),
+  )
+  const ranked = recordRankings(input, { finished, gameCoverage, seasonCoverage })
+  const out: Record<string, RecordEntry[]> = {}
+  for (const r of [...ranked.games, ...ranked.seasons]) {
+    out[r.key] = r.items
+      .slice(0, top)
+      .map((e) => entry(r.key, r.label, e, r.coverage))
+      .filter((e): e is RecordEntry => e !== null)
+  }
+  return out
+}
+
 /**
  * Every record the league can currently answer, each carrying its own span.
  *
@@ -788,107 +957,17 @@ export function records(input: HistoryInput): RecordBook {
     playedSeasons(finished),
   )
 
-  const regular = matchups.filter((m) => !m.isPlayoff)
-  const playoff = matchups.filter(isCountedPlayoff)
-
-  const asExtreme = (m: HistoryMatchup, value: number, detail?: string): Extreme => ({
-    value,
-    managerId: m.managerId,
-    season: m.season,
-    week: m.week,
-    opponentManagerId: m.opponentManagerId,
-    detail: detail ?? null,
-  })
-
-  // A margin is only a "win by" from the winner's side; taking it from both
-  // sides would make every blowout also the smallest loss.
-  const wonRegular = regular.filter((m) => m.result === 'W')
-  const wonPlayoff = playoff.filter((m) => m.result === 'W')
-
-  const games = [
-    entry('highScore', 'Highest score, regular season',
-      (() => { const m = best(regular, (r) => r.points, 'max'); return m ? asExtreme(m, m.points) : null })(),
-      gameCoverage),
-    entry('lowScore', 'Lowest score, regular season',
-      (() => { const m = best(regular, (r) => r.points, 'min'); return m ? asExtreme(m, m.points) : null })(),
-      gameCoverage),
-    entry('highPlayoffScore', 'Highest score, playoffs',
-      (() => { const m = best(playoff, (r) => r.points, 'max'); return m ? asExtreme(m, m.points) : null })(),
-      gameCoverage),
-    entry('lowPlayoffScore', 'Lowest score, playoffs',
-      (() => { const m = best(playoff, (r) => r.points, 'min'); return m ? asExtreme(m, m.points) : null })(),
-      gameCoverage),
-    entry('biggestBlowout', 'Biggest blowout, regular season',
-      (() => {
-        const m = best(wonRegular, (r) => r.points - r.opponentPoints, 'max')
-        return m ? asExtreme(m, m.points - m.opponentPoints) : null
-      })(), gameCoverage),
-    entry('closestGame', 'Narrowest win, regular season',
-      (() => {
-        const m = best(wonRegular, (r) => r.points - r.opponentPoints, 'min')
-        return m ? asExtreme(m, m.points - m.opponentPoints) : null
-      })(), gameCoverage),
-    entry('biggestPlayoffBlowout', 'Biggest blowout, playoffs',
-      (() => {
-        const m = best(wonPlayoff, (r) => r.points - r.opponentPoints, 'max')
-        return m ? asExtreme(m, m.points - m.opponentPoints) : null
-      })(), gameCoverage),
-    entry('closestPlayoffGame', 'Narrowest win, playoffs',
-      (() => {
-        const m = best(wonPlayoff, (r) => r.points - r.opponentPoints, 'min')
-        return m ? asExtreme(m, m.points - m.opponentPoints) : null
-      })(), gameCoverage),
-  ].filter((e): e is RecordEntry => e !== null)
+  const ranked = recordRankings(input, { finished, gameCoverage, seasonCoverage })
+  const toEntries = (list: Ranked[]) =>
+    list
+      .map((r) => entry(r.key, r.label, r.items[0] ?? null, r.coverage))
+      .filter((e): e is RecordEntry => e !== null)
+  const games = toEntries(ranked.games)
 
   // --- season-level ---------------------------------------------------------
   // `finished`, not `standings`: a season in progress is not a season.
   const withPoints = finished.filter((s) => s.pointsFor !== null)
-  const toExtreme = (s: HistoryStanding, value: number, detail?: string): Extreme => ({
-    value,
-    managerId: s.managerId,
-    season: s.season,
-    week: null,
-    opponentManagerId: null,
-    detail: detail ?? null,
-  })
-
-  const streaks = longestStreaks(matchups)
-
-  const seasonRecords = [
-    entry('mostPointsSeason', 'Most points in a season',
-      (() => { const s = best(withPoints, (r) => r.pointsFor!, 'max'); return s ? toExtreme(s, s.pointsFor!) : null })(),
-      seasonCoverage),
-    entry('fewestPointsSeason', 'Fewest points in a season',
-      (() => { const s = best(withPoints, (r) => r.pointsFor!, 'min'); return s ? toExtreme(s, s.pointsFor!) : null })(),
-      seasonCoverage),
-    entry('mostPointsAgainstSeason', 'Most points against in a season',
-      (() => {
-        const rows = finished.filter((s) => s.pointsAgainst !== null)
-        const s = best(rows, (r) => r.pointsAgainst!, 'max')
-        return s ? toExtreme(s, s.pointsAgainst!) : null
-      })(), seasonCoverage),
-    // ⚠️ Ranked by win PERCENTAGE, not by wins minus losses. The league played
-    // 13-game seasons through 2020 and 14 from 2021, so a margin comparison
-    // quietly favours the longer seasons: 12-2 (.857) would beat 11-2 (.846) on
-    // percentage and also on margin, but 12-3 (.800) would beat 11-2 on margin
-    // alone despite being the worse season.
-    // ⚠️ A rate over a finished season only. One game into a new year a 1-0 is
-    // 1.000 and a 0-1 is .000, and both beat anything a full season can do.
-    entry('bestRecord', 'Best regular-season record',
-      (() => {
-        const rows = finished.filter((r) => r.wins + r.losses + r.ties > 0)
-        const s = best(rows, (r) => r.wins / (r.wins + r.losses + r.ties), 'max')
-        return s ? { ...toExtreme(s, s.wins), display: `${s.wins}-${s.losses}` } : null
-      })(), seasonCoverage),
-    entry('worstRecord', 'Worst regular-season record',
-      (() => {
-        const rows = finished.filter((r) => r.wins + r.losses + r.ties > 0)
-        const s = best(rows, (r) => r.wins / (r.wins + r.losses + r.ties), 'min')
-        return s ? { ...toExtreme(s, s.wins), display: `${s.wins}-${s.losses}` } : null
-      })(), seasonCoverage),
-    entry('longestWinStreak', 'Longest winning streak', streaks.wins, gameCoverage),
-    entry('longestLossStreak', 'Longest losing streak', streaks.losses, gameCoverage),
-  ].filter((e): e is RecordEntry => e !== null)
+  const seasonRecords = toEntries(ranked.seasons)
 
   // --- careers --------------------------------------------------------------
   const byManager = new Map<number, HistoryStanding[]>()
