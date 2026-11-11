@@ -54,6 +54,27 @@ export interface PlayoffOddsRow {
   remainingSos: number | null
   /** The team's own rating — the per-week score the simulation expects. */
   rating: number
+  /**
+   * Share of simulations finishing in each seed, index 0 = first. Sums to 1, and its
+   * first `playoffTeams` entries sum to `playoffPct`.
+   */
+  seedPct: number[]
+  /**
+   * Playoff odds given the result of their NEXT scheduled game: among simulations where
+   * they won it, and among those where they lost it. Null when no game remains, or when
+   * one of the two never happened in the sample (there is nothing to condition on).
+   *
+   * ⚠️ This is the difference between two observed groups, not a causal effect: a win is
+   * also evidence the team is good, so it overstates what the single game is worth. It
+   * answers "how much better does the picture look if they win", which is the question
+   * people ask.
+   */
+  leverage: { ifWin: number; ifLose: number } | null
+  /**
+   * 0–1. Won the championship, playing the bracket out with the same rating model.
+   * Zero for a team that never makes the playoffs.
+   */
+  titlePct: number
 }
 
 export interface PlayoffOdds {
@@ -96,6 +117,57 @@ function normal(rand: () => number) {
 export function byesFor(teams: number) {
   if (teams <= 1) return 0
   return 2 ** Math.ceil(Math.log2(teams)) - teams
+}
+
+/**
+ * Seeds in fixed-bracket order: [1, 8, 4, 5, 2, 7, 3, 6] for eight. Adjacent entries
+ * meet in round one and winners keep pairing off adjacently, so seed 1 meets the winner
+ * of 4-vs-5 and seed 2 the winner of 3-vs-6.
+ *
+ * Fixed, NOT re-seeded: checked against data/sleeper/2025/winners_bracket.json, where the
+ * top seed played the winner of the 4-5 game (a 5 seed) rather than the lowest seed left
+ * (a 6). Re-seeding would have put them against the 6.
+ */
+export function bracketOrder(size: number): number[] {
+  let order = [1]
+  while (order.length < size) {
+    const n = order.length * 2
+    order = order.flatMap((seed) => [seed, n + 1 - seed])
+  }
+  return order
+}
+
+/**
+ * Play one bracket out and return the champion's index. `seeded[k]` is the team index
+ * holding seed k + 1. A seed beyond the field is a bye; a top seed with no opponent just
+ * advances. Each game is the same model as the regular season: two draws around each
+ * team's simulated true rating.
+ */
+function playBracket(
+  seeded: number[],
+  field: number,
+  truth: Float64Array,
+  sigma: number,
+  rand: () => number,
+): number {
+  const size = 2 ** Math.ceil(Math.log2(Math.max(1, field)))
+  let slots = bracketOrder(size).map((seed) => (seed <= field ? seeded[seed - 1] : -1))
+  while (slots.length > 1) {
+    const next: number[] = []
+    for (let k = 0; k < slots.length; k += 2) {
+      const a = slots[k]
+      const b = slots[k + 1]
+      if (a === -1) next.push(b)
+      else if (b === -1) next.push(a)
+      else {
+        const pa = truth[a] + sigma * normal(rand)
+        const pb = truth[b] + sigma * normal(rand)
+        next.push(pa >= pb ? a : b)
+      }
+    }
+    slots = next
+  }
+  return slots[0]
 }
 
 /**
@@ -173,12 +245,23 @@ export function playoffOdds(input: {
 
   // --- the games left, as index pairs, each played once -----------------------
   const fixtures: Array<[number, number]> = []
+  const fixtureWeek: number[] = []
   for (const g of remaining) {
     const a = index.get(g.managerId)
     const b = index.get(g.opponentManagerId)
     if (a === undefined || b === undefined) continue
-    if (a < b) fixtures.push([a, b])
+    if (a < b) {
+      fixtures.push([a, b])
+      fixtureWeek.push(g.week)
+    }
   }
+  // Each team's next game: the fixture they play in the earliest remaining week.
+  const nextFixture = new Int32Array(n).fill(-1)
+  fixtures.forEach(([a, b], f) => {
+    for (const i of [a, b]) {
+      if (nextFixture[i] === -1 || fixtureWeek[f] < fixtureWeek[nextFixture[i]]) nextFixture[i] = f
+    }
+  })
   const opponents: number[][] = ids.map(() => [])
   for (const [a, b] of fixtures) {
     opponents[a].push(b)
@@ -196,22 +279,42 @@ export function playoffOdds(input: {
   const truth = new Float64Array(n)
   const order = ids.map((_, i) => i)
 
+  // Observation-only state for seeds, leverage and the title. None of it draws from `rand`.
+  const seedCount = new Float64Array(n * n)
+  const outcome = new Int8Array(fixtures.length)
+  const winSims = new Float64Array(n)
+  const loseSims = new Float64Array(n)
+  const madeWin = new Float64Array(n)
+  const madeLose = new Float64Array(n)
+  const titles = new Float64Array(n)
+  const field = Math.min(playoffTeams, n)
+  // The bracket gets its own generator. It plays AFTER the regular season in every
+  // simulation, and must never touch `rand`: the regular-season stream is what makes
+  // playoffPct, byePct and projectedWins what they have always been.
+  const bracketRand = rng((season * 100 + throughWeek) ^ 0x5bd1e995)
+
   for (let s = 0; s < simulations; s++) {
     for (let i = 0; i < n; i++) {
       simWins[i] = wins[i]
       simPf[i] = pf[i]
       truth[i] = rating[i] + ratingSd[i] * normal(rand)
     }
-    for (const [a, b] of fixtures) {
+    for (let f = 0; f < fixtures.length; f++) {
+      const [a, b] = fixtures[f]
       const pa = truth[a] + sigma * normal(rand)
       const pb = truth[b] + sigma * normal(rand)
       simPf[a] += pa
       simPf[b] += pb
-      if (pa > pb) simWins[a]++
-      else if (pb > pa) simWins[b]++
-      else {
+      if (pa > pb) {
+        simWins[a]++
+        outcome[f] = 1
+      } else if (pb > pa) {
+        simWins[b]++
+        outcome[f] = -1
+      } else {
         simWins[a] += 0.5
         simWins[b] += 0.5
+        outcome[f] = 0
       }
     }
     order.sort((x, y) => simWins[y] - simWins[x] || simPf[y] - simPf[x])
@@ -219,8 +322,27 @@ export function playoffOdds(input: {
       const i = order[seed]
       if (seed < playoffTeams) made[i]++
       if (seed < byes) bye[i]++
+      seedCount[i * n + seed]++
     }
     for (let i = 0; i < n; i++) winTotal[i] += simWins[i]
+
+    // Leverage: did they make it, split by how their next game went.
+    for (let seed = 0; seed < n; seed++) {
+      const i = order[seed]
+      const f = nextFixture[i]
+      if (f === -1 || outcome[f] === 0) continue
+      const won = outcome[f] === (fixtures[f][0] === i ? 1 : -1)
+      const inField = seed < playoffTeams
+      if (won) {
+        winSims[i]++
+        if (inField) madeWin[i]++
+      } else {
+        loseSims[i]++
+        if (inField) madeLose[i]++
+      }
+    }
+
+    titles[playBracket(order, field, truth, sigma, bracketRand)]++
   }
 
   const round = (x: number, dp: number) => Number(x.toFixed(dp))
@@ -233,6 +355,12 @@ export function playoffOdds(input: {
       ? round(opponents[i].reduce((s, j) => s + rating[j], 0) / opponents[i].length, 1)
       : null,
     rating: round(rating[i], 1),
+    seedPct: Array.from({ length: n }, (_, seed) => seedCount[i * n + seed] / simulations),
+    leverage:
+      nextFixture[i] === -1 || winSims[i] === 0 || loseSims[i] === 0
+        ? null
+        : { ifWin: madeWin[i] / winSims[i], ifLose: madeLose[i] / loseSims[i] },
+    titlePct: titles[i] / simulations,
   }))
   rows.sort((a, b) => b.playoffPct - a.playoffPct || b.byePct - a.byePct || b.projectedWins - a.projectedWins)
 

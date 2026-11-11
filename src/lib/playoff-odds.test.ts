@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { byesFor, formatOdds, playoffOdds, type ScheduledGame } from './playoff-odds'
+import baseline from './__fixtures__/playoff-odds-baseline.json'
+import {
+  bracketOrder,
+  byesFor,
+  formatOdds,
+  playoffOdds,
+  type ScheduledGame,
+} from './playoff-odds'
 import type { HistoryMatchup } from './history'
 
 /**
@@ -143,6 +150,152 @@ describe('playoffOdds', () => {
     const easy = run([1, 2, 3, 1, 2, 3, 1, 2, 3])
     expect(hard.remainingSos!).toBeGreaterThan(easy.remainingSos!)
     expect(hard.playoffPct).toBeLessThan(easy.playoffPct)
+  })
+})
+
+/**
+ * Steps 48-49 added seeds, leverage and the title to the same simulation. The hard rule:
+ * the numbers people already read (playoffPct, byePct, projectedWins) must not move by
+ * a single bit, which means the regular-season random stream must see exactly the same
+ * draws in the same order.
+ *
+ * `__fixtures__/playoff-odds-baseline.json` was captured from the code BEFORE any of it
+ * was written. If this test fails, someone added, removed or reordered a draw on the
+ * main stream, or changed the sort — do not "update the snapshot" without understanding
+ * why, because every published odds figure just changed.
+ */
+describe('existing outputs are bit-for-bit unchanged', () => {
+  const cases: Array<[keyof typeof baseline, number, number, number]> = [
+    ['w4', 4, 4000, 6],
+    ['w9', 9, 4000, 6],
+    ['w13', 13, 4000, 6],
+    ['w6_4teams', 6, 3000, 4],
+  ]
+  for (const [key, through, simulations, playoffTeams] of cases) {
+    it(`matches the pre-change snapshot: ${key}`, () => {
+      const r = odds(through, { simulations, playoffTeams })
+      const want = baseline[key]
+      expect(r.throughWeek).toBe(want.throughWeek)
+      expect(r.remainingWeeks).toBe(want.remainingWeeks)
+      expect(r.byes).toBe(want.byes)
+      expect(r.rows.map((x) => x.managerId)).toEqual(want.rows.map((x) => x.managerId)) // order too
+      for (const [i, row] of r.rows.entries()) {
+        const w = want.rows[i]
+        expect(row.playoffPct).toBe(w.playoffPct)
+        expect(row.byePct).toBe(w.byePct)
+        expect(row.projectedWins).toBe(w.projectedWins)
+        expect(row.remainingSos).toBe(w.remainingSos)
+        expect(row.rating).toBe(w.rating)
+      }
+    })
+  }
+})
+
+describe('seed distribution', () => {
+  const r = odds(9)
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
+
+  it('has one entry per seed and sums to 1 for every manager', () => {
+    for (const row of r.rows) {
+      expect(row.seedPct).toHaveLength(10)
+      expect(sum(row.seedPct)).toBeCloseTo(1, 12)
+    }
+  })
+
+  it('first playoffTeams entries sum to playoffPct, and the byes to byePct', () => {
+    for (const row of r.rows) {
+      expect(sum(row.seedPct.slice(0, r.playoffTeams))).toBeCloseTo(row.playoffPct, 12)
+      expect(sum(row.seedPct.slice(0, r.byes))).toBeCloseTo(row.byePct, 12)
+    }
+  })
+
+  it('gives every seed to exactly one team per simulation, so each seed sums to 1 across the league', () => {
+    for (let seed = 0; seed < 10; seed++) {
+      expect(sum(r.rows.map((x) => x.seedPct[seed]))).toBeCloseTo(1, 12)
+    }
+  })
+})
+
+describe('leverage', () => {
+  it('a win is never worth less than a loss', () => {
+    for (const row of odds(9).rows) {
+      expect(row.leverage).not.toBeNull()
+      expect(row.leverage!.ifWin).toBeGreaterThanOrEqual(row.leverage!.ifLose)
+    }
+  })
+
+  it('is worth the most to a team on the bubble, and almost nothing to one that is out of reach', () => {
+    const rows = odds(9).rows
+    const swing = (id: number) => {
+      const l = rows.find((x) => x.managerId === id)!.leverage!
+      return l.ifWin - l.ifLose
+    }
+    expect(swing(5)).toBeGreaterThan(swing(10)) // a lock has little to gain
+    expect(swing(5)).toBeGreaterThan(swing(1)) // neither does a team already gone
+  })
+
+  it('is null once there is no game left to play', () => {
+    for (const row of odds(14).rows) expect(row.leverage).toBeNull()
+  })
+
+  it('stays inside 0..1', () => {
+    for (const row of odds(6).rows) {
+      expect(row.leverage!.ifWin).toBeLessThanOrEqual(1)
+      expect(row.leverage!.ifLose).toBeGreaterThanOrEqual(0)
+    }
+  })
+})
+
+describe('title odds', () => {
+  it('sum to 1 across the league', () => {
+    for (const through of [4, 9, 13]) {
+      expect(odds(through).rows.reduce((a, x) => a + x.titlePct, 0)).toBeCloseTo(1, 12)
+    }
+  })
+
+  it('are zero for a team that cannot make the playoffs, and never exceed playoffPct', () => {
+    const r = odds(13)
+    const out = r.rows.find((x) => x.playoffPct === 0)!
+    expect(out).toBeDefined()
+    expect(out.titlePct).toBe(0)
+    for (const row of r.rows) expect(row.titlePct).toBeLessThanOrEqual(row.playoffPct + 1e-12)
+  })
+
+  it('favour the best team, and a bye is worth something', () => {
+    const rows = odds(9).rows
+    const best = rows.find((x) => x.managerId === 10)!
+    expect(rows.every((x) => x.titlePct <= best.titlePct)).toBe(true)
+    // A team with a real chance at a bye wins the title more often than one that is
+    // always a low seed, at the same strength.
+    expect(best.titlePct).toBeGreaterThan(rows.find((x) => x.managerId === 7)!.titlePct)
+  })
+
+  it('are deterministic: a reload gives the same numbers', () => {
+    expect(odds(9).rows.map((x) => x.titlePct)).toEqual(odds(9).rows.map((x) => x.titlePct))
+  })
+
+  it('work for a four-team field with no byes', () => {
+    const r = odds(6, { playoffTeams: 4 })
+    expect(r.byes).toBe(0)
+    expect(r.rows.reduce((a, x) => a + x.titlePct, 0)).toBeCloseTo(1, 12)
+  })
+})
+
+describe('bracketOrder', () => {
+  it('lays seeds out as a fixed bracket', () => {
+    expect(bracketOrder(1)).toEqual([1])
+    expect(bracketOrder(2)).toEqual([1, 2])
+    expect(bracketOrder(4)).toEqual([1, 4, 2, 3])
+    expect(bracketOrder(8)).toEqual([1, 8, 4, 5, 2, 7, 3, 6])
+  })
+
+  it('is NOT re-seeded: seed 1 meets the winner of 4 v 5, seed 2 the winner of 3 v 6', () => {
+    // Adjacent slots meet. With two byes (seeds 7 and 8 absent), round two is
+    // [W(1 v bye), W(4 v 5)] and [W(2 v bye), W(3 v 6)] — as Sleeper played 2025, where the
+    // top seed drew the 5 seed rather than the lowest seed left.
+    const o = bracketOrder(8)
+    expect(o.slice(0, 4)).toEqual([1, 8, 4, 5])
+    expect(o.slice(4)).toEqual([2, 7, 3, 6])
   })
 })
 

@@ -4,6 +4,7 @@ import { formatOdds, type PlayoffOdds } from '@/lib/playoff-odds'
 import type { SeasonSoFar } from '@/lib/season-so-far'
 import { MIN_SAMPLE, recordCell, type RecordPaths } from '@/lib/record-paths'
 import { managerColor } from '@/lib/colors'
+import { GlossaryLink } from '../GlossaryLink'
 
 /**
  * Who is getting in: the rest of the regular season, simulated.
@@ -33,11 +34,16 @@ export function PlayoffOddsPanel({
   const byId = new Map(members.map((m) => [m.managerId, m]))
   const record = new Map(report.rows.map((r) => [r.managerId, r]))
   const pct = (p: number) => formatOdds(p, odds.remainingWeeks)
+  // The leverage column only exists while a game remains to be played.
+  const hasLeverage = odds.rows.some((r) => r.leverage !== null)
 
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
-        <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">Playoff odds</h2>
+        <h2 className="flex items-baseline gap-2 font-display text-sm font-bold uppercase tracking-[0.1em]">
+          Playoff odds
+          <GlossaryLink anchor="playoff-odds" label="playoff odds" />
+        </h2>
         {since !== null && (
           <Link href="/history/by-week" className="text-xs text-amber-300 hover:underline">
             How have teams at this record done? →
@@ -56,7 +62,8 @@ export function PlayoffOddsPanel({
         <table className="w-full border-collapse text-sm">
           <caption className="sr-only">
             Playoff odds through week {odds.throughWeek}: record, projected wins, strength of the
-            remaining schedule, bye odds and playoff odds, one row per manager.
+            remaining schedule, bye odds, title odds, what their next game is worth, the spread of
+            seeds they could land in, and playoff odds, one row per manager.
           </caption>
           <thead>
             <tr className="border-b border-rule-strong text-[0.62rem] uppercase tracking-[0.06em] text-slate-400">
@@ -76,7 +83,20 @@ export function PlayoffOddsPanel({
               {odds.byes > 0 && (
                 <th scope="col" className="border-l border-rule px-2 py-2 text-right font-display">Bye</th>
               )}
-              <th scope="col" className="w-2/5 px-2 py-2 text-left font-display sm:w-1/3">Playoffs</th>
+              <th scope="col" className="border-l border-rule px-2 py-2 text-right font-display">Title</th>
+              {hasLeverage && (
+                <th
+                  scope="col"
+                  className="px-2 py-2 text-right font-display"
+                  title="Playoff odds if they win their next game / if they lose it"
+                >
+                  If W / L
+                </th>
+              )}
+              <th scope="col" className="px-2 py-2 text-left font-display" title="Share of simulations finishing in each seed, first to last">
+                Seeds
+              </th>
+              <th scope="col" className="w-2/5 px-2 py-2 text-left font-display sm:w-1/4">Playoffs</th>
             </tr>
           </thead>
           <tbody>
@@ -123,6 +143,25 @@ export function PlayoffOddsPanel({
                       {pct(r.byePct)}
                     </td>
                   )}
+                  <td className="border-l border-rule px-2 py-1.5 text-right font-mono text-xs tabular-nums">
+                    {pct(r.titlePct)}
+                  </td>
+                  {hasLeverage && (
+                    <td className="whitespace-nowrap px-2 py-1.5 text-right font-mono text-xs tabular-nums">
+                      {r.leverage ? (
+                        <>
+                          <span className="text-emerald-400">{pct(r.leverage.ifWin)}</span>
+                          <span className="text-slate-600"> / </span>
+                          <span className="text-rose-400">{pct(r.leverage.ifLose)}</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </td>
+                  )}
+                  <td className="px-2 py-1.5">
+                    <SeedStrip seedPct={r.seedPct} playoffTeams={odds.playoffTeams} byes={odds.byes} pct={pct} />
+                  </td>
                   <td className="px-2 py-1.5">
                     <div className="flex items-center gap-2">
                       <span className="w-10 shrink-0 text-right font-mono text-xs tabular-nums font-semibold">
@@ -149,7 +188,17 @@ export function PlayoffOddsPanel({
         league average while the sample is small, and seeds by wins then points for.{' '}
         <strong className="text-slate-300">Rem SOS</strong> is the expected weekly score of the
         opponents still to play — higher is harder. The median game is not counted: it does not
-        decide a seed.
+        decide a seed.{' '}
+        <strong className="text-slate-300">Title</strong> plays the bracket out the same way, fixed
+        rather than re-seeded, so a bye is worth something.{' '}
+        <GlossaryLink anchor="title-odds" label="title odds" />{' '}
+        <strong className="text-slate-300">If W / L</strong> is their playoff odds among the
+        simulations where they won, and where they lost, their next game: a win also says the team
+        is good, so it overstates what one game is worth.{' '}
+        <GlossaryLink anchor="odds-leverage" label="the win and lose odds" />{' '}
+        <strong className="text-slate-300">Seeds</strong> shades one cell per seed, first to last;
+        the darker the cell, the likelier.{' '}
+        <GlossaryLink anchor="seed-strip" label="the seed strip" />
         {since !== null && (
           <>
             {' '}
@@ -159,6 +208,44 @@ export function PlayoffOddsPanel({
         )}
       </p>
     </section>
+  )
+}
+
+/** 1 -> 1st, 2 -> 2nd … */
+const ordinal = (n: number) =>
+  `${n}${['th', 'st', 'nd', 'rd'][n % 100 >= 11 && n % 100 <= 13 ? 0 : n % 10] ?? 'th'}`
+
+/**
+ * One thin cell per seed, shaded by how likely that seed is. The playoff seeds are amber
+ * (the byes outlined), the rest grey, so the eye sees at once how much of a team's weight
+ * sits above the cut line. Shade is the square root of the share, so a 5% seed is still
+ * visible next to a 40% one. The numbers are in the label, not only the colour.
+ */
+function SeedStrip({
+  seedPct,
+  playoffTeams,
+  byes,
+  pct,
+}: {
+  seedPct: number[]
+  playoffTeams: number
+  byes: number
+  pct: (p: number) => string
+}) {
+  const label = `Seed odds: ${seedPct.map((p, i) => `${ordinal(i + 1)} ${pct(p)}`).join(', ')}`
+  return (
+    <span role="img" aria-label={label} title={label} className="flex h-3 w-24 gap-px">
+      {seedPct.map((p, i) => (
+        <span
+          key={i}
+          className={`h-full flex-1 ${i < byes ? 'outline outline-1 -outline-offset-1 outline-amber-300/70' : ''}`}
+          style={{
+            backgroundColor: i < playoffTeams ? 'var(--a-400)' : 'var(--s-500)',
+            opacity: p === 0 ? 0.08 : 0.15 + 0.85 * Math.sqrt(p),
+          }}
+        />
+      ))}
+    </span>
   )
 }
 
