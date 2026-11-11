@@ -112,7 +112,7 @@ export function AdminPanel({ me }: { me: number }) {
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="draft" current="/admin" isCommish />
+        <SiteNav section="auction" current="/admin" isCommish />
         <div className="ml-auto flex items-center gap-3">
           <HeaderControls />
         </div>

@@ -48,7 +48,7 @@ export default async function IssuePage({
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="league-history" current="/history/gazette" />
+        <SiteNav section="gazette" current={`/gazette/${issue.season}/${issue.week}`} />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Gazette</h1>
         <div className="ml-auto">
           <HeaderControls />
@@ -76,17 +76,17 @@ export default async function IssuePage({
           </p>
           <nav className="mt-3 flex flex-wrap items-center justify-between gap-3 font-display text-[0.7rem] uppercase tracking-[0.12em]">
             {prev ? (
-              <Link href={`/history/gazette/${prev.season}/${prev.week}`} className="hover:text-amber-300">
+              <Link href={`/gazette/${prev.season}/${prev.week}`} className="hover:text-amber-300">
                 ← Previous issue
               </Link>
             ) : (
               <span className="text-slate-600">← Previous issue</span>
             )}
-            <Link href="/history/gazette" className="hover:text-amber-300">
+            <Link href="/gazette" className="hover:text-amber-300">
               All issues
             </Link>
             {next ? (
-              <Link href={`/history/gazette/${next.season}/${next.week}`} className="hover:text-amber-300">
+              <Link href={`/gazette/${next.season}/${next.week}`} className="hover:text-amber-300">
                 Next issue →
               </Link>
             ) : (

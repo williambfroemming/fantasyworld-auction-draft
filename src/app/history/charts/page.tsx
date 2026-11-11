@@ -65,7 +65,7 @@ export default async function ChartsPage() {
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="league-history" current="/history/charts" />
+        <SiteNav section="history" current="/history/charts" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Charts</h1>
         <div className="ml-auto">
           <HeaderControls />

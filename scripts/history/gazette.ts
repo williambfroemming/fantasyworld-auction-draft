@@ -27,7 +27,7 @@
  *
  * ## Why the prose is written here and not on a page
  *
- * The same reason `draft-recap.ts` exists: `/history/gazette` is a Server
+ * The same reason `draft-recap.ts` exists: `/gazette` is a Server
  * Component, a finished week never changes, and this app's first rule is that
  * nothing on a request path makes an outbound call. An issue is written once,
  * stored, and read back as text.

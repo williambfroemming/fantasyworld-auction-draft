@@ -6,7 +6,7 @@
  * converts types at the boundary, exactly as `history-service.ts` does.
  *
  * ⚠️ Nothing here may call a model. Generation happens in
- * `scripts/history/gazette.ts` and nowhere else, because `/history/gazette` is a
+ * `scripts/history/gazette.ts` and nowhere else, because `/gazette` is a
  * Server Component and this app's first rule is that nothing on a request path
  * makes an outbound call.
  *
