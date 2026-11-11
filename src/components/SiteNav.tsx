@@ -121,6 +121,7 @@ export const SECTIONS: SectionDef[] = [
       { href: '/history/players', label: 'Players', hint: 'Who owned whom, and when' },
       { href: '/history/h2h', label: 'Head to Head', hint: 'Everyone against everyone' },
       { href: '/history/by-week', label: 'Record by Week', hint: 'Who got in from where' },
+      { href: '/history/oracle', label: 'Ask the Oracle', hint: 'Any question, from the record' },
       // Listed under both history sections on purpose: it defines the auction
       // metrics and the league ones, and a third top-level section for one page
       // would undo the reason the top level is three stable words.

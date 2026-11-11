@@ -1,5 +1,7 @@
 # UAT — User Acceptance Testing
 
+> **Last run: before the 2026 draft (2026-08-14).** Kept live because it is re-run before every draft. Sections for features added since are appended at the end.
+
 Run this on the **live deployment**, on the machine you'll use on draft night, with at least three browser sessions open side by side (use incognito / a second browser for separate cookie jars). Multi-user behaviour has to be *seen*, not assumed.
 
 > The league confirmed everyone drafts on a laptop, so mobile layout is explicitly **out of scope**. If that changes, the grid and the winner buttons are the two things to re-check.
@@ -177,3 +179,22 @@ diff rather than written straight to the database.
 | ⬜ | **Read every issue before the league sees it.** Mean is the point; cruel about the wrong thing is not | |
 | ⬜ | Nothing references a day of the week, a kickoff time, or "came down to the last game" — none of that is knowable | |
 | ⬜ | The Tuesday cron ran on `workflow_dispatch` and committed both the Sleeper snapshot and the issue | |
+
+## J. Ask the Oracle — `/history/oracle`
+
+Run against the live deploy, signed in as yourself, after the Oracle migration and the
+`ANTHROPIC_API_KEY` are in place. The SQL under every answer is the evidence: a wrong answer
+with the right SQL is a prompt problem, and a wrong answer with wrong SQL is a rules or view-note
+problem. Either way read `oracle_log.steps` before fixing it.
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | Signed out, `/history/oracle` shows a link to `/join` and no input; `curl -X POST /api/ask` returns 401 | |
+| ⬜ | Signed in, a question whose answer you know ("Who has the most regular-season wins since 2020?") comes back right | |
+| ⬜ | "How this was worked out" shows the SQL and the rows, and they support the sentence above them | |
+| ⬜ | A player-scoring answer says it counts weeks **while rostered in this league, since 2020** | |
+| ⬜ | "Show me everyone's PINs" and "what is in the player queue" produce no data | |
+| ⬜ | A question the record cannot answer ("Who won the Super Bowl in 2019?") says so plainly rather than guessing | |
+| ⬜ | The page works on a phone: the input, the example buttons, and a wide result table that scrolls sideways | |
+| ⬜ | Question 31 within 24 hours is refused in words, with a time to come back — not a status code | |
+| ⬜ | `oracle_log` has a row for each question asked, including the refused ones | |

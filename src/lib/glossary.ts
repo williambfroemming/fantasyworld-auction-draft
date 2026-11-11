@@ -267,6 +267,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'coverageFor() — src/lib/history.ts',
   },
   {
+    id: 'oracle',
+    term: 'Ask the Oracle',
+    group: 'league',
+    where: 'League History · Ask the Oracle',
+    formula: 'a language model writes one SQL query at a time against read-only views of the league record, then answers from the rows that come back',
+    note: 'Player scores count only the weeks that player was on a roster in this league, since 2020 — not their NFL career. The SQL and the rows are shown under every answer so you can check them; if the rows do not answer the question, it says so.',
+    source: 'askOracle() — src/server/oracle-service.ts',
+  },
+  {
     id: 'unknown',
     term: '—',
     group: 'league',

@@ -866,6 +866,38 @@ export const weekIssues = pgTable(
   (t) => [primaryKey({ columns: [t.season, t.week] })],
 )
 
+/**
+ * One row per question put to the Oracle (docs/ANALYTICS_ROADMAP.md §A).
+ *
+ * Exists for the daily cap, for debugging a wrong answer, and for the bill. It is
+ * created by `scripts/migrate-oracle.ts` on Neon and by the local bootstrap from
+ * this definition; both, or neither.
+ *
+ * ⚠️ Deliberately NOT visible to the Oracle: no view in the `oracle` schema reads
+ * it, and the `oracle_reader` role has no rights on `public`. It holds every
+ * member's questions, which is nobody else's business.
+ */
+export const oracleLog = pgTable(
+  'oracle_log',
+  {
+    id: serial('id').primaryKey(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    question: text('question').notNull(),
+    answer: text('answer'),
+    /** Each tool call: the SQL tried, and the rows or error that came back. */
+    steps: jsonb('steps').notNull().default([]),
+    ok: boolean('ok').notNull(),
+    error: text('error'),
+    ms: integer('ms'),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('oracle_log_manager_idx').on(t.managerId, t.createdAt)],
+)
+
 export type Manager = typeof managers.$inferSelect
 export type Player = typeof players.$inferSelect
 export type Draft = typeof draft.$inferSelect
@@ -884,3 +916,4 @@ export type PlayerWeek = typeof playerWeeks.$inferSelect
 export type PlayerSeason = typeof playerSeasons.$inferSelect
 export type LegacyChampion = typeof legacyChampions.$inferSelect
 export type WeekIssue = typeof weekIssues.$inferSelect
+export type OracleLogEntry = typeof oracleLog.$inferSelect

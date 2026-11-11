@@ -1,5 +1,7 @@
 # Draft night runbook
 
+> **Last run: the 2026 draft, Friday 2026-08-14.** Kept live because it is reused every August — re-read and update it before the 2027 draft.
+
 **App:** https://fantasyworld-auction-draft.vercel.app
 **Commissioner:** Bill · **Rules:** $200 budget, 16 roster spots, opening max bid **$185**
 
