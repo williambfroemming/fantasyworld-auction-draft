@@ -198,3 +198,28 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | The page works on a phone: the input, the example buttons, and a wide result table that scrolls sideways | |
 | ⬜ | Question 31 within 24 hours is refused in words, with a time to come back — not a status code | |
 | ⬜ | `oracle_log` has a row for each question asked, including the refused ones | |
+
+## K. Sign-in gate and PIN reset
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | In a private window, `/`, `/history`, `/history/gazette` and `/glossary` all land on the sign-in page | |
+| ⬜ | Opening a deep link (`/history/gazette/2025/7`) signed out, then signing in, lands on that page, not the draft room | |
+| ⬜ | `curl https://…/api/state` and `curl -X POST https://…/api/ask` signed out both return 401 | |
+| ⬜ | Signing in from the front page goes to the front page (draft complete) and does not drop you in the draft room | |
+| ⬜ | Stay signed in across a few days; you are not asked again within a week | |
+| ⬜ | `/setup` → Member PINs: **Reset PIN** shows a new 4-digit PIN once; the member signs in with it and their old PIN stops working | |
+| ⬜ | A member who forgot their PIN sees "ask the commissioner" on the PIN screen | |
+| ⬜ | A signed-in non-commissioner calling `/api/commish` `resetPin` gets 403 | |
+
+## L. PIN lockout and the Oracle switch
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | Five wrong PINs on a seat: tries-left counts down 4, 3, 2, 1, then it locks with a "try again in 15 minutes" message | |
+| ⬜ | While locked, even the correct PIN is refused | |
+| ⬜ | `/setup` → Member PINs → Reset PIN unlocks the seat; the new PIN works at once | |
+| ⬜ | `/setup` → Ask the Oracle shows On/Off, the last 24 hours of questions and tokens, and who asked most | |
+| ⬜ | Turn it **Off**: the next question is refused in words, `/history/oracle` shows the switched-off notice, and no `oracle_log` row is added | |
+| ⬜ | Turn it **On** again: questions work with no redeploy | |
+| ⬜ | A non-commissioner calling `/api/oracle-admin` gets 403 | |

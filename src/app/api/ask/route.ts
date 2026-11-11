@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { DAILY_LIMIT, askOracle, logQuestion, questionsToday } from '@/server/oracle-service'
 import { currentManagerId } from '@/server/session'
+import { oracleEnabled } from '@/server/settings-service'
 
 /**
  * POST /api/ask { question } — "Ask the Oracle" (docs/ANALYTICS_ROADMAP.md §A, step 42).
@@ -30,6 +31,15 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { ok: false, reason: 'Sign in to ask the Oracle' },
       { status: 401, headers: NO_STORE },
+    )
+  }
+
+  // The commissioner's cost kill-switch. Checked before anything that spends money or
+  // counts against a member's allowance, and after sign-in so a stranger learns nothing.
+  if (!(await oracleEnabled())) {
+    return NextResponse.json(
+      { ok: false, reason: 'The Oracle is switched off right now. Ask the commissioner.' },
+      { status: 503, headers: NO_STORE },
     )
   }
 

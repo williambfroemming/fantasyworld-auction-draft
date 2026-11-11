@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { safeNext } from '@/lib/gate'
 
 interface Seat {
   id: number
@@ -12,14 +13,15 @@ interface Seat {
 }
 
 /**
- * Taking a seat. Lived at `/` until the landing page took that route — see
- * `docs/BACKLOG.md` §11.
+ * The sign-in page — and, since the whole site went behind the PIN (src/proxy.ts),
+ * the front door for every signed-out visitor.
  *
- * There is deliberately **no "already signed in? go to the draft" redirect
- * here** any more. That decision now belongs to `/`, which makes it on the
- * server before anything renders, and a second copy on this page would fight
- * it: a signed-in manager who came here on purpose to switch seats would be
- * bounced back out before they could.
+ * Signing in returns you to the page you were trying to reach (`?next=`, validated by
+ * `safeNext`) or the front page. It does NOT go to the draft room unless that is where
+ * you were headed; `/` itself sends a signed-in manager to the draft while one is live.
+ *
+ * There is deliberately **no "already signed in? go somewhere" redirect here**: a
+ * signed-in manager who came on purpose to switch seats would be bounced back out.
  */
 export default function JoinPage() {
   const router = useRouter()
@@ -30,10 +32,12 @@ export default function JoinPage() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    fetch('/api/state')
+    // /api/seats is public; /api/state is not, and this page is what a signed-out
+    // visitor sees.
+    fetch('/api/seats')
       .then((r) => r.json())
-      .then((s) => setSeats(s.managers))
-      .catch(() => setError('Could not reach the draft. Check your connection.'))
+      .then((s) => setSeats(s.seats))
+      .catch(() => setError('Could not reach the league. Check your connection.'))
   }, [])
 
   async function submit() {
@@ -51,7 +55,10 @@ export default function JoinPage() {
         setError(data.reason ?? 'Could not sign in')
         setPin('')
       } else {
-        router.push('/draft')
+        // Back to where they were headed (the gate records it), else the front page.
+        // Never straight into the draft room: that is a destination, not a default.
+        router.push(safeNext(new URLSearchParams(window.location.search).get('next')))
+        router.refresh()
       }
     } catch {
       setError('Network error — try again')
@@ -64,10 +71,10 @@ export default function JoinPage() {
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100 px-4 py-10">
       <div className="mx-auto w-full max-w-md">
         <div className="flex items-start justify-between gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">Auction Draft</h1>
+          <h1 className="text-3xl font-bold tracking-tight">FantasyWorld</h1>
           <ThemeToggle className="mt-1" />
         </div>
-        <p className="mt-1 text-slate-400">Pick your name to join.</p>
+        <p className="mt-1 text-slate-400">Pick your name to sign in.</p>
 
         {!picked ? (
           <div className="mt-8 grid grid-cols-2 gap-3">
@@ -145,13 +152,17 @@ export default function JoinPage() {
                 disabled={pin.length !== 4 || busy}
                 className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {busy ? 'Joining…' : picked.hasPin ? 'Join draft' : 'Set PIN & join'}
+                {busy ? 'Signing in…' : picked.hasPin ? 'Sign in' : 'Set PIN & sign in'}
               </button>
             </div>
 
-            {!picked.hasPin && (
+            {picked.hasPin ? (
               <p className="mt-3 text-xs text-slate-500">
-                This just stops someone bidding as you by mistake. Any 4 digits will do.
+                Forgot your PIN? Ask the commissioner to reset it — they will give you a new one.
+              </p>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">
+                Choose any 4 digits. This is what keeps the league’s site to the league.
               </p>
             )}
           </div>

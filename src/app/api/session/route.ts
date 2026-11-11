@@ -1,15 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import {
-  SESSION_COOKIE,
-  SESSION_COOKIE_OPTIONS,
-  hashPin,
-  isValidPinFormat,
-  sessionSecret,
-  signSession,
-  verifyPin,
-} from '@/lib/auth'
-import { getSql } from '@/server/sql'
+import { SESSION_COOKIE, SESSION_COOKIE_OPTIONS, sessionSecret, signSession } from '@/lib/auth'
+import { signIn } from '@/server/pin-service'
 import { currentManagerId } from '@/server/session'
 
 export const dynamic = 'force-dynamic'
@@ -26,11 +18,8 @@ export async function GET() {
 }
 
 /**
- * Claim a seat.
- *
- * First manager to claim a name sets its PIN; after that the PIN must match.
- * The claim is a conditional UPDATE so two people claiming the same seat at the
- * same moment can't both succeed.
+ * Claim a seat, or sign in to one. The rules (first claim sets the PIN, five wrong PINs
+ * lock the seat) live in src/server/pin-service.ts so they can be tested without a request.
  */
 export async function POST(req: Request) {
   const parsed = Body.safeParse(await req.json().catch(() => null))
@@ -39,36 +28,16 @@ export async function POST(req: Request) {
   }
   const { managerId, pin } = parsed.data
 
-  if (!isValidPinFormat(pin)) {
-    return NextResponse.json({ ok: false, reason: 'PIN must be 4 digits' }, { status: 400 })
-  }
-
-  const sql = getSql()
-  const [manager] = await sql`SELECT id, display_name, pin_hash FROM managers WHERE id = ${managerId}`
-  if (!manager) {
-    return NextResponse.json({ ok: false, reason: 'Unknown manager' }, { status: 404 })
-  }
-
-  if (manager.pin_hash === null) {
-    // Unclaimed seat: set the PIN, but only if it's still unclaimed at write
-    // time, so a simultaneous claim by someone else can't be overwritten.
-    const hash = await hashPin(pin)
-    const claimed = await sql`
-      UPDATE managers SET pin_hash = ${hash}
-      WHERE id = ${managerId} AND pin_hash IS NULL
-      RETURNING id`
-    if (claimed.length === 0) {
-      return NextResponse.json(
-        { ok: false, reason: 'That seat was just claimed by someone else' },
-        { status: 409 },
-      )
-    }
-  } else if (!(await verifyPin(pin, manager.pin_hash))) {
-    return NextResponse.json({ ok: false, reason: 'Wrong PIN' }, { status: 401 })
+  const result = await signIn(managerId, pin)
+  if (!result.ok) {
+    return NextResponse.json(
+      { ok: false, reason: result.reason },
+      { status: result.status, headers: { 'Cache-Control': 'no-store' } },
+    )
   }
 
   const res = NextResponse.json(
-    { ok: true, managerId, displayName: manager.display_name },
+    { ok: true, managerId, displayName: result.displayName },
     { headers: { 'Cache-Control': 'no-store' } },
   )
   res.cookies.set(SESSION_COOKIE, signSession(managerId, sessionSecret()), SESSION_COOKIE_OPTIONS)

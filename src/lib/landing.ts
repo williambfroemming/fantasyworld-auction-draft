@@ -20,7 +20,10 @@
  *                    │ signed in   │ signed out
  *   ─────────────────┼─────────────┼────────────
  *   draft live       │ /draft      │ /join
- *   draft complete   │ (front page)│ (front page)
+ *   draft complete   │ (front page)│ /join
+ *
+ * The whole site is behind the PIN (src/proxy.ts), so a signed-out visitor is only ever
+ * sent to /join. The proxy catches them first; this keeps the page correct on its own.
  * ```
  *
  * While a draft is live, `/` behaves exactly as it did before the front page
@@ -47,6 +50,8 @@ export function landingDestination({ complete, signedIn }: LandingContext): Land
   // A finished draft is the only state that earns a front page. Note the order:
   // completeness is checked first precisely so that no session state can route a
   // live draft anywhere except into the draft.
-  if (complete) return null
-  return signedIn ? '/draft' : '/join'
+  // Signed out is always the sign-in page, whatever state the draft is in: the whole
+  // site is behind the PIN now (src/proxy.ts), so there is no public front page.
+  if (!signedIn) return '/join'
+  return complete ? null : '/draft'
 }

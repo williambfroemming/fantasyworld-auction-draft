@@ -15,6 +15,15 @@ import { ThemeToggle } from '@/components/ThemeToggle'
  * The draft order is the point of this page: the league re-draws it at random
  * every season, so it is data to be rolled here, not a constant in the code.
  */
+interface OracleAdmin {
+  enabled: boolean
+  changedAt: string | null
+  changedBy: string | null
+  last24h: { questions: number; inputTokens: number; outputTokens: number }
+  allTime: { questions: number; inputTokens: number; outputTokens: number }
+  topAskers24h: Array<{ name: string; questions: number }>
+}
+
 export default function SetupPage() {
   const { state, board, refresh } = useDraft()
   const [me, setMe] = useState<number | null>(null)
@@ -23,10 +32,37 @@ export default function SetupPage() {
   const [dirty, setDirty] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [oracle, setOracle] = useState<OracleAdmin | null>(null)
 
   useEffect(() => {
     fetch('/api/session').then((r) => r.json()).then((d) => setMe(d.managerId)).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    fetch('/api/oracle-admin')
+      .then((r) => r.json())
+      .then((d) => d.ok && setOracle(d))
+      .catch(() => {})
+  }, [])
+
+  async function flipOracle(enabled: boolean) {
+    setBusy(true)
+    setMsg(null)
+    try {
+      const res = await fetch('/api/oracle-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setOracle(data)
+        setMsg(enabled ? 'The Oracle is on.' : 'The Oracle is off. No new questions will be answered.')
+      } else setMsg(data.reason ?? 'Failed')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   // Seed local order from the server, but never stomp unsaved edits.
   useEffect(() => {
@@ -247,6 +283,96 @@ export default function SetupPage() {
               </button>
             )}
           </div>
+        </Section>
+
+        {/* ---------------- Ask the Oracle ---------------- */}
+        <Section
+          title="Ask the Oracle"
+          note="Every question spends API credit. Switch it off here if the cost runs away; it takes effect on the next question."
+        >
+          {oracle === null ? (
+            <p className="text-sm text-slate-500">Loading…</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="text-lg font-semibold">
+                  {oracle.enabled ? 'On' : 'Off'}
+                  {oracle.changedBy && (
+                    <span className="ml-2 text-xs font-normal text-slate-500">
+                      switched by {oracle.changedBy}
+                    </span>
+                  )}
+                </span>
+                <button
+                  onClick={() => flipOracle(!oracle.enabled)}
+                  disabled={busy}
+                  className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${
+                    oracle.enabled ? 'bg-rose-600 hover:bg-rose-500' : 'bg-emerald-600 hover:bg-emerald-500'
+                  }`}
+                >
+                  {oracle.enabled ? 'Turn off' : 'Turn on'}
+                </button>
+              </div>
+              <p className="text-sm text-slate-400">
+                Last 24 hours: {oracle.last24h.questions} questions,{' '}
+                {oracle.last24h.inputTokens.toLocaleString()} tokens in,{' '}
+                {oracle.last24h.outputTokens.toLocaleString()} out. All time: {oracle.allTime.questions} questions,{' '}
+                {oracle.allTime.inputTokens.toLocaleString()} in, {oracle.allTime.outputTokens.toLocaleString()} out.
+              </p>
+              {oracle.topAskers24h.length > 0 && (
+                <p className="text-sm text-slate-400">
+                  Most active today:{' '}
+                  {oracle.topAskers24h.map((a) => `${a.name} (${a.questions})`).join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+        </Section>
+
+        {/* ---------------- Member PINs ---------------- */}
+        <Section
+          title="Member PINs"
+          note="Someone forgot theirs? Reset it here and tell them the new one. They can sign in with it straight away."
+        >
+          <ul className="space-y-2">
+            {state.managers.map((m) => (
+              <li key={m.id} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate">
+                  {m.displayName}
+                  <span className="ml-2 text-xs text-slate-500">
+                    {m.hasPin ? 'has a PIN' : 'no PIN yet'}
+                  </span>
+                </span>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(`Reset ${m.displayName}'s PIN? Their old PIN stops working.`)) return
+                    setBusy(true)
+                    setMsg(null)
+                    try {
+                      const res = await fetch('/api/commish', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'resetPin', managerId: m.id }),
+                      })
+                      const data = await res.json()
+                      setMsg(
+                        data.ok
+                          ? `${m.displayName}'s new PIN is ${data.data.pin} — tell them now; it is not shown again.`
+                          : (data.reason ?? 'Failed'),
+                      )
+                      await refresh()
+                    } finally {
+                      setBusy(false)
+                    }
+                  }}
+                  disabled={busy}
+                  className="shrink-0 rounded-lg border border-rule px-3 py-1.5 text-sm hover:bg-slate-800"
+                >
+                  Reset PIN
+                </button>
+              </li>
+            ))}
+          </ul>
         </Section>
 
         {/* ---------------- Danger ---------------- */}

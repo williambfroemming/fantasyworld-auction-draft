@@ -23,8 +23,9 @@ describe('landingDestination', () => {
     expect(landingDestination({ complete: true, signedIn: true })).toBeNull()
   })
 
-  it('renders the front page once every roster is full, signed out', () => {
-    expect(landingDestination({ complete: true, signedIn: false })).toBeNull()
+  it('sends a signed-out visitor to sign in even once the draft is over', () => {
+    // The site is behind the PIN now; there is no public front page.
+    expect(landingDestination({ complete: true, signedIn: false })).toBe('/join')
   })
 
   /**
