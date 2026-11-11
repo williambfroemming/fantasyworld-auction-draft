@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm'
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -423,6 +425,47 @@ export const playerQueue = pgTable(
     index('player_queue_manager_idx').on(t.season, t.managerId),
   ],
 )
+
+/**
+ * Which pages league members use, by whom, and for how long: first-party
+ * activity tracking (docs/ACTIVITY_ROADMAP.md).
+ *
+ * One row per *segment*: a stretch of visible, recently-interacted-with time
+ * on one path. A segment ends on navigation, on the tab hiding, on page exit,
+ * or on five minutes without input, so a draft board left on a TV all night
+ * does not read as nine hours.
+ *
+ *  - **Commissioner-only.** Read through `checkCommish()`; never in
+ *    `/api/state`, never in the fingerprint, never a view in the `oracle` schema.
+ *  - **`manager_id` comes from the session cookie**, never the request body.
+ *  - **`path` is the raw pathname** (no query string). The grouping into page
+ *    labels is derived at read time (`pageGroup()` in src/lib/activity.ts), so a
+ *    better grouping later rewrites no data.
+ *
+ * Not season-scoped: it records the app being used, not a draft.
+ */
+export const pageVisits = pgTable(
+  'page_visits',
+  {
+    id: serial('id').primaryKey(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id),
+    path: text('path').notNull(),
+    /** Client-reported, clamped server-side to the last day. */
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+    /** 1–1800. A CHECK in the migration enforces the same bounds. */
+    activeSeconds: integer('active_seconds').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('page_visits_manager_time_idx').on(t.managerId, t.createdAt),
+    index('page_visits_time_idx').on(t.createdAt),
+    // Same name Postgres gives the inline CHECK in scripts/migrate-activity.ts.
+    check('page_visits_active_seconds_check', sql`${t.activeSeconds} BETWEEN 1 AND 1800`),
+  ],
+)
+export type PageVisit = typeof pageVisits.$inferSelect
 
 // ---------------------------------------------------------------------------
 // League history (Phase 2) — see docs/PROJECT_PLAN.md §12

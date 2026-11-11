@@ -26,10 +26,10 @@ describe('the top bar', () => {
     expect(first).toEqual(['/history', '/draft'])
   })
 
-  it('keeps History to past seasons: seven items, no Gazette, Oracle or Glossary', () => {
+  it('keeps History to past seasons: nine items, no Gazette, Oracle or Glossary', () => {
     const history = SECTIONS.find((s) => s.key === 'history')!
     const hrefs = sectionItems(history).map((i) => i.href)
-    expect(hrefs).toHaveLength(7)
+    expect(hrefs).toHaveLength(9)
     for (const gone of ['/gazette', '/oracle', '/glossary', '/history/drafts']) {
       expect(hrefs).not.toContain(gone)
     }

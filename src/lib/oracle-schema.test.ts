@@ -54,6 +54,7 @@ describe('oracle schema notes', () => {
     for (const word of [
       'player_queue',
       'pin_hash',
+      'page_visits',
       'week_issues',
       'lots',
       'budget_adjustments',

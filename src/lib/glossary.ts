@@ -454,6 +454,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     note: 'Started, not rostered: starting somebody is a decision taken every week, where a roster spot can be inertia. Both columns are shown because the gap between them is the interesting part.',
     source: 'getMostStarted() — src/server/history-service.ts',
   },
+  {
+    id: 'active-time',
+    term: 'Active time',
+    group: 'league',
+    where: 'Admin · Activity (commissioner only)',
+    formula: 'seconds a page was on screen in a visible tab AND somebody had touched it (pointer, key, scroll, touch) in the last five minutes',
+    note: 'A board left open on a TV all night counts five minutes, not nine hours. A visit is one unbroken stretch of active time on one page, so switching tabs and coming back starts a new one. Recorded for signed-in members only, kept on this site, and seen by nobody but the commissioner.',
+    source: 'createActivityClock() — src/lib/activity.ts',
+  },
 ]
 
 /** The entries in one group, in declaration order. */
