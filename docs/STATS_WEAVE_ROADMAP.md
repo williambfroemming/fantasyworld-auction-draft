@@ -159,56 +159,7 @@ Also: make the timeline's y-axis switchable between fantasy points and the posit
 (QB pass yd, RB scrimmage yd, WR/TE rec yd, DEF sacks). Two lines on one axis is out; it is one
 metric at a time, labelled.
 
-**Tests:** headline stat per position; a bench week is labelled bench; "did not play" never shows
-for a week with non-zero points.
-
-**Done when:** the log for one real player matches SQL row for row for one season; the timeline
-toggle changes the axis label and values and nothing else; keyboard focus works on the toggle.
-
-## Step 69 — the players index: filter by position and season, with one stat
-
-**Read first:** `src/app/history/players/page.tsx`, `src/components/history/PlayerSearch.tsx`,
-`listPlayers()` in `history-service.ts`, and `statColumns()` from step 67.
-
-Add a position filter (All, QB, RB, WR, TE, DEF) and a season filter (All 2020 on, or one season)
-to the existing search. When a season and a position are both chosen, show one **headline stat**
-column for that position (QB pass yd, RB rush yd, WR/TE rec yd, DEF sacks) and allow sorting by
-it. Default sort stays total fantasy points.
-
-**The rule that makes this safe:** the stat column and the stat sort exist **only when exactly one
-position is selected.** With "All" selected there is no stat column and no stat sort, because a
-list ranked by yards across positions measures nothing. Add a unit test that the sort-by-stat
-option is not offered for "All", and one that a mixed-position list is never ordered by a stat.
-
-`listPlayers()` stays one query: add a second small query for the chosen season's headline totals
-(≈600 players × 7 seasons), keyed by player id, joined in memory. Filtering runs on the client over
-the data the page already sends; do not add an API route for it.
-
-**Done when:** QB / 2023 sorted by pass yards equals a direct SQL ranking for the same filter;
-"All" shows no stat column; the page is still fast with the full list (it is a few hundred rows);
-390px layout checked.
-
-## Step 70 — Records: stat records within a position
-
-**Read first:** `src/lib/player-records.ts` and its test, `PlayerRecordsSection.tsx`, step 67's
-`sumStats`.
-
-Extend `playerRecords()` (or a sibling `playerStatRecords()`, if that keeps the existing file
-simple) with top-five lists, regular season, rostered players, one list per position and stat:
-
-- QB: passing yards in a season, passing touchdowns in a season, passing yards in a game.
-- RB: rushing yards in a season, rushing + receiving yards in a season, rushing yards in a game.
-- WR and TE: receiving yards in a season, receptions in a season, receiving yards in a game.
-- DEF: sacks in a season, points allowed in a game (fewest).
-
-Each entry names the manager who had him, as the existing lists do, and a season entry is one
-manager's stint (same rule as "Best season, by position": a player who changed hands appears once
-per holder with only his own weeks). Show them as one `<details>` block per position under the
-existing Players section, with the `EraBadge` "Stat lines, rostered players".
-
-**Tests:** every list is ranked within its position and contains only that position; a bench week
-is excluded from the single-game lists only if the list says "by a starter" (decide and state it;
-the recommendation is to count only started weeks, since a bench stat line won nothing); a tie keeps
+**Tests:** headline stat per position; a bench week never appears in a single-game list (decided: started weeks only, and each such list is labelled "by a starter"); a tie keeps
 the earliest; no list mixes positions.
 
 **Done when:** each list's first entry equals a direct SQL maximum; the lists are readable at 390px.
@@ -313,12 +264,13 @@ test (if one exists for source names) passes; UAT section is in.
 Every step is code only. No migration, no backfill, nothing to run on Neon. Ship each as its own
 PR; each can be reverted on its own.
 
-## Decisions for the commissioner (none block steps 67–68)
+## Decisions (confirmed by the commissioner 2026-11-11 — do not reopen)
 
-1. **Single-game stat records: started weeks only, or any rostered week?** Recommended: started
-   only, because a bench stat line won nothing. (Step 70.)
-2. **Should the Gazette ever be given stats?** Recommended: not now; revisit after the pages have
-   been used for a month. It is a prompt, grounding and cost decision, not a page.
-3. **Do you want the draft room to show last season's line for the 2027 auction?** Recommended: no
-   with this table (see "Left out on purpose"). If wanted, it is a separate project that starts with
-   a full NFL stats pull.
+1. **Single-game stat records count STARTED weeks only.** A bench stat line won nothing. Every
+   single-game list says "by a starter" in its label. (Step 70.)
+2. **The Gazette gets no stats, not now.** Revisit only if the commissioner raises it again, after
+   the pages have been used for a while. It is a prompt, grounding and cost decision, not a page.
+3. **The draft room gets no stat line, not now.** The table only covers players who were on a league
+   roster, so it would be blank for every rookie and free agent, and nothing may be added to
+   `/api/state`. If it is ever wanted it is a separate project that starts with a full NFL stats
+   pull.
