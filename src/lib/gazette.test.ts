@@ -900,6 +900,21 @@ describe('structural: a prompt cannot terminate its own template literal', () =>
     },
   )
 
+  // The editorial room keeps one file per stage, and the directory holds
+  // prompts only, so every file in it gets the same guard -- including any
+  // stage added later, which is why this reads the directory rather than a list.
+  const roomDir = resolve(import.meta.dirname, '../../scripts/history/gazette-room')
+  const roomFiles = existsSync(roomDir) ? readdirSync(roomDir).filter((f) => f.endsWith('.ts')) : []
+
+  it('the editorial room has prompt files to check', () => {
+    expect(roomFiles.length).toBeGreaterThan(0)
+  })
+
+  it.each(roomFiles)('gazette-room/%s contains exactly two backticks, the template delimiters', (file) => {
+    const src = readFileSync(resolve(roomDir, file), 'utf8')
+    expect((src.match(/`/g) ?? []).length).toBe(2)
+  })
+
   it('the two prompt versions cannot be confused for one another', () => {
     // Both are stored in the same `prompt_version` column. Separate ranges are
     // what makes a stored number identify the file that wrote it.

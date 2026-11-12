@@ -466,7 +466,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 
 **M. The Gazette's editorial room** — added 2026-11-11. **Build instructions: `docs/GAZETTE_ROADMAP.md`**. Everything behind `--pipeline` until step 74
 - [x] **67.** Pack paths: `resolvePackPath`, `sliceFacts`, `pathIndex`
-- [ ] **68.** The Story Desk (`scripts/history/gazette-room/desk-prompt.ts`, `--desk`)
+- [x] **68.** The Story Desk (`scripts/history/gazette-room/desk-prompt.ts`, `--desk`)
 - [ ] **69.** The Editor: three plans, distinct leads, lead rotation (`--plans`)
 - [ ] **70.** The voice bible and three parallel Writers (EXEMPLARS left for the commissioner)
 - [ ] **71.** The blind Judge, game notes as their own call, `--pipeline`
