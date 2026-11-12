@@ -457,7 +457,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **67.** `player-stat-totals.ts` and "Stats by season" on the player page
 - [x] **68.** Player page: game log, and a points / headline-stat toggle on the timeline
 - [x] **69.** Players index: position and season filters, one stat column (stat sort only within one position)
-- [ ] **70.** Records: stat records within a position
+- [x] **70.** Records: stat records within a position
 - [ ] **71.** Spend & Value / Past Auctions: what each pick returned
 - [ ] **72.** Member page: biggest weeks, with stat lines
 - [ ] **73.** Waivers: what a claim did since pickup

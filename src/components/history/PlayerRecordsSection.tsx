@@ -2,6 +2,8 @@ import { EraBadge } from '@/components/history/EraBadge'
 import { managerColor } from '@/lib/colors'
 import type { HistoryMember } from '@/lib/history'
 import type { PlayerRecordBook, PlayerRecordList } from '@/lib/player-records'
+import { STAT_RECORD_UNITS } from '@/lib/player-stat-records'
+import type { PositionStatRecords } from '@/lib/player-stat-records'
 
 const VALUE: Record<string, (n: number) => string> = {
   mostWeeksStarted: (n) => String(Math.round(n)),
@@ -10,7 +12,10 @@ const points = (n: number) => n.toFixed(1)
 
 function List({ list, members }: { list: PlayerRecordList; members: HistoryMember[] }) {
   if (list.entries.length === 0) return null
-  const fmt = VALUE[list.key] ?? points
+  const unit = STAT_RECORD_UNITS[list.key]
+  const fmt = unit
+    ? (n: number) => `${n.toLocaleString('en-US')} ${unit}`
+    : (VALUE[list.key] ?? points)
   return (
     <div className="min-w-0">
       <h3 className="mb-1 font-display text-[0.7rem] font-bold uppercase tracking-[0.1em] text-slate-300">
@@ -68,9 +73,12 @@ function List({ list, members }: { list: PlayerRecordList; members: HistoryMembe
 export function PlayerRecordsSection({
   book,
   members,
+  statRecords = [],
 }: {
   book: PlayerRecordBook
   members: HistoryMember[]
+  /** NFL stat records, one block per position. Empty draws nothing. */
+  statRecords?: PositionStatRecords[]
 }) {
   if (book.seasons.length === 0) return null
   return (
@@ -100,6 +108,40 @@ export function PlayerRecordsSection({
           <List key={l.key} list={l} members={members} />
         ))}
       </div>
+
+      {statRecords.length > 0 && (
+        <div className="mt-8">
+          <h3 className="mb-1 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5 font-display text-xs font-bold uppercase tracking-[0.1em] text-slate-300">
+            NFL stat records
+            <EraBadge
+              coverage={{
+                from: book.seasons[0],
+                to: book.seasons[book.seasons.length - 1],
+                seasons: book.seasons,
+                label: 'Stat lines',
+              }}
+            />
+          </h3>
+          <p className="mb-3 text-xs text-slate-500">
+            NFL stats while rostered in this league, regular season. Each list is within one
+            position; single-game lists are by a starter.
+          </p>
+          <div className="space-y-2">
+            {statRecords.map((p, i) => (
+              <details key={p.position} open={i === 0} className="border border-rule">
+                <summary className="cursor-pointer select-none px-3 py-2 font-display text-xs font-bold uppercase tracking-[0.08em]">
+                  {p.position}
+                </summary>
+                <div className="grid gap-6 px-3 pb-3 pt-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {p.lists.map((l) => (
+                    <List key={l.key} list={l} members={members} />
+                  ))}
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

@@ -5,7 +5,7 @@ import { SeasonReviewCard } from '@/components/history/SeasonReviewCard'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
-import { getBestPickups, getPlayerRecords, getRecordBook, getRosterOrigins, getSeasonReviews } from '@/server/history-service'
+import { getBestPickups, getPlayerRecords, getPlayerStatRecords, getRecordBook, getRosterOrigins, getSeasonReviews } from '@/server/history-service'
 
 /**
  * The record book, and a card for every season.
@@ -39,12 +39,13 @@ const FORMAT: Record<string, (n: number) => string> = {
 }
 
 export default async function RecordsPage() {
-  const [{ book, lists, members }, { reviews }, pickups, origins, playerBook] = await Promise.all([
+  const [{ book, lists, members }, { reviews }, pickups, origins, playerBook, statRecords] = await Promise.all([
     getRecordBook(),
     getSeasonReviews(),
     getBestPickups(3),
     getRosterOrigins(),
     getPlayerRecords(),
+    getPlayerStatRecords(),
   ])
 
   return (
@@ -148,7 +149,7 @@ export default async function RecordsPage() {
           </section>
         </div>
 
-        <PlayerRecordsSection book={playerBook} members={members} />
+        <PlayerRecordsSection book={playerBook} members={members} statRecords={statRecords} />
 
         <section className="mt-10">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">

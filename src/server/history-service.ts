@@ -49,6 +49,7 @@ import {
   type StarterRow,
 } from '@/lib/positional'
 import { faabReport, type FaabSeason } from '@/lib/faab'
+import { playerStatRecords, type PositionStatRecords } from '@/lib/player-stat-records'
 import { playerRecords, type PlayerRecordBook } from '@/lib/player-records'
 import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
@@ -1729,5 +1730,49 @@ export async function getFaab(opts: { season?: number } = {}): Promise<FaabSeaso
       points: num(r.points),
     })),
     { weekKeys: keys, weeklySeasons: new Set(input.matchups.map((m) => m.season)) },
+  )
+}
+
+/**
+ * NFL stat records for rostered players (step 70): regular season, complete weeks, the same week
+ * keys as the other player records. Empty (not an error) when the stats table does not exist, so
+ * the Records page survives a database that has not had `db:migrate-player-stats`.
+ */
+export async function getPlayerStatRecords(): Promise<PositionStatRecords[]> {
+  const sql = getSql()
+  let rows: Array<Record<string, unknown>>
+  try {
+    rows = await sql`
+      SELECT w.season, w.week, w.manager_id, w.player_id, w.player_name, w.position, w.is_starter,
+             st.*
+        FROM player_weeks w
+        JOIN player_week_stats st
+          ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+       WHERE st.gp >= 1
+       ORDER BY w.season, w.week, w.manager_id, w.player_id`
+  } catch (err) {
+    if ((err as { code?: string }).code === '42P01') return []
+    throw err
+  }
+  const input = await getHistoryInput()
+  const regular = regularSeasonWeekKeys(input.matchups)
+  const complete = new Set<string>()
+  for (const season of new Set(rows.map((r) => Number(r.season)))) {
+    for (const [week] of completeWeeks(input.matchups, season).complete) complete.add(`${season}:${week}`)
+  }
+  const keys = new Set([...regular].filter((k) => complete.has(k)))
+  return playerStatRecords(
+    rows.map((r) => ({
+      season: Number(r.season),
+      week: Number(r.week),
+      managerId: Number(r.manager_id),
+      playerId: String(r.player_id),
+      playerName: (r.player_name as string | null) ?? null,
+      position: (r.position as string | null) ?? null,
+      isStarter: Boolean(r.is_starter),
+      gp: numOrNull(r.gp),
+      stats: Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+    })),
+    keys,
   )
 }
