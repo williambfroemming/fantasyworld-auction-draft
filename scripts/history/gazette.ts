@@ -20,6 +20,8 @@
  *   npm run gazette -- 2025 7 --desk       # the Story Desk only: storylines
  *   npm run gazette -- 2025 7 --plans      # Desk + Editor: storylines and three plans
  *   npm run gazette -- 2025 7 --drafts     # ... + three Writers in parallel
+ *   npm run gazette -- 2025 7 --pipeline   # the whole room: ... + Judge + game notes
+ *   npm run gazette -- --sample 2025 6 3 --pipeline   # three weeks, winners' notebooks threaded
  *
  * ## The season preview is week zero
  *
@@ -67,7 +69,17 @@ import {
 } from '../../src/lib/gazette'
 import { PROMPT, PROMPT_VERSION } from './gazette-prompt'
 import { MODEL, callJson, ledger, printLedger } from './gazette-model'
-import { runDesk, runEditor, runWriters, showDesk, showDraft, showPlans, type RecentLead } from './gazette-pipeline'
+import {
+  runDesk,
+  runEditor,
+  runPipeline,
+  runWriters,
+  showDesk,
+  showDraft,
+  showPlans,
+  showVerdict,
+  type RecentLead,
+} from './gazette-pipeline'
 import { stripMarkup } from '../../src/lib/gazette-room'
 import { PREVIEW_PROMPT, PREVIEW_PROMPT_VERSION } from './gazette-preview-prompt'
 
@@ -91,7 +103,7 @@ const factsOnly = has('--facts')
 // A sample is always a dry run. Its whole purpose is to read three editions
 // before committing to a voice, and storing them would seed the archive with the
 // draft you were still deciding about.
-const dryRun = has('--dry-run') || has('--sample') || has('--desk') || has('--plans') || has('--drafts')
+const dryRun = has('--dry-run') || has('--sample') || has('--desk') || has('--plans') || has('--drafts') || has('--pipeline')
 const regenerate = has('--regenerate')
 const forward = has('--forward')
 const replay = has('--replay')
@@ -125,6 +137,12 @@ const check = has('--check')
 const deskOnly = has('--desk')
 const plansOnly = has('--plans')
 const draftsOnly = has('--drafts')
+/**
+ * The whole room: Desk, Editor, three Writers, Judge, game notes. A dry run
+ * until step 72 gives it somewhere to store the run. With --drafts it also
+ * prints the losing drafts.
+ */
+const pipeline = has('--pipeline')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -403,7 +421,7 @@ function show(season: number, week: number, issue: Issue, facts: Pack) {
   console.log('')
   for (const note of issue.gameNotes) console.log(`  • ${note}`)
   if (issue.threads.length) {
-    console.log("\n  Applewhite's notebook:")
+    console.log('\n  Notebook:')
     for (const t of issue.threads) {
       console.log(`    [${(t.kind ?? 'bit').padEnd(8)}] ${t.id}: ${t.note}`)
     }
@@ -500,6 +518,25 @@ async function one(
     facts.priorThreads = carried[carried.length - 1].threads
     facts.priorColumns = carried.slice(-2).map((c) => c.column)
     facts.priorHeadlines = carried.slice(-4).map((c) => c.headline)
+  }
+
+  if (pipeline) {
+    const mark = ledger.length
+    try {
+      const recent = await recentLeads(season, week, carried)
+      console.log(`\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season} · the editorial room`)
+      const { issue, run } = await runPipeline(facts, recent, { desk: true, plans: true, drafts: draftsOnly })
+      showVerdict(run)
+      show(season, week, { ...issue }, facts)
+      // Only the winner's notebook carries forward: one notebook, and it is his.
+      carried?.push({ week, headline: issue.headline, column: issue.column, threads: issue.threads, lead: run.lead })
+      return 'skipped'
+    } catch (err) {
+      console.error(`  ✗ ${season} wk ${week}: ${err instanceof Error ? err.message : err}`)
+      return 'failed'
+    } finally {
+      printLedger(mark, `${season} wk ${week} tokens`)
+    }
   }
 
   if (deskOnly || plansOnly || draftsOnly) {

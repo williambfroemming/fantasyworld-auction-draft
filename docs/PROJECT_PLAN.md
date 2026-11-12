@@ -469,7 +469,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **68.** The Story Desk (`scripts/history/gazette-room/desk-prompt.ts`, `--desk`)
 - [x] **69.** The Editor: three plans, distinct leads, lead rotation (`--plans`)
 - [x] **70.** The voice bible and three parallel Writers (EXEMPLARS left for the commissioner)
-- [ ] **71.** The blind Judge, game notes as their own call, `--pipeline`
+- [x] **71.** The blind Judge, game notes as their own call, `--pipeline`
 - [ ] **72.** Storage: `week_issues.pipeline`, the mirror, `--replay --from plans`
 - [ ] **73.** The bake-off page (`--bakeoff`); stop for the league vote
 - [ ] **74.** Switch over (only if the pipeline wins the vote)

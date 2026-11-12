@@ -318,3 +318,92 @@ export function bannedPhrases(text: string): string[] {
   const lower = text.toLowerCase().replace(/[‘’]/g, "'")
   return BANNED_PHRASES.filter((p) => lower.includes(p))
 }
+
+// ---------------------------------------------------------------------------
+// Judge
+// ---------------------------------------------------------------------------
+
+/**
+ * A small seeded PRNG (mulberry32). The Judge's labels must be reproducible --
+ * the same week always shuffles the same way, so a replay is comparable -- and
+ * must not leak which plan a draft came from. Math.random gives neither.
+ */
+export function seededRandom(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** The Judge's seed for a week: season x 100 + week, as the roadmap fixes it. */
+export const judgeSeed = (season: number, week: number) => season * 100 + week
+
+/**
+ * Label items A, B, C... in a seeded random order. Returns the items in LABEL
+ * order, each with its label, so "A" is not always plan one.
+ */
+export function blindLabels<T>(items: T[], seed: number): Array<{ label: string; item: T }> {
+  const order = items.map((_, i) => i)
+  const rand = seededRandom(seed)
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[order[i], order[j]] = [order[j], order[i]]
+  }
+  return order.map((idx, k) => ({ label: String.fromCharCode(65 + k), item: items[idx] }))
+}
+
+export interface FlaggedLine {
+  label: string
+  line: string
+  why: string
+}
+
+export interface Verdict {
+  ranking: string[]
+  winner: string
+  reasons: string
+  /** Recorded only, never acted on (v1). */
+  flaggedLines: FlaggedLine[]
+}
+
+/** Everything wrong with a verdict: the ranking must be a permutation, led by the winner. */
+export function validateVerdict(v: Verdict, labels: string[]): string[] {
+  const problems: string[] = []
+  const want = [...labels].sort().join(',')
+  if ([...v.ranking].sort().join(',') !== want) {
+    problems.push(`RANKING must list each of ${labels.join(', ')} exactly once; got ${v.ranking.join(', ') || 'nothing'}`)
+  }
+  if (v.winner !== v.ranking[0]) problems.push(`WINNER must be the first label in RANKING`)
+  if (!labels.includes(v.winner)) problems.push(`WINNER "${v.winner}" is not one of ${labels.join(', ')}`)
+  for (const f of v.flaggedLines) {
+    if (!labels.includes(f.label)) problems.push(`a flagged line names label "${f.label}", which does not exist`)
+  }
+  if (!v.reasons.trim()) problems.push('give REASONS')
+  return problems
+}
+
+/** With one surviving draft there is nothing to judge, and the record says so. */
+export const onlySurvivor = (label: string): Verdict => ({
+  ranking: [label],
+  winner: label,
+  reasons: 'only survivor',
+  flaggedLines: [],
+})
+
+// ---------------------------------------------------------------------------
+// Game notes
+// ---------------------------------------------------------------------------
+
+/** One note per game, in order, none empty. */
+export function validateGameNotes(notes: string[], gameCount: number): string[] {
+  const problems: string[] = []
+  if (notes.length !== gameCount) problems.push(`write exactly ${gameCount} notes, one per game in order, not ${notes.length}`)
+  notes.forEach((n, i) => {
+    if (!n.trim()) problems.push(`note ${i + 1} is empty`)
+  })
+  return problems
+}

@@ -4,6 +4,12 @@ import { describe, expect, it } from 'vitest'
 import type { GazetteFacts } from './gazette'
 import {
   BANNED_PHRASES,
+  blindLabels,
+  judgeSeed,
+  onlySurvivor,
+  seededRandom,
+  validateGameNotes,
+  validateVerdict,
   bannedPhrases,
   cleanDraft,
   isDalesFirstIssue,
@@ -275,5 +281,82 @@ describe('cleanDraft', () => {
       threads: [],
     })
     expect([d.issueTitle, d.headline, d.deck, d.column]).toEqual(['T', 'H', 'D', 'C'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Judge and game notes
+// ---------------------------------------------------------------------------
+
+describe('blindLabels', () => {
+  it('labels A, B, C in a seeded order, the same every time for the same week', () => {
+    const a = blindLabels(['p1', 'p2', 'p3'], judgeSeed(2025, 7))
+    const b = blindLabels(['p1', 'p2', 'p3'], judgeSeed(2025, 7))
+    expect(a).toEqual(b)
+    expect(a.map((x) => x.label)).toEqual(['A', 'B', 'C'])
+    expect(a.map((x) => x.item).sort()).toEqual(['p1', 'p2', 'p3'])
+  })
+
+  it('does not always put plan one under A', () => {
+    // Over a season of seeds, every plan gets to be A sometimes; a judge that
+    // learned "A is the editor's first idea" would be learning a leak.
+    const firsts = new Set<string>()
+    for (let w = 1; w <= 17; w++) firsts.add(blindLabels(['p1', 'p2', 'p3'], judgeSeed(2025, w))[0].item)
+    expect(firsts.size).toBe(3)
+  })
+
+  it('handles one and two survivors', () => {
+    expect(blindLabels(['only'], 1)).toEqual([{ label: 'A', item: 'only' }])
+    expect(blindLabels(['x', 'y'], 2).map((l) => l.label)).toEqual(['A', 'B'])
+  })
+
+  it('the seed is season x 100 + week', () => {
+    expect(judgeSeed(2025, 7)).toBe(202507)
+  })
+
+  it('seededRandom is deterministic and in [0, 1)', () => {
+    const r1 = seededRandom(42)
+    const r2 = seededRandom(42)
+    for (let i = 0; i < 50; i++) {
+      const v = r1()
+      expect(v).toBe(r2())
+      expect(v).toBeGreaterThanOrEqual(0)
+      expect(v).toBeLessThan(1)
+    }
+  })
+})
+
+describe('validateVerdict', () => {
+  const ok = { ranking: ['B', 'A', 'C'], winner: 'B', reasons: 'B is funnier.', flaggedLines: [] }
+
+  it('passes a full ranking led by the winner', () => {
+    expect(validateVerdict(ok, ['A', 'B', 'C'])).toEqual([])
+  })
+
+  it('wants every label exactly once, and the winner first', () => {
+    expect(validateVerdict({ ...ok, ranking: ['B', 'A'] }, ['A', 'B', 'C']).join()).toContain('exactly once')
+    expect(validateVerdict({ ...ok, ranking: ['B', 'B', 'C'] }, ['A', 'B', 'C']).join()).toContain('exactly once')
+    expect(validateVerdict({ ...ok, winner: 'A' }, ['A', 'B', 'C']).join()).toContain('first label')
+    expect(validateVerdict({ ...ok, winner: 'D', ranking: ['D', 'A', 'B'] }, ['A', 'B', 'C']).join()).toContain('"D"')
+  })
+
+  it('refuses a flag on a label that does not exist, and empty reasons', () => {
+    const flagged = { ...ok, flaggedLines: [{ label: 'Q', line: 'x', why: 'y' }] }
+    expect(validateVerdict(flagged, ['A', 'B', 'C']).join()).toContain('"Q"')
+    expect(validateVerdict({ ...ok, reasons: ' ' }, ['A', 'B', 'C']).join()).toContain('REASONS')
+  })
+
+  it('a lone survivor is recorded as such, and is itself a valid verdict', () => {
+    const v = onlySurvivor('A')
+    expect(v.reasons).toBe('only survivor')
+    expect(validateVerdict(v, ['A'])).toEqual([])
+  })
+})
+
+describe('validateGameNotes', () => {
+  it('wants one non-empty note per game', () => {
+    expect(validateGameNotes(['a', 'b'], 2)).toEqual([])
+    expect(validateGameNotes(['a'], 2).join()).toContain('exactly 2')
+    expect(validateGameNotes(['a', ' '], 2).join()).toContain('note 2 is empty')
   })
 })

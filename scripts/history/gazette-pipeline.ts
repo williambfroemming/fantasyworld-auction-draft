@@ -5,10 +5,16 @@
  *     -> Story Desk   storylines, each citing pack paths       (gazette-room/desk-prompt.ts)
  *     -> Editor       three plans, distinct leads               (gazette-room/editor-prompt.ts)
  *     -> Writer x3    one draft per plan, in parallel           (gazette-room/writer-prompt.ts, voice.ts)
+ *     -> Judge        blind, seeded labels; picks one           (gazette-room/judge-prompt.ts)
+ *     + game notes    the plain record, its own small call      (gazette-room/gamenotes-prompt.ts)
  *
- * Further stages arrive in steps 69-71 of docs/GAZETTE_ROADMAP.md. Everything
- * here runs only behind a flag on scripts/history/gazette.ts; the weekly job
- * and the single-pass edition do not touch it.
+ * See docs/GAZETTE_ROADMAP.md. Everything here runs only behind a flag on
+ * scripts/history/gazette.ts (--pipeline, or a stage flag); the weekly job,
+ * the single-pass edition and the season preview do not touch it.
+ *
+ * Only the winning draft's notebook survives a run. The Desk and the Editor
+ * read the notebook and never write one, and the losing drafts' threads are
+ * kept for the record only -- there is one notebook, and it is the winner's.
  *
  * Each stage is one structured call, a deterministic validation from
  * src/lib/gazette-room.ts, and at most one retry that reads the problems back.
@@ -30,6 +36,13 @@ import {
 import {
   BEAT_MODES,
   bannedPhrases,
+  blindLabels,
+  judgeSeed,
+  onlySurvivor,
+  stripMarkup,
+  validateGameNotes,
+  validateVerdict,
+  type Verdict,
   cleanDraft,
   draftProse,
   isDalesFirstIssue,
@@ -46,6 +59,8 @@ import {
 import { callJson } from './gazette-model'
 import { DESK_PROMPT, DESK_VERSION } from './gazette-room/desk-prompt'
 import { EDITOR_PROMPT, EDITOR_VERSION } from './gazette-room/editor-prompt'
+import { GAMENOTES_PROMPT, GAMENOTES_VERSION } from './gazette-room/gamenotes-prompt'
+import { JUDGE_PROMPT, JUDGE_VERSION } from './gazette-room/judge-prompt'
 import { VOICE_VERSION } from './gazette-room/voice'
 import { WRITER_PROMPT, WRITER_VERSION } from './gazette-room/writer-prompt'
 
@@ -428,9 +443,220 @@ export function showDraft(w: WrittenDraft, heading = `DRAFT from plan ${w.planIn
   for (const t of d.threads) console.log(`    [${(t.kind ?? 'bit').padEnd(8)}] ${t.id}: ${t.note}`)
 }
 
+// ---------------------------------------------------------------------------
+// Judge
+// ---------------------------------------------------------------------------
+
+const JUDGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    ranking: STRING_ARRAY,
+    winner: { type: 'string' },
+    reasons: { type: 'string' },
+    flaggedLines: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { label: { type: 'string' }, line: { type: 'string' }, why: { type: 'string' } },
+        required: ['label', 'line', 'why'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['ranking', 'winner', 'reasons', 'flaggedLines'],
+  additionalProperties: false,
+}
+
+/** A surviving draft under its blind label. */
+export interface LabelledDraft extends WrittenDraft {
+  label: string
+}
+
+/**
+ * Blind-label the survivors with the week's seed and ask the Judge to rank
+ * them. It sees the prose only: no plan, no plan index, no notebook. With one
+ * survivor there is nothing to judge and no call is made.
+ */
+export async function runJudge(
+  facts: GazetteFacts,
+  drafts: WrittenDraft[],
+): Promise<{ labelled: LabelledDraft[]; verdict: Verdict }> {
+  const labelled = blindLabels(drafts, judgeSeed(facts.season, facts.week)).map(({ label, item }) => ({
+    ...item,
+    label,
+  }))
+  if (labelled.length === 1) return { labelled, verdict: onlySurvivor(labelled[0].label) }
+
+  const labels = labelled.map((d) => d.label)
+  const user = {
+    weekLabel: facts.weekLabel,
+    drafts: labelled.map((d) => ({
+      label: d.label,
+      issueTitle: d.draft.issueTitle,
+      headline: d.draft.headline,
+      deck: d.draft.deck,
+      column: d.draft.column,
+    })),
+  }
+  const verdict = await validated<Verdict>(
+    'judge',
+    (followUps) =>
+      callJson<Verdict>({
+        stage: 'judge',
+        system: JUDGE_PROMPT,
+        user,
+        followUps,
+        schema: JUDGE_SCHEMA,
+        effort: 'high',
+      }),
+    (v) => validateVerdict(v, labels),
+  )
+  return { labelled, verdict }
+}
+
+// ---------------------------------------------------------------------------
+// Game notes
+// ---------------------------------------------------------------------------
+
+const GAMENOTES_SCHEMA = {
+  type: 'object',
+  properties: { gameNotes: STRING_ARRAY },
+  required: ['gameNotes'],
+  additionalProperties: false,
+}
+
+/**
+ * The plain record, one note per game. Its own small call, its own one-retry
+ * shape check, and the same grounding gate with one repair.
+ */
+export async function runGameNotes(facts: GazetteFacts): Promise<string[]> {
+  if (!facts.games.length) return []
+  const user = { games: facts.games, rosters: facts.rosters ?? [] }
+  const call = (followUps: string[]) =>
+    callJson<{ gameNotes: string[] }>({
+      stage: 'game notes',
+      system: GAMENOTES_PROMPT,
+      user,
+      followUps,
+      schema: GAMENOTES_SCHEMA,
+      effort: 'low',
+      maxTokens: 8000,
+    }).then((r) => r.gameNotes.map(stripMarkup))
+  const { out } = await writeGrounded(
+    'game notes',
+    (followUps) =>
+      validated<string[]>(
+        'game notes',
+        (more) => call([...followUps, ...more]),
+        (notes) => validateGameNotes(notes, facts.games.length),
+      ),
+    (notes) => notes.join('\n\n'),
+    facts,
+    'One plain note per game, in order, as before.',
+  )
+  return out
+}
+
+// ---------------------------------------------------------------------------
+// The whole room
+// ---------------------------------------------------------------------------
+
+/** What an issue written by the pipeline is, and everything the room did to get there. */
+export interface PipelineRun {
+  versions: typeof PIPELINE_VERSIONS
+  storylines: DeskOutput['storylines']
+  stale: DeskOutput['stale']
+  plans: Plan[]
+  drafts: Array<{
+    label: string
+    planIndex: number
+    issue: Draft
+    flagged: WrittenDraft['flagged']
+    repaired: boolean
+  }>
+  /** Plans whose Writer failed the gate twice. Not judged, kept for the record. */
+  dropped: FailedDraft[]
+  verdict: Verdict
+  /** The winning plan's lead storyline, and who it was about: next week's rotation reads this. */
+  lead: { storylineId: string; managers: string[] }
+}
+
+/** The finished edition: the winner's prose and notebook, and the separate game notes. */
+export interface PipelineIssue extends Draft {
+  gameNotes: string[]
+}
+
+/**
+ * Desk -> Editor -> three Writers -> Judge, and the game notes alongside.
+ *
+ * The final prose (headline, deck, column, game notes) is gated against the
+ * full pack once more after assembly. Each piece already passed on its own, so
+ * this cannot fail today; it is here so that the publish gate is a property of
+ * what is published rather than of how the pieces happened to be checked.
+ */
+export async function runPipeline(
+  facts: GazetteFacts,
+  recentLeads: RecentLead[],
+  log: { desk?: boolean; plans?: boolean; drafts?: boolean } = {},
+): Promise<{ issue: PipelineIssue; run: PipelineRun }> {
+  const priorThreads = facts.priorThreads
+  const desk = await runDesk(facts, priorThreads, recentLeads)
+  if (log.desk) showDesk(desk)
+  const editor = await runEditor(facts, desk, priorThreads, recentLeads)
+  if (log.plans) showPlans(editor)
+
+  // The game notes do not depend on any of the room's choices, so they run
+  // beside the Writers rather than after the Judge.
+  const [{ drafts, failed }, gameNotes] = await Promise.all([
+    runWriters(facts, desk, editor, priorThreads, facts.priorColumns),
+    runGameNotes(facts),
+  ])
+  const { labelled, verdict } = await runJudge(facts, drafts)
+  if (log.drafts) for (const d of labelled) showDraft(d, `DRAFT ${d.label} (plan ${d.planIndex + 1})`)
+
+  const winner = labelled.find((d) => d.label === verdict.winner)!
+  const issue: PipelineIssue = { ...winner.draft, gameNotes }
+  const prose = [issue.headline, issue.deck, issue.column, ...issue.gameNotes].join('\n\n')
+  const flags = ungroundedNumbers(prose, facts)
+  if (flags.length) throw new Error(`the assembled edition is ungrounded:\n${flags.map((f) => `  ${f}`).join('\n')}`)
+
+  const leadPlan = editor.plans[winner.planIndex]
+  const leadStory = desk.storylines.find((s) => s.id === leadPlan.lead)!
+  return {
+    issue,
+    run: {
+      versions: PIPELINE_VERSIONS,
+      storylines: desk.storylines,
+      stale: desk.stale,
+      plans: editor.plans,
+      drafts: labelled.map((d) => ({
+        label: d.label,
+        planIndex: d.planIndex,
+        issue: d.draft,
+        flagged: d.flagged,
+        repaired: d.repaired,
+      })),
+      dropped: failed,
+      verdict,
+      lead: { storylineId: leadStory.id, managers: leadStory.managers },
+    },
+  }
+}
+
+export function showVerdict(run: PipelineRun) {
+  const v = run.verdict
+  const w = run.drafts.find((d) => d.label === v.winner)!
+  console.log(`\n  JUDGE (v${JUDGE_VERSION}) — ranking ${v.ranking.join(' > ')}; winner ${v.winner} (plan ${w.planIndex + 1}, lead ${run.lead.storylineId})`)
+  console.log(`    ${v.reasons}`)
+  for (const f of v.flaggedLines) console.log(`    flag [${f.label}] "${f.line}" — ${f.why}`)
+  for (const d of run.dropped) console.log(`    dropped: plan ${d.planIndex + 1} (${d.error.split('\n')[0]})`)
+}
+
 export const PIPELINE_VERSIONS = {
   desk: DESK_VERSION,
   editor: EDITOR_VERSION,
   voice: VOICE_VERSION,
   writer: WRITER_VERSION,
+  judge: JUDGE_VERSION,
+  gameNotes: GAMENOTES_VERSION,
 }
