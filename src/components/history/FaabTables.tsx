@@ -110,8 +110,7 @@ export function FaabMoneyTable({ faab, members }: { faab: FaabSeason; members: H
         </table>
       </div>
       <p className="mt-2 text-xs text-slate-500">
-        Spent counts completed claims only. Traded is FAAB moved in trades. Pts / $ is started
-        points, regular season, from paid claims over dollars spent; a $0 claim has none.
+        Spent: completed claims only · Pts / $: started points per dollar on paid claims
       </p>
     </section>
   )

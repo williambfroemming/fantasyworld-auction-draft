@@ -122,8 +122,7 @@ export function PlayerRecordsSection({
             />
           </h3>
           <p className="mb-3 text-xs text-slate-500">
-            NFL stats while rostered in this league, regular season. Each list is within one
-            position; single-game lists are by a starter.
+            Regular season, while rostered here, within each position. Single games count starters only.
           </p>
           <div className="space-y-2">
             {statRecords.map((p, i) => (
