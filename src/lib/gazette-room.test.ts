@@ -3,6 +3,10 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { GazetteFacts } from './gazette'
 import {
+  BANNED_PHRASES,
+  bannedPhrases,
+  cleanDraft,
+  isDalesFirstIssue,
   planPaths,
   recentlyLed,
   validateDesk,
@@ -13,6 +17,9 @@ import {
   type RecentLead,
   type Storyline,
 } from './gazette-room'
+import { PROMPT } from '../../scripts/history/gazette-prompt'
+import { EXEMPLARS, VOICE } from '../../scripts/history/gazette-room/voice'
+import { WRITER_PROMPT } from '../../scripts/history/gazette-room/writer-prompt'
 
 const archive = JSON.parse(
   readFileSync(resolve(import.meta.dirname, '../../data/history/gazette/2025.json'), 'utf8'),
@@ -196,5 +203,77 @@ describe('planPaths', () => {
       beats: [beat('about-mario', { figures: ['games[0].margin', 'belt'] }), beat('about-bryan'), beat('about-bryan'), beat('about-mario')],
     })
     expect(planPaths(p, deskOf())).toEqual(['games[0]', 'rosters[0]', 'games[1]', 'games[0].margin', 'belt'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Writers: the voice bible and the lint
+// ---------------------------------------------------------------------------
+
+describe('the voice bible', () => {
+  /** A section of a prompt: from its heading to the next blank line. */
+  const block = (prompt: string, heading: string) => {
+    const start = prompt.indexOf(heading)
+    expect(start, heading).toBeGreaterThanOrEqual(0)
+    const end = prompt.indexOf('\n\n', start)
+    return prompt.slice(start, end === -1 ? undefined : end)
+  }
+
+  it.each(['THE NUMBER CONTRACT', 'WHAT YOU CANNOT KNOW', 'THE FLOOR'])(
+    '%s is carried over from v16 word for word',
+    (heading) => {
+      // These are rules, not voice (docs/GAZETTE_ROADMAP.md, locked decisions).
+      expect(VOICE).toContain(block(PROMPT, heading))
+    },
+  )
+
+  it('prints every banned phrase, from the same list the lint uses', () => {
+    for (const p of BANNED_PHRASES) expect(VOICE).toContain(`"${p}"`)
+  })
+
+  it('leaves EXEMPLARS for the commissioner, and out of the prompt while empty', () => {
+    expect(EXEMPLARS).toEqual([])
+    expect(VOICE).not.toContain('EXEMPLARS')
+    const src = readFileSync(resolve(import.meta.dirname, '../../scripts/history/gazette-room/voice.ts'), 'utf8')
+    expect(src).toMatch(/TODO\(commissioner\)/)
+  })
+
+  it('the Writer prompt is the bible plus the assignment', () => {
+    expect(WRITER_PROMPT.startsWith(VOICE)).toBe(true)
+    expect(WRITER_PROMPT).toContain('DALESSTANCE')
+    expect(WRITER_PROMPT).not.toMatch(/GAMENOTES/)
+  })
+})
+
+describe('bannedPhrases', () => {
+  it('finds phrases case-insensitively, curly apostrophes included, once each', () => {
+    expect(bannedPhrases('To be fair, it was Respectable. to be fair.')).toEqual(['to be fair', 'respectable'])
+    expect(bannedPhrases('Let’s be honest about Bryan.')).toEqual(["let's be honest"])
+  })
+
+  it('is silent on clean prose', () => {
+    expect(bannedPhrases('Bryan benched a guy who scored twenty for a guy who scored two.')).toEqual([])
+  })
+})
+
+describe('isDalesFirstIssue', () => {
+  it('is true until the notebook has an entry of his', () => {
+    expect(isDalesFirstIssue([])).toBe(true)
+    expect(isDalesFirstIssue([{ id: 'gordon-belt', kind: 'bit', note: 'x' }])).toBe(true)
+    expect(isDalesFirstIssue([{ id: 'dale-phrases', kind: 'arc', note: 'x' }])).toBe(false)
+  })
+})
+
+describe('cleanDraft', () => {
+  it('strips the markup a model reaches for, from every prose field', () => {
+    const d = cleanDraft({
+      issueTitle: '<b>T</b>',
+      lens: 'L',
+      headline: '<em>H</em>',
+      deck: '<i>D</i>',
+      column: '<p>C</p>',
+      threads: [],
+    })
+    expect([d.issueTitle, d.headline, d.deck, d.column]).toEqual(['T', 'H', 'D', 'C'])
   })
 })

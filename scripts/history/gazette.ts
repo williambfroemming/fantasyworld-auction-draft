@@ -19,6 +19,7 @@
  * The editorial room (docs/GAZETTE_ROADMAP.md) -- dry runs, nothing stored:
  *   npm run gazette -- 2025 7 --desk       # the Story Desk only: storylines
  *   npm run gazette -- 2025 7 --plans      # Desk + Editor: storylines and three plans
+ *   npm run gazette -- 2025 7 --drafts     # ... + three Writers in parallel
  *
  * ## The season preview is week zero
  *
@@ -66,7 +67,8 @@ import {
 } from '../../src/lib/gazette'
 import { PROMPT, PROMPT_VERSION } from './gazette-prompt'
 import { MODEL, callJson, ledger, printLedger } from './gazette-model'
-import { runDesk, runEditor, showDesk, showPlans, type RecentLead } from './gazette-pipeline'
+import { runDesk, runEditor, runWriters, showDesk, showDraft, showPlans, type RecentLead } from './gazette-pipeline'
+import { stripMarkup } from '../../src/lib/gazette-room'
 import { PREVIEW_PROMPT, PREVIEW_PROMPT_VERSION } from './gazette-preview-prompt'
 
 /**
@@ -89,7 +91,7 @@ const factsOnly = has('--facts')
 // A sample is always a dry run. Its whole purpose is to read three editions
 // before committing to a voice, and storing them would seed the archive with the
 // draft you were still deciding about.
-const dryRun = has('--dry-run') || has('--sample') || has('--desk') || has('--plans')
+const dryRun = has('--dry-run') || has('--sample') || has('--desk') || has('--plans') || has('--drafts')
 const regenerate = has('--regenerate')
 const forward = has('--forward')
 const replay = has('--replay')
@@ -122,6 +124,7 @@ const check = has('--check')
  */
 const deskOnly = has('--desk')
 const plansOnly = has('--plans')
+const draftsOnly = has('--drafts')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -201,10 +204,10 @@ async function callModel(system: string, facts: Pack, repair?: string): Promise<
  * instruction is a request where a strip is a guarantee. A conservative tag list
  * rather than a general tag-stripper, so prose that legitimately contains an
  * angle bracket survives.
+ *
+ * The function itself is `stripMarkup` in src/lib/gazette-room.ts, shared with
+ * the editorial room's Writers and game notes.
  */
-const stripMarkup = (s: string) =>
-  s.replace(/<\/?(?:em|i|b|strong|p|br|span|h[1-6])\s*\/?>/gi, '').trim()
-
 const clean = (i: Issue): Issue => ({
   ...i,
   issueTitle: stripMarkup(i.issueTitle),
@@ -499,14 +502,21 @@ async function one(
     facts.priorHeadlines = carried.slice(-4).map((c) => c.headline)
   }
 
-  if (deskOnly || plansOnly) {
+  if (deskOnly || plansOnly || draftsOnly) {
     const mark = ledger.length
     try {
       const recent = await recentLeads(season, week, carried)
       const desk = await runDesk(facts, facts.priorThreads, recent)
       console.log(`\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season}`)
       showDesk(desk)
-      if (plansOnly) showPlans(await runEditor(facts, desk, facts.priorThreads, recent))
+      if (plansOnly || draftsOnly) {
+        const editor = await runEditor(facts, desk, facts.priorThreads, recent)
+        showPlans(editor)
+        if (draftsOnly) {
+          const { drafts } = await runWriters(facts, desk, editor, facts.priorThreads, facts.priorColumns)
+          for (const d of drafts) showDraft(d)
+        }
+      }
       return 'skipped'
     } catch (err) {
       console.error(`  ✗ ${season} wk ${week}: ${err instanceof Error ? err.message : err}`)

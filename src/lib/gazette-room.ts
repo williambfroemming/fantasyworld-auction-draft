@@ -17,7 +17,7 @@
  * text is checked with the same `ungroundedNumbers()` as the final prose, against
  * the same full pack.
  */
-import { resolvePackPath, ungroundedNumbers, type GazetteFacts } from './gazette'
+import { resolvePackPath, ungroundedNumbers, type GazetteFacts, type Thread } from './gazette'
 
 // ---------------------------------------------------------------------------
 // Story Desk
@@ -216,4 +216,105 @@ export function validatePlans(
     )
   })
   return problems
+}
+
+// ---------------------------------------------------------------------------
+// Writers
+// ---------------------------------------------------------------------------
+
+/** What a Writer files: today's Issue minus the game notes, which are their own call. */
+export interface Draft {
+  issueTitle: string
+  lens: string
+  headline: string
+  deck: string
+  column: string
+  threads: Thread[]
+}
+
+/**
+ * Strip the inline HTML a model sometimes reaches for. Every field is rendered
+ * as text, so an em tag would reach the page as visible angle brackets. A
+ * conservative tag list, so prose with a real angle bracket survives. The
+ * reasoning is on `clean` in scripts/history/gazette.ts.
+ */
+export const stripMarkup = (s: string) =>
+  s.replace(/<\/?(?:em|i|b|strong|p|br|span|h[1-6])\s*\/?>/gi, '').trim()
+
+export const cleanDraft = (d: Draft): Draft => ({
+  ...d,
+  issueTitle: stripMarkup(d.issueTitle),
+  lens: stripMarkup(d.lens),
+  headline: stripMarkup(d.headline),
+  deck: stripMarkup(d.deck),
+  column: stripMarkup(d.column),
+})
+
+/** Everything the grounding gate reads in a draft: the prose, and only the prose. */
+export const draftProse = (d: Pick<Draft, 'headline' | 'deck' | 'column'>) =>
+  [d.headline, d.deck, d.column].join('\n\n')
+
+/** Is this Dale's first issue? True when the notebook has no entry of his. */
+export function isDalesFirstIssue(priorThreads: Thread[]): boolean {
+  return !priorThreads.some((t) => t.id.startsWith('dale-'))
+}
+
+// ---------------------------------------------------------------------------
+// The banned-phrase lint
+// ---------------------------------------------------------------------------
+
+/**
+ * Phrases Dale does not use. One list, read by both the voice bible (which
+ * prints it into the prompt) and the lint below, so the two cannot drift.
+ *
+ * Three families: the softeners that made earlier versions arch rather than
+ * mean (docs/archive/PROGRESS_LOG_2026.md: "telling a model to be a bit mean
+ * produces arch"); the stock phrases of any sports newsletter, which are what
+ * make a paragraph sound like it could be about any league; and the
+ * points-as-objects phrasing v16 was written to stop.
+ *
+ * Warn only, like misattribution: a banned phrase is a reason for a human to
+ * read the draft, never a reason to drop it.
+ */
+export const BANNED_PHRASES = [
+  // softeners
+  'to be fair',
+  'respectable',
+  'in fairness',
+  'in most households',
+  'all things considered',
+  // the record speaking for Dale
+  'the record remembers',
+  'the numbers say',
+  "the numbers don't lie",
+  'the numbers do not lie',
+  // stock sportswriting
+  'at the end of the day',
+  'make no mistake',
+  "let's be honest",
+  "it's worth noting",
+  'it is worth noting',
+  'a tale of two',
+  'when the dust settled',
+  'only time will tell',
+  'buckle up',
+  'statement win',
+  'a masterclass',
+  'let that sink in',
+  'the elephant in the room',
+  'a testament to',
+  'silver lining',
+  'on any given sunday',
+  'in a league where',
+  // points as objects
+  'in the drawer',
+  'left in the hallway',
+  'walked out with',
+  'points on the floor',
+] as const
+
+/** Banned phrases a piece of prose contains, case-insensitively, each once. */
+export function bannedPhrases(text: string): string[] {
+  const lower = text.toLowerCase().replace(/[‘’]/g, "'")
+  return BANNED_PHRASES.filter((p) => lower.includes(p))
 }

@@ -120,7 +120,7 @@ export function printLedger(from = 0, heading = 'tokens'): number {
   if (!rows.length) return ledger.length
   const by = new Map<string, Usage & { calls: number }>()
   for (const r of rows) {
-    const key = r.stage.replace(/ [A-Z]$/, '') // "writer A" and "writer B" share a line
+    const key = r.stage.replace(/ ([A-Z]|\d+)$/, "") // "writer 1" and "writer 2" share a line
     const cur = by.get(key) ?? { stage: key, inputTokens: 0, outputTokens: 0, calls: 0 }
     cur.inputTokens += r.inputTokens
     cur.outputTokens += r.outputTokens
