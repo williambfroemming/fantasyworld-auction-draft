@@ -271,3 +271,25 @@ Run `npm run db:migrate-activity` against live **before** deploying this.
 | ⬜ | A member gets a 404 on `/admin` and a 403 from `/api/admin/activity` | |
 | ⬜ | Glossary → **Active time** explains how it is counted | |
 | ⬜ | The league has been told (see `docs/ACTIVITY_ROADMAP.md` → Tell the league) | |
+
+## P. Player stats on the site — `docs/STATS_WEAVE_ROADMAP.md`
+
+Nothing here needs a migration; the stat lines are already on live.
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | **Player page**, a receiver you know (try CeeDee Lamb): a **Stats by season** table under the By season table, with a Regular season / Playoffs toggle. Lamb's 2023 regular season reads 13 games, 131 tgt, 96 rec, 1,253 yd, 8 TD | |
+| ⬜ | The same page on a **team defense** (try San Francisco 49ers): columns are sacks, INT, FR, TD and points allowed per game, and nothing about receiving | |
+| ⬜ | The timeline above has a **Fantasy points / Rec yd** switch; choosing Rec yd redraws the bars and leaves a gap for weeks he did not play | |
+| ⬜ | **Game log** under the stats table: one block per season, newest open; a bye week says "did not play"; no week with points ever does | |
+| ⬜ | **History → Players**: pick a season, then **QB**; a "Pass yd" column and a sort by it appear. Picking **All** removes the column and the sort | |
+| ⬜ | Players: QB, 2023, sorted by passing yards starts Tagovailoa 3,697, Purdy 3,553, Prescott 3,505 | |
+| ⬜ | **Records → Players → NFL stat records**: a block per position; every single-game list says "by a starter"; QB passing yards in a season starts with Mahomes 4,160 (2022) | |
+| ⬜ | **Spend & Value** for a past season: each steal and bust has a stat line under the player\u2019s name; a $42 bust reads as a bust for a reason | |
+| ⬜ | **Member page**: a **Biggest weeks** list under Favourite players, with the NFL line behind each; playoff weeks are labelled | |
+| ⬜ | **Waivers**: claims show a "since pickup" line; Joe Burrow\u2019s $46 claim (2025) reads 49/82, 545 yds, 6 TD, 2 INT \u00b7 2 g | |
+| ⬜ | **Front page, while a season is on**: a "Week N\u2019s biggest starts" panel with five players, who started them and their lines. It is not there between seasons | |
+| ⬜ | **Ask the Oracle**: the example chips include receiving yards, passing yards and FAAB questions; clicking one fills the box and does not ask | |
+| ⬜ | Ask "Which receiver had the most receiving yards in a season?": the answer is a receiver, not a team defense | |
+| ⬜ | Every stat panel says it covers weeks rostered in this league, from 2020, and none claims to be an NFL career | |
+

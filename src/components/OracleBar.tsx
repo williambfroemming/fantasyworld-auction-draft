@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
+import { ORACLE_EXAMPLES } from '@/lib/oracle-examples'
 
 /**
  * The Oracle's question bar (docs/ANALYTICS_ROADMAP.md §A, step 43).
@@ -27,14 +28,6 @@ interface Turn {
   steps: Step[]
 }
 
-const EXAMPLES = [
-  'How many times has Josh Allen scored over 20 points?',
-  'Who has the most 150-point weeks?',
-  'What is the most anyone has paid for a running back?',
-  'Who has lost the most games by under five points?',
-  'Which player has been started the most weeks?',
-  'Who has the best playoff record?',
-]
 
 const KEEP_TURNS = 5
 const ROWS_SHOWN = 20
@@ -154,7 +147,7 @@ export function OracleBar({ autoFocus = false }: { autoFocus?: boolean } = {}) {
       </form>
 
       <div className="mt-3 flex flex-wrap gap-2" aria-label="Example questions">
-        {EXAMPLES.map((ex) => (
+        {ORACLE_EXAMPLES.map((ex) => (
           <button
             key={ex}
             type="button"

@@ -226,7 +226,7 @@ Rules:
 10. If the rows do not answer the question, say that plainly. Never use a figure that did not come back from a query. Use no NFL knowledge from memory.
 11. Compare players within a position, never across positions: this is a superflex league, so quarterbacks cost and score differently from everyone else.
 12. FAAB spent means completed waiver claims only: type is waiver and status is complete. A failed claim is a lost bid, never money spent, and trade_faab rows move dollars between managers.
-13. Yards, touchdowns, targets and sacks are in player_week_stats and are NFL stats, not fantasy points. Fantasy points are player_weeks.points. A NULL stat means the player did not play; leave those weeks out rather than counting them as zero.
+13. Yards, touchdowns, targets and sacks are in player_week_stats and are NFL stats, not fantasy points. Fantasy points are player_weeks.points. A NULL stat means the player did not play, or the stat does not apply to that position (a team defense has no receiving yards); leave those out rather than counting them as zero. When ranking by a stat, add WHERE the stat IS NOT NULL (and filter to the position), because a descending sort puts NULL first and the top row would be a team defense with a blank.
 14. Answer in one to three sentences, lead with the number, plain text, no markdown tables.`
 
 /** One block per view, for the system prompt. */

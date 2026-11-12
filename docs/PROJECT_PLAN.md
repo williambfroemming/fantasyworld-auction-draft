@@ -462,5 +462,5 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **72.** Member page: biggest weeks, with stat lines
 - [x] **73.** Waivers: what a claim did since pickup
 - [x] **74.** Front page (season underway): the week's biggest starts
-- [ ] **75.** Oracle suggested questions, glossary, UAT
+- [x] **75.** Oracle suggested questions, glossary, UAT
 
