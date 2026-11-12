@@ -26,8 +26,7 @@ export function MemberPositionalTable({ seasons }: { seasons: MemberPositionalSe
         />
       </h2>
       <p className="mb-3 text-xs text-slate-400">
-        Started points at each position against the league average there, regular season. Green
-        is above it.
+        Started points against the league average at each position. Green is above.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">

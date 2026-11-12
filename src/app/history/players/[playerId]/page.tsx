@@ -77,9 +77,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
 
         {/* The window, stated before any number that depends on it. */}
         <p className="mt-3 text-xs text-slate-500">
-          Fantasy World record, {player.firstSeason}–{player.lastSeason}. Week-by-week scoring
-          exists from 2020 on, so totals below cover that span — not the league&rsquo;s full
-          history.
+          Rostered {player.firstSeason}–{player.lastSeason}. Scoring on record from 2020.
         </p>
 
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

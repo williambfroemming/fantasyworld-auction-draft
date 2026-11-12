@@ -34,7 +34,7 @@ export function MemberRosterOriginTable({ seasons }: { seasons: MemberOriginSeas
         />
       </h2>
       <p className="mb-3 text-xs text-slate-400">
-        Share of started points, regular season, by where the player came from.
+        Share of started points by how the player arrived.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-sm">

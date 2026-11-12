@@ -150,7 +150,7 @@ export function CurvePanel({ input, className = '' }: { input: StatsInput; class
                 {Math.round((hover.spent / Math.max(1, leagueTotal)) * 100)}%)
               </span>
             ) : (
-              <span>hover for a running total</span>
+              <span>hover for totals</span>
             )}
             <span>pick {curve.lastPick}</span>
           </div>

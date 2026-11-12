@@ -121,7 +121,7 @@ export function TeamSpendPanel({ input, className = '' }: { input: StatsInput; c
         */}
         {traded && (
           <p className="mt-3 text-[11px] text-amber-400/80">
-            Players have changed hands — this follows the money, not the roster.
+            Shows who paid, not who has the player now.
           </p>
         )}
       </div>

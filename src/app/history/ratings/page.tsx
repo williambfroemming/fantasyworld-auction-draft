@@ -58,10 +58,7 @@ export default async function RatingsPage() {
             <EraBadge coverage={coverage} />
           </h2>
           <p className="mb-3 text-xs text-slate-400">
-            A model, not a record. Everyone starts at 1500; beating a stronger team, and winning
-            big, moves a rating more. Each rating drifts a third of the way back to 1500 between
-            seasons. Dashed lines mark the start of each season. Regular season and the playoff
-            games that count.
+            An Elo-style rating, starting at 1500. Dashed lines mark each new season.
           </p>
           {chart.series.length === 0 ? (
             <p className="text-sm text-slate-500">No games on record yet.</p>
