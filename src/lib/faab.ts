@@ -40,6 +40,8 @@
  * - **Failed claims are kept and reported** (who bid, how much, and who won).
  */
 
+import { seasonStatLine, sumStats, type StatMap, type StatWeek } from '@/lib/player-stat-totals'
+
 export const FAAB_BUDGET = 100
 
 export interface FaabTransaction {
@@ -68,6 +70,10 @@ export interface FaabWeek {
   position: string | null
   isStarter: boolean
   points: number
+  /** 1 if he played that week, null otherwise. Absent when the stats are not loaded. */
+  gp?: number | null
+  /** That week's NFL stats. Absent when the stats are not loaded. */
+  stats?: StatMap
 }
 
 export interface FaabClaim {
@@ -91,6 +97,12 @@ export interface FaabClaim {
    * or unknown points.
    */
   shortfall: number | null
+  /**
+   * The NFL stats he put up for this manager over exactly the weeks credited to this claim (the
+   * same weeks as `points`), as one line: `12 rec / 17 tgt, 140 yds, 1 TD · 4 g`. Null when none
+   * of those weeks was a played week with a stat row: unknown, never a row of zeros.
+   */
+  statLine: string | null
 }
 
 export interface LostBid {
@@ -206,6 +218,7 @@ export function faabReport(
           pointsStarted: hasWeekly ? 0 : null,
           weeksHeld: 0,
           shortfall: null,
+          statLine: null,
         }
         seasonClaims.push(claim)
         note(t.managerId, t.playerIdAdded, { week: t.week, claim })
@@ -214,6 +227,8 @@ export function faabReport(
       }
     }
 
+    // The stat weeks credited to each claim, collected with the points and summed at the end.
+    const creditedStats = new Map<FaabClaim, StatWeek[]>()
     if (hasWeekly) {
       for (const w of rows) {
         const list = acquisitions.get(`${w.managerId}:${w.playerId}`)
@@ -227,6 +242,21 @@ export function faabReport(
         claim.points = (claim.points ?? 0) + w.points
         claim.pointsStarted = (claim.pointsStarted ?? 0) + (w.isStarter ? w.points : 0)
         claim.weeksHeld += 1
+        if (w.stats) {
+          const list2 = creditedStats.get(claim) ?? []
+          list2.push({
+            season: w.season,
+            week: w.week,
+            isPlayoff: false,
+            gp: w.gp ?? null,
+            stats: w.stats,
+          })
+          creditedStats.set(claim, list2)
+        }
+      }
+      for (const [claim, statWeeks] of creditedStats) {
+        const t = sumStats(statWeeks)
+        claim.statLine = seasonStatLine(claim.position, t.sums, t.games)
       }
     }
     claims.push(...seasonClaims)

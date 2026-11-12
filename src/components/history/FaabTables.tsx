@@ -156,6 +156,13 @@ function ClaimRows({
             </span>
             {c.droppedName && <span>· dropped {c.droppedName}</span>}
           </div>
+          {/* The NFL stats he put up for this manager since the pickup: the same weeks as the
+              points above. Nothing at all when none of them was a played week. */}
+          {c.statLine && (
+            <div className="pl-5 font-mono text-[0.7rem] tabular-nums text-slate-400">
+              since pickup: {c.statLine}
+            </div>
+          )}
         </li>
       ))}
     </ol>

@@ -215,3 +215,54 @@ describe('lists', () => {
     expect(run([])).toEqual([])
   })
 })
+
+describe('stats since pickup', () => {
+  const stat = (week: number, rec_yd: number, over: Partial<FaabWeek> = {}) =>
+    wk(week, {
+      gp: 1,
+      stats: { rec_tgt: 5, rec: 3, rec_yd, rec_td: 0, rush_att: 0, rush_yd: 0, rush_td: 0 },
+      ...over,
+    })
+
+  it('sums the stats over exactly the weeks credited to the claim', () => {
+    const c = run([tx({ week: 3 })], [stat(3, 99), stat(4, 40), stat(5, 60)])[0].claims[0]
+    // Week 3 is the claim week and is not credited.
+    expect(c.statLine).toContain('100 yds')
+    expect(c.statLine).toContain('2 g')
+  })
+
+  it("a re-acquired player's later weeks are not credited to the earlier claim", () => {
+    const t = [tx({ week: 3, faabBid: 20 }), tx({ type: 'free_agent', week: 8, faabBid: null })]
+    const c = run(t, [stat(4, 30), stat(9, 500)])[0].claims[0]
+    expect(c.statLine).toContain('30 yds')
+    expect(c.statLine).not.toContain('530')
+  })
+
+  it('follows the same weeks as points: a week outside the counted set is not in either', () => {
+    const c = run([tx({ week: 3 })], [stat(4, 40), stat(15, 300)])[0].claims[0]
+    expect(c.points).toBe(10)
+    expect(c.statLine).toContain('40 yds')
+  })
+
+  it('does not count a credited week he did not play', () => {
+    const c = run(
+      [tx({ week: 3 })],
+      [stat(4, 40), stat(5, 0, { gp: null, stats: { rec_yd: null, rec: null } })],
+    )[0].claims[0]
+    expect(c.weeksHeld).toBe(2)
+    expect(c.statLine).toContain('1 g')
+  })
+
+  it('is null, not zeros, when no credited week has a played stat row', () => {
+    expect(run([tx({ week: 14 })], [])[0].claims[0].statLine).toBeNull()
+    const noStats = run([tx({ week: 3 })], [wk(4, {})])[0].claims[0]
+    expect(noStats.statLine).toBeNull()
+    const dnp = run([tx({ week: 3 })], [wk(4, { gp: null, stats: { rec: null } })])[0].claims[0]
+    expect(dnp.statLine).toBeNull()
+  })
+
+  it('is null for a season with no weekly data', () => {
+    const s = faabReport([tx({})], [stat(4, 40)], { ...opts, weeklySeasons: new Set() })[0]
+    expect(s.claims[0].statLine).toBeNull()
+  })
+})

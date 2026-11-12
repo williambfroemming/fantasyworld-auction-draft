@@ -1674,6 +1674,38 @@ export async function getPlayerRecords(): Promise<PlayerRecordBook> {
  * claim's points agree with every other page about which weeks count. A season with
  * transactions but no weekly rows reports null points rather than zero.
  */
+/**
+ * The weekly rows behind FAAB claims: every rostered week of a player who was ever won on
+ * waivers, with that week's NFL stats where they exist. The stats join is optional: a database
+ * without the stats table gets the same rows with no stats, and the claim lines simply say
+ * nothing about stats.
+ */
+async function faabWeekRows(
+  sql: ReturnType<typeof getSql>,
+  only: number | null,
+): Promise<Array<Record<string, unknown>>> {
+  const where = `($1::int IS NULL OR w.season = $1::int)
+    AND (w.season, w.player_id) IN (SELECT season, player_id_added FROM season_transactions
+                                     WHERE type = 'waiver' AND status = 'complete')`
+  const base = 'w.season, w.week, w.manager_id, w.player_id, w.position, w.is_starter, w.points'
+  try {
+    const cols = STAT_KEYS.map((k) => `st.${k}`).join(', ')
+    return (await sql.query(
+      `SELECT ${base}, st.gp AS stat_gp, st.player_id IS NOT NULL AS has_stats, ${cols}
+         FROM player_weeks w
+         LEFT JOIN player_week_stats st
+           ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+        WHERE ${where}`,
+      [only],
+    )) as Array<Record<string, unknown>>
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+    return (await sql.query(`SELECT ${base} FROM player_weeks w WHERE ${where}`, [only])) as Array<
+      Record<string, unknown>
+    >
+  }
+}
+
 export async function getFaab(opts: { season?: number } = {}): Promise<FaabSeason[]> {
   const sql = getSql()
   // `season` narrows BOTH reads to one year: the front page asks only for the season in
@@ -1687,11 +1719,7 @@ export async function getFaab(opts: { season?: number } = {}): Promise<FaabSeaso
           FROM season_transactions
          WHERE (${only}::int IS NULL OR season = ${only}::int)
          ORDER BY season, week, created_at, transaction_id, line`,
-    sql`SELECT season, week, manager_id, player_id, position, is_starter, points
-          FROM player_weeks
-         WHERE (${only}::int IS NULL OR season = ${only}::int)
-           AND (season, player_id) IN (SELECT season, player_id_added FROM season_transactions
-                                        WHERE type = 'waiver' AND status = 'complete')`,
+    faabWeekRows(sql, only),
   ])
   const seasons = new Set(weekRows.map((r) => Number(r.season)))
   const regular = regularSeasonWeekKeys(input.matchups)
@@ -1728,6 +1756,13 @@ export async function getFaab(opts: { season?: number } = {}): Promise<FaabSeaso
       position: (r.position as string | null) ?? null,
       isStarter: Boolean(r.is_starter),
       points: num(r.points),
+      // Only a week with a stat row carries stats; no row is absent, not zero.
+      ...(r.has_stats
+        ? {
+            gp: numOrNull(r.stat_gp),
+            stats: Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+          }
+        : {}),
     })),
     { weekKeys: keys, weeklySeasons: new Set(input.matchups.map((m) => m.season)) },
   )
