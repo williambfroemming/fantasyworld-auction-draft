@@ -54,6 +54,7 @@ import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import { STAT_KEYS, formatStatLine, type StatKey } from '@/lib/player-stats'
+import type { IndexSeason } from '@/lib/player-index'
 import { headlineStat, playerStatTotals, type PlayerStatTotals, type StatWeek } from '@/lib/player-stat-totals'
 import type { StatsTrade } from '@/lib/stats'
 
@@ -1101,6 +1102,11 @@ export interface PlayerListing {
   points: number
   /** Most ever paid at auction. Null for anyone only ever picked up free. */
   topPrice: number | null
+  /**
+   * One entry per season he was rostered, regular season only: his points, games played and
+   * the position's headline stat. Drives the season filter and the stat column on the index.
+   */
+  seasons: IndexSeason[]
 }
 
 /**
@@ -1140,6 +1146,51 @@ export async function listPlayers(): Promise<PlayerListing[]> {
       LEFT JOIN prices p ON p.player_id = w.player_id
      ORDER BY w.points DESC`
 
+  // Per season, regular season only (weeks before that season's own playoff start; a season with
+  // no boundary on record is all regular season). Points always; the stat sums only if the stats
+  // table exists, so a database that has not had `db:migrate-player-stats` just has no stat column.
+  const seasonRows = await sql`
+    SELECT w.player_id, w.season, sum(w.points) AS points
+      FROM player_weeks w JOIN seasons se ON se.season = w.season
+     WHERE se.playoff_week_start IS NULL OR w.week < se.playoff_week_start
+     GROUP BY w.player_id, w.season`
+  let statRows: Array<Record<string, unknown>> = []
+  try {
+    statRows = await sql`
+      SELECT w.player_id, w.season,
+             count(*) FILTER (WHERE st.gp >= 1)::int AS games,
+             sum(st.pass_yd) AS pass_yd, sum(st.rush_yd) AS rush_yd,
+             sum(st.rec_yd) AS rec_yd, sum(st.sack) AS sack
+        FROM player_weeks w
+        JOIN seasons se ON se.season = w.season
+        JOIN player_week_stats st
+          ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+       WHERE se.playoff_week_start IS NULL OR w.week < se.playoff_week_start
+       GROUP BY w.player_id, w.season`
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+  }
+  const statBy = new Map(statRows.map((r) => [`${r.player_id}:${r.season}`, r]))
+  const seasonsBy = new Map<string, IndexSeason[]>()
+  const positionOf = new Map(rows.map((r) => [String(r.player_id), (r.position as string | null) ?? null]))
+  for (const r of seasonRows) {
+    const id = String(r.player_id)
+    const st = statBy.get(`${id}:${r.season}`)
+    const value = headlineStat(positionOf.get(id))?.value(
+      st
+        ? { pass_yd: numOrNull(st.pass_yd), rush_yd: numOrNull(st.rush_yd), rec_yd: numOrNull(st.rec_yd), sack: numOrNull(st.sack) }
+        : null,
+    )
+    const list = seasonsBy.get(id) ?? []
+    list.push({
+      season: Number(r.season),
+      points: round2(Number(r.points)),
+      games: st ? Number(st.games) : 0,
+      headline: value ?? null,
+    })
+    seasonsBy.set(id, list)
+  }
+
   return rows.map((r) => ({
     playerId: String(r.player_id),
     playerName: (r.player_name as string | null) ?? String(r.player_id),
@@ -1149,6 +1200,7 @@ export async function listPlayers(): Promise<PlayerListing[]> {
     weeksRostered: Number(r.weeks_rostered),
     points: round2(Number(r.points)),
     topPrice: r.top_price === null ? null : Number(r.top_price),
+    seasons: (seasonsBy.get(String(r.player_id)) ?? []).sort((a, b) => a.season - b.season),
   }))
 }
 

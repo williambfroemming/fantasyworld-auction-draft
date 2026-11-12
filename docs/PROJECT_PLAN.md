@@ -456,7 +456,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 **L. Weaving player stats into the site** — added 2026-11-11. **Build instructions: `docs/STATS_WEAVE_ROADMAP.md`**
 - [x] **67.** `player-stat-totals.ts` and "Stats by season" on the player page
 - [x] **68.** Player page: game log, and a points / headline-stat toggle on the timeline
-- [ ] **69.** Players index: position and season filters, one stat column (stat sort only within one position)
+- [x] **69.** Players index: position and season filters, one stat column (stat sort only within one position)
 - [ ] **70.** Records: stat records within a position
 - [ ] **71.** Spend & Value / Past Auctions: what each pick returned
 - [ ] **72.** Member page: biggest weeks, with stat lines
