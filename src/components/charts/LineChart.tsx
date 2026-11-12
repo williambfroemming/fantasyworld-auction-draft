@@ -131,9 +131,11 @@ export function LineChart({
                   x2={plotW}
                   y1={sy(t)}
                   y2={sy(t)}
-                  style={{ stroke: GRID }}
-                  strokeWidth={1}
-                  opacity={0.6}
+                  // Zero is the reference line on a chart that goes below it (a difference from
+                  // an average), so it is drawn heavier than the other gridlines.
+                  style={{ stroke: t === 0 && ticks[0] < 0 ? INK_FAINT : GRID }}
+                  strokeWidth={t === 0 && ticks[0] < 0 ? 1.5 : 1}
+                  opacity={t === 0 && ticks[0] < 0 ? 0.9 : 0.6}
                 />
                 <text
                   x={-8}
