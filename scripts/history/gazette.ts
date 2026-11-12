@@ -18,6 +18,7 @@
  *
  * The editorial room (docs/GAZETTE_ROADMAP.md) -- dry runs, nothing stored:
  *   npm run gazette -- 2025 7 --desk       # the Story Desk only: storylines
+ *   npm run gazette -- 2025 7 --plans      # Desk + Editor: storylines and three plans
  *
  * ## The season preview is week zero
  *
@@ -65,7 +66,7 @@ import {
 } from '../../src/lib/gazette'
 import { PROMPT, PROMPT_VERSION } from './gazette-prompt'
 import { MODEL, callJson, ledger, printLedger } from './gazette-model'
-import { runDesk, showDesk, type RecentLead } from './gazette-pipeline'
+import { runDesk, runEditor, showDesk, showPlans, type RecentLead } from './gazette-pipeline'
 import { PREVIEW_PROMPT, PREVIEW_PROMPT_VERSION } from './gazette-preview-prompt'
 
 /**
@@ -88,7 +89,7 @@ const factsOnly = has('--facts')
 // A sample is always a dry run. Its whole purpose is to read three editions
 // before committing to a voice, and storing them would seed the archive with the
 // draft you were still deciding about.
-const dryRun = has('--dry-run') || has('--sample') || has('--desk')
+const dryRun = has('--dry-run') || has('--sample') || has('--desk') || has('--plans')
 const regenerate = has('--regenerate')
 const forward = has('--forward')
 const replay = has('--replay')
@@ -120,6 +121,7 @@ const check = has('--check')
  * the weekly job's path until step 74.
  */
 const deskOnly = has('--desk')
+const plansOnly = has('--plans')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -497,12 +499,14 @@ async function one(
     facts.priorHeadlines = carried.slice(-4).map((c) => c.headline)
   }
 
-  if (deskOnly) {
+  if (deskOnly || plansOnly) {
     const mark = ledger.length
     try {
-      const desk = await runDesk(facts, facts.priorThreads, await recentLeads(season, week, carried))
+      const recent = await recentLeads(season, week, carried)
+      const desk = await runDesk(facts, facts.priorThreads, recent)
       console.log(`\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season}`)
       showDesk(desk)
+      if (plansOnly) showPlans(await runEditor(facts, desk, facts.priorThreads, recent))
       return 'skipped'
     } catch (err) {
       console.error(`  ✗ ${season} wk ${week}: ${err instanceof Error ? err.message : err}`)

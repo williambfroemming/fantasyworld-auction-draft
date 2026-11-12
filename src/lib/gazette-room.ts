@@ -101,8 +101,119 @@ export function repairNote(stage: string, problems: string[]): string {
   return (
     `Your ${stage} has problems an automated check found:\n` +
     problems.map((p) => `  - ${p}`).join('\n') +
-    '\nReturn the whole thing again with these fixed. Cite only paths from PATHINDEX, name managers ' +
-    'exactly as the pack does, and write any count as a word. Everything else about the brief still ' +
-    'stands: fix the problems, do not play it safe.'
+    '\nReturn the whole thing again with these fixed. Cite only pack paths you were shown, name ' +
+    'managers exactly as the pack does, write any count as a word, and write a score as 130 to 106. ' +
+    'Everything else about the brief still stands: fix the problems, do not play it safe.'
   )
+}
+
+// ---------------------------------------------------------------------------
+// Editor
+// ---------------------------------------------------------------------------
+
+export const BEAT_MODES = ['roast', 'props', 'gutPunch', 'prediction'] as const
+export type BeatMode = (typeof BEAT_MODES)[number]
+
+export interface Beat {
+  storylineId: string
+  mode: BeatMode
+  /** What Dale thinks about it, in a sentence. */
+  take: string
+  /** The joke, as a premise for the Writer to execute -- not the finished line. */
+  jokePremise: string
+  /** Pack paths for the one or two figures this beat uses. */
+  figures: string[]
+}
+
+export interface Plan {
+  /** A storyline id from the Desk. */
+  lead: string
+  headlineAngle: string
+  coldOpenPremise: string
+  beats: Beat[]
+  close: string
+  /** The one strong opinion this version of the column commits to. */
+  dalesStance: string
+}
+
+export interface EditorOutput {
+  plans: Plan[]
+}
+
+export const PLAN_COUNT = 3
+export const MIN_BEATS = 4
+export const MAX_BEATS = 7
+
+/** What an earlier issue led with. Only pipeline issues know their lead storyline. */
+export interface RecentLead {
+  week: number
+  headline: string
+  lead?: { storylineId: string; managers: string[] }
+}
+
+/**
+ * The managers whose stories led either of the previous two issues.
+ *
+ * "Previous two" is the two most recent issues before this week, whatever they
+ * were -- an issue written before the pipeline has no recorded lead and simply
+ * contributes nobody, rather than being skipped over to reach further back.
+ * Only the primary manager (the first named) counts: a lead about Bryan that
+ * mentions Mario is Bryan's lead.
+ */
+export function recentlyLed(recent: RecentLead[]): Set<string> {
+  const lastTwo = [...recent].sort((a, b) => a.week - b.week).slice(-2)
+  return new Set(lastTwo.map((r) => r.lead?.managers[0]).filter((m): m is string => !!m))
+}
+
+/** Every pack path a plan cites, deduplicated: what its Writer's slice is built from. */
+export function planPaths(plan: Plan, desk: DeskOutput): string[] {
+  const used = new Set(plan.beats.map((b) => b.storylineId).concat(plan.lead))
+  const paths = desk.storylines.filter((s) => used.has(s.id)).flatMap((s) => s.evidence)
+  return [...new Set([...paths, ...plan.beats.flatMap((b) => b.figures)])]
+}
+
+/** Everything wrong with the Editor's plans. Empty means the Writers can start. */
+export function validatePlans(
+  out: EditorOutput,
+  desk: DeskOutput,
+  facts: GazetteFacts,
+  recent: RecentLead[],
+): string[] {
+  const problems: string[] = []
+  const stories = new Map(desk.storylines.map((s) => [s.id, s]))
+  const barred = recentlyLed(recent)
+
+  if (out.plans.length !== PLAN_COUNT) problems.push(`file exactly ${PLAN_COUNT} plans, not ${out.plans.length}`)
+  const leads = out.plans.map((p) => p.lead)
+  if (new Set(leads).size !== leads.length) problems.push(`the plans must have different leads; got ${leads.join(', ')}`)
+
+  out.plans.forEach((plan, i) => {
+    const where = `plan ${i + 1}`
+    const lead = stories.get(plan.lead)
+    if (!lead) {
+      problems.push(`${where}: lead "${plan.lead}" is not a storyline id`)
+    } else if (barred.has(lead.managers[0])) {
+      problems.push(
+        `${where}: leads with ${lead.managers[0]}, whose story led one of the last two issues; lead with somebody else`,
+      )
+    }
+    if (plan.beats.length < MIN_BEATS || plan.beats.length > MAX_BEATS) {
+      problems.push(`${where}: between ${MIN_BEATS} and ${MAX_BEATS} beats, not ${plan.beats.length}`)
+    }
+    if (!plan.beats.some((b) => b.storylineId === plan.lead)) problems.push(`${where}: no beat covers its own lead`)
+    if (!plan.dalesStance.trim()) problems.push(`${where}: has no stance`)
+    plan.beats.forEach((b, j) => {
+      const bw = `${where} beat ${j + 1}`
+      if (!stories.has(b.storylineId)) problems.push(`${bw}: "${b.storylineId}" is not a storyline id`)
+      if (!(BEAT_MODES as readonly string[]).includes(b.mode)) problems.push(`${bw}: mode "${b.mode}" is not one of ${BEAT_MODES.join(', ')}`)
+      for (const p of b.figures) {
+        if (resolvePackPath(facts, p) === null) problems.push(`${bw}: figure path "${p}" does not exist in the pack`)
+      }
+      problems.push(...groundingProblems(bw, [b.take, b.jokePremise].join('\n'), facts))
+    })
+    problems.push(
+      ...groundingProblems(where, [plan.headlineAngle, plan.coldOpenPremise, plan.close, plan.dalesStance].join('\n'), facts),
+    )
+  })
+  return problems
 }

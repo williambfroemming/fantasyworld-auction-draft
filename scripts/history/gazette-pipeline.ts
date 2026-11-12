@@ -3,6 +3,7 @@
  *
  *   weekInReview() pack
  *     -> Story Desk   storylines, each citing pack paths       (gazette-room/desk-prompt.ts)
+ *     -> Editor       three plans, distinct leads               (gazette-room/editor-prompt.ts)
  *
  * Further stages arrive in steps 69-71 of docs/GAZETTE_ROADMAP.md. Everything
  * here runs only behind a flag on scripts/history/gazette.ts; the weekly job
@@ -17,22 +18,21 @@
  * No stage gets a database handle. Each reads only the pack, which is already
  * filtered to what was known at press time, plus the notebook it is handed.
  */
+import { pathIndex, sliceFacts, type GazetteFacts, type Thread } from '../../src/lib/gazette'
 import {
-  pathIndex,
-  type GazetteFacts,
-  type Thread,
-} from '../../src/lib/gazette'
-import { repairNote, validateDesk, type DeskOutput } from '../../src/lib/gazette-room'
+  BEAT_MODES,
+  repairNote,
+  validateDesk,
+  validatePlans,
+  type DeskOutput,
+  type EditorOutput,
+  type RecentLead,
+} from '../../src/lib/gazette-room'
 import { callJson } from './gazette-model'
 import { DESK_PROMPT, DESK_VERSION } from './gazette-room/desk-prompt'
+import { EDITOR_PROMPT, EDITOR_VERSION } from './gazette-room/editor-prompt'
 
-/** What an earlier issue led with, for the Desk's sense of what is stale. */
-export interface RecentLead {
-  week: number
-  headline: string
-  /** Only issues written by the pipeline know their lead storyline. */
-  lead?: { storylineId: string; managers: string[] }
-}
+export type { RecentLead }
 
 /** The pack minus the fields each stage is handed explicitly, or not at all. */
 export function packContent(facts: GazetteFacts): Partial<GazetteFacts> {
@@ -145,4 +145,99 @@ export function showDesk(desk: DeskOutput) {
   }
 }
 
-export const PIPELINE_VERSIONS = { desk: DESK_VERSION }
+// ---------------------------------------------------------------------------
+// Editor
+// ---------------------------------------------------------------------------
+
+const EDITOR_SCHEMA = {
+  type: 'object',
+  properties: {
+    plans: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          lead: { type: 'string' },
+          dalesStance: { type: 'string' },
+          headlineAngle: { type: 'string' },
+          coldOpenPremise: { type: 'string' },
+          beats: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                storylineId: { type: 'string' },
+                mode: { type: 'string', enum: [...BEAT_MODES] },
+                take: { type: 'string' },
+                jokePremise: { type: 'string' },
+                figures: STRING_ARRAY,
+              },
+              required: ['storylineId', 'mode', 'take', 'jokePremise', 'figures'],
+              additionalProperties: false,
+            },
+          },
+          close: { type: 'string' },
+        },
+        required: ['lead', 'dalesStance', 'headlineAngle', 'coldOpenPremise', 'beats', 'close'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['plans'],
+  additionalProperties: false,
+}
+
+/**
+ * Three plans from the Desk's storylines.
+ *
+ * The Editor sees the rows the Desk cited (a slice), not the whole pack: the
+ * Desk's job was to choose, and handing the Editor everything again would let
+ * it un-choose. Grounding is still checked against the full pack.
+ */
+export async function runEditor(
+  facts: GazetteFacts,
+  desk: DeskOutput,
+  priorThreads: Thread[],
+  recentLeads: RecentLead[],
+): Promise<EditorOutput> {
+  const user = {
+    genre: facts.genre,
+    weekLabel: facts.weekLabel,
+    phase: facts.phase,
+    storylines: desk.storylines,
+    stale: desk.stale,
+    evidence: sliceFacts(facts, desk.storylines.flatMap((s) => s.evidence)),
+    priorThreads,
+    recentLeads,
+  }
+  return validated<EditorOutput>(
+    'editor',
+    (followUps) =>
+      callJson<EditorOutput>({
+        stage: 'editor',
+        system: EDITOR_PROMPT,
+        user,
+        followUps,
+        schema: EDITOR_SCHEMA,
+        effort: 'high',
+      }),
+    (out) => validatePlans(out, desk, facts, recentLeads),
+  )
+}
+
+export function showPlans(out: EditorOutput) {
+  console.log(`\n  EDITOR (v${EDITOR_VERSION})`)
+  out.plans.forEach((p, i) => {
+    console.log(`\n  PLAN ${i + 1} — lead: ${p.lead}`)
+    console.log(`    stance:    ${p.dalesStance}`)
+    console.log(`    headline:  ${p.headlineAngle}`)
+    console.log(`    cold open: ${p.coldOpenPremise}`)
+    p.beats.forEach((b, j) => {
+      console.log(`    ${j + 1}. [${b.mode}] ${b.storylineId}: ${b.take}`)
+      console.log(`         joke: ${b.jokePremise}${b.figures.length ? `  {${b.figures.join(', ')}}` : ''}`)
+    })
+    console.log(`    close:     ${p.close}`)
+  })
+}
+
+export const PIPELINE_VERSIONS = { desk: DESK_VERSION, editor: EDITOR_VERSION }
