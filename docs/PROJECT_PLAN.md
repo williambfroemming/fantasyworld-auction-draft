@@ -404,7 +404,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **41.** The tool loop — `askOracle()`
 - [x] **42.** `POST /api/ask` — session, daily cap, log
 - [x] **43.** `/history/oracle` and the nav entry
-- [ ] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
+- [x] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
 
 **B. Charts**
 - [x] **45.** The chart kit — line, bar, stacked bar, donut
@@ -452,3 +452,15 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **64.** `player_week_stats` and the importer
 - [x] **65.** The Oracle learns about stats
 - [x] **66.** Show the stat line
+
+**L. Weaving player stats into the site** — added 2026-11-11. **Build instructions: `docs/STATS_WEAVE_ROADMAP.md`**
+- [x] **67.** `player-stat-totals.ts` and "Stats by season" on the player page
+- [x] **68.** Player page: game log, and a points / headline-stat toggle on the timeline
+- [x] **69.** Players index: position and season filters, one stat column (stat sort only within one position)
+- [x] **70.** Records: stat records within a position
+- [x] **71.** Spend & Value / Past Auctions: what each pick returned
+- [x] **72.** Member page: biggest weeks, with stat lines
+- [x] **73.** Waivers: what a claim did since pickup
+- [x] **74.** Front page (season underway): the week's biggest starts
+- [x] **75.** Oracle suggested questions, glossary, UAT
+

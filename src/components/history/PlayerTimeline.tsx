@@ -41,18 +41,28 @@ import { EraBadge } from './EraBadge'
 export function PlayerTimeline({
   weekly,
   statsCoverage = null,
+  headline = null,
   className = '',
 }: {
   weekly: PlayerWeekPoint[]
   /** The seasons with NFL stat lines in the tooltip; null draws no badge. */
   statsCoverage?: Coverage | null
+  /**
+   * What `weekly[].headline` measures. When present the columns can show it instead of fantasy
+   * points: one metric at a time, never two on one axis. Null hides the switch.
+   */
+  headline?: { label: string; title: string } | null
   className?: string
 }) {
   const [hover, setHover] = useState<number | null>(null)
+  const [metric, setMetric] = useState<'points' | 'headline'>('points')
+  const showHeadline = metric === 'headline' && headline !== null
+  /** One week's bar value under the chosen metric. Null draws no bar (he did not play). */
+  const valueOf = (w: PlayerWeekPoint) => (showHeadline ? w.headline : w.points)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const { max, seasonRuns, ownerRuns } = useMemo(() => {
-    const max = Math.max(1, ...weekly.map((w) => w.points))
+    const max = Math.max(1, ...weekly.map((w) => (showHeadline ? (w.headline ?? 0) : w.points)))
 
     // Contiguous runs, computed once: a run is a stretch of consecutive weeks
     // sharing a value, which is what both the season rule and the ownership band
@@ -73,7 +83,7 @@ export function PlayerTimeline({
       seasonRuns: runsOf((w) => w.season),
       ownerRuns: runsOf((w) => w.managerId),
     }
-  }, [weekly])
+  }, [weekly, showHeadline])
 
   if (weekly.length === 0) return null
 
@@ -105,6 +115,24 @@ export function PlayerTimeline({
             Playoffs
           </span>
         </span>
+        {headline && (
+          <span role="group" aria-label="Chart metric" className="inline-flex border border-rule text-xs">
+            {(['points', 'headline'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                aria-pressed={metric === m}
+                title={m === 'points' ? 'Fantasy points' : headline.title}
+                onClick={() => setMetric(m)}
+                className={`px-2 py-0.5 font-display uppercase tracking-[0.06em] ${
+                  metric === m ? 'bg-slate-800 text-slate-50' : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {m === 'points' ? 'Fantasy points' : headline.label}
+              </button>
+            ))}
+          </span>
+        )}
         {/* The stat lines in the tooltip cover fewer weeks than the columns:
             a bye or an inactive week has a score of 0 and no line. */}
         {statsCoverage && <EraBadge coverage={statsCoverage} />}
@@ -131,14 +159,16 @@ export function PlayerTimeline({
                 onFocus={() => setHover(i)}
                 onBlur={() => setHover(null)}
               >
-                <span
+                {/* No bar at all for a week he did not play, when charting a stat: a 0 would
+                    say he played and gained nothing. */}
+                {valueOf(w) !== null && <span
                   className="absolute bottom-0 left-0 right-0 rounded-t-[3px] transition-opacity"
                   style={{
-                    height: `${Math.max(1.5, (w.points / max) * 100)}%`,
+                    height: `${Math.max(1.5, ((valueOf(w) ?? 0) / max) * 100)}%`,
                     background: w.isPlayoff ? 'var(--mgr-orange)' : 'var(--mgr-indigo)',
                     opacity: hover === null || isHot ? 1 : 0.35,
                   }}
-                />
+                />}
               </button>
             )
           })}
@@ -204,7 +234,16 @@ export function PlayerTimeline({
               left: `${Math.min(88, Math.max(0, pct(hover!)))}%`,
             }}
           >
-            <div className="font-mono font-bold tabular-nums">{active.points.toFixed(2)} pts</div>
+            {showHeadline && headline && (
+              <div className="font-mono font-bold tabular-nums">
+                {active.headline === null
+                  ? 'did not play'
+                  : `${active.headline.toLocaleString('en-US')} ${headline.label.toLowerCase()}`}
+              </div>
+            )}
+            <div className={`font-mono tabular-nums ${showHeadline ? 'text-slate-300' : 'font-bold'}`}>
+              {active.points.toFixed(2)} pts
+            </div>
             {/* Nothing at all for a week he did not play, never "0 rec". */}
             {active.statLine && (
               <div className="font-mono tabular-nums text-slate-200">{active.statLine}</div>

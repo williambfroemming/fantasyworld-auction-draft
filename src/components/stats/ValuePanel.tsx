@@ -58,6 +58,13 @@ function ResultRow({ v, manager }: { v: ValuedResult; manager?: StatsManager }) 
           <PositionBadge position={v.position} />
           <span className="min-w-0 truncate text-sm">{v.name}</span>
         </span>
+        {/* What he actually did that season, while rostered here. Text only: the ranking is
+            by fantasy points and does not read this. */}
+        {v.statLine && (
+          <span className="mt-0.5 block truncate pl-0.5 font-mono text-[11px] tabular-nums text-slate-500">
+            {v.statLine}
+          </span>
+        )}
       </td>
       <td className="px-2 py-1.5 text-right tabular-nums font-semibold">${v.price}</td>
       <td className="px-2 py-1.5 text-right tabular-nums text-slate-500">
@@ -157,6 +164,7 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
         price: p.price,
         managerId: drafter.get(p.id) ?? p.managerId,
         points: p.points ?? null,
+        statLine: p.statLine ?? null,
       })),
       { topN: 8 },
     )

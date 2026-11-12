@@ -49,11 +49,14 @@ import {
   type StarterRow,
 } from '@/lib/positional'
 import { faabReport, type FaabSeason } from '@/lib/faab'
+import { playerStatRecords, type PositionStatRecords } from '@/lib/player-stat-records'
 import { playerRecords, type PlayerRecordBook } from '@/lib/player-records'
 import { rosterOrigin, type RosterOrigin } from '@/lib/roster-origin'
 import { draftDna, type DnaPick, type DraftDna } from '@/lib/draft-dna'
 import { draftersByPick } from '@/lib/stats'
 import { STAT_KEYS, formatStatLine, type StatKey } from '@/lib/player-stats'
+import type { IndexSeason } from '@/lib/player-index'
+import { headlineStat, playerStatTotals, type PlayerStatTotals, type StatWeek } from '@/lib/player-stat-totals'
 import type { StatsTrade } from '@/lib/stats'
 
 /** `numeric` and `bigint` arrive as strings; null stays null. */
@@ -831,6 +834,11 @@ export interface PlayerWeekPoint {
    * Never zeros for a week he sat.
    */
   statLine: string | null
+  /**
+   * The position's headline stat for the week (`headlineStat`): passing yards for a quarterback,
+   * and so on. Null when he did not play or has no stat row. Never 0 for a week he sat.
+   */
+  headline: number | null
 }
 
 export interface PlayerHistory {
@@ -866,6 +874,13 @@ export interface PlayerHistory {
    * them. Null when he has none — the page then says nothing about stats.
    */
   statsCoverage: Coverage | null
+  /**
+   * Season and career NFL stat totals, over the weeks he was rostered here and played.
+   * Null when he has no stat rows at all.
+   */
+  statTotals: PlayerStatTotals | null
+  /** What `weekly[].headline` measures, e.g. `Pass yd`. Null for a position with no headline stat. */
+  headline: { label: string; title: string } | null
 }
 
 /** A `player_weeks` row joined to its manager, before aggregation. */
@@ -887,6 +902,7 @@ export interface PlayerWeekRow {
   position: string | null
   /** Optional so callers without stats (and the tests) need not pass it. */
   statLine?: string | null
+  headline?: number | null
 }
 
 /** A draft row for this player, already attributed to the drafter. */
@@ -962,6 +978,7 @@ export function buildPlayerHistory(
       managerId: r.managerId,
       displayName: r.displayName,
       statLine: r.statLine ?? null,
+      headline: r.headline ?? null,
     }
     weekly.push(point)
     addSplit(r.isPlayoff ? careerPlayoff : careerRegular, r)
@@ -1044,6 +1061,8 @@ export function buildPlayerHistory(
     best,
     weekly,
     statsCoverage: null,
+    statTotals: null,
+    headline: null,
   }
 }
 
@@ -1084,6 +1103,11 @@ export interface PlayerListing {
   points: number
   /** Most ever paid at auction. Null for anyone only ever picked up free. */
   topPrice: number | null
+  /**
+   * One entry per season he was rostered, regular season only: his points, games played and
+   * the position's headline stat. Drives the season filter and the stat column on the index.
+   */
+  seasons: IndexSeason[]
 }
 
 /**
@@ -1123,6 +1147,51 @@ export async function listPlayers(): Promise<PlayerListing[]> {
       LEFT JOIN prices p ON p.player_id = w.player_id
      ORDER BY w.points DESC`
 
+  // Per season, regular season only (weeks before that season's own playoff start; a season with
+  // no boundary on record is all regular season). Points always; the stat sums only if the stats
+  // table exists, so a database that has not had `db:migrate-player-stats` just has no stat column.
+  const seasonRows = await sql`
+    SELECT w.player_id, w.season, sum(w.points) AS points
+      FROM player_weeks w JOIN seasons se ON se.season = w.season
+     WHERE se.playoff_week_start IS NULL OR w.week < se.playoff_week_start
+     GROUP BY w.player_id, w.season`
+  let statRows: Array<Record<string, unknown>> = []
+  try {
+    statRows = await sql`
+      SELECT w.player_id, w.season,
+             count(*) FILTER (WHERE st.gp >= 1)::int AS games,
+             sum(st.pass_yd) AS pass_yd, sum(st.rush_yd) AS rush_yd,
+             sum(st.rec_yd) AS rec_yd, sum(st.sack) AS sack
+        FROM player_weeks w
+        JOIN seasons se ON se.season = w.season
+        JOIN player_week_stats st
+          ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+       WHERE se.playoff_week_start IS NULL OR w.week < se.playoff_week_start
+       GROUP BY w.player_id, w.season`
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+  }
+  const statBy = new Map(statRows.map((r) => [`${r.player_id}:${r.season}`, r]))
+  const seasonsBy = new Map<string, IndexSeason[]>()
+  const positionOf = new Map(rows.map((r) => [String(r.player_id), (r.position as string | null) ?? null]))
+  for (const r of seasonRows) {
+    const id = String(r.player_id)
+    const st = statBy.get(`${id}:${r.season}`)
+    const value = headlineStat(positionOf.get(id))?.value(
+      st
+        ? { pass_yd: numOrNull(st.pass_yd), rush_yd: numOrNull(st.rush_yd), rec_yd: numOrNull(st.rec_yd), sack: numOrNull(st.sack) }
+        : null,
+    )
+    const list = seasonsBy.get(id) ?? []
+    list.push({
+      season: Number(r.season),
+      points: round2(Number(r.points)),
+      games: st ? Number(st.games) : 0,
+      headline: value ?? null,
+    })
+    seasonsBy.set(id, list)
+  }
+
   return rows.map((r) => ({
     playerId: String(r.player_id),
     playerName: (r.player_name as string | null) ?? String(r.player_id),
@@ -1132,6 +1201,7 @@ export async function listPlayers(): Promise<PlayerListing[]> {
     weeksRostered: Number(r.weeks_rostered),
     points: round2(Number(r.points)),
     topPrice: r.top_price === null ? null : Number(r.top_price),
+    seasons: (seasonsBy.get(String(r.player_id)) ?? []).sort((a, b) => a.season - b.season),
   }))
 }
 
@@ -1255,7 +1325,9 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
   // `db:migrate-player-stats` yet still renders the page, just without them.
   const stats = await getPlayerStatLines(sleeperId)
   for (const r of rows) {
-    r.statLine = formatStatLine(r.position, stats.get(`${r.season}:${r.week}`))
+    const line = stats.get(`${r.season}:${r.week}`)
+    r.statLine = formatStatLine(r.position, line?.stats)
+    r.headline = headlineStat(r.position)?.value(line?.stats) ?? null
   }
 
   const history = buildPlayerHistory(sleeperId, rows, drafts)
@@ -1264,6 +1336,16 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
   history.statsCoverage = statSeasons.length
     ? { from: statSeasons[0], to: statSeasons[statSeasons.length - 1], seasons: statSeasons, label: 'NFL stats' }
     : null
+
+  // Totals over the weeks he was rostered AND has a stat row. `isPlayoff` is the same flag the
+  // points split already uses (each season's own boundary), so the two never disagree.
+  const statWeeks: StatWeek[] = rows.flatMap((r) => {
+    const line = stats.get(`${r.season}:${r.week}`)
+    return line ? [{ season: r.season, week: r.week, isPlayoff: r.isPlayoff, gp: line.gp, stats: line.stats }] : []
+  })
+  history.statTotals = playerStatTotals(statWeeks, history.position)
+  const headline = headlineStat(history.position)
+  history.headline = headline && history.weekly.some((w) => w.headline !== null) ? { label: headline.label, title: headline.title } : null
   return history
 }
 
@@ -1276,7 +1358,7 @@ export async function getPlayerHistory(sleeperId: string): Promise<PlayerHistory
  */
 async function getPlayerStatLines(
   sleeperId: string,
-): Promise<Map<string, Partial<Record<StatKey, number | null>>>> {
+): Promise<Map<string, { gp: number | null; stats: Partial<Record<StatKey, number | null>> }>> {
   const sql = getSql()
   try {
     const rows = await sql`
@@ -1284,7 +1366,10 @@ async function getPlayerStatLines(
     return new Map(
       rows.map((r) => [
         `${Number(r.season)}:${Number(r.week)}`,
-        Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+        {
+          gp: numOrNull(r.gp),
+          stats: Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+        },
       ]),
     )
   } catch (err) {
@@ -1589,6 +1674,38 @@ export async function getPlayerRecords(): Promise<PlayerRecordBook> {
  * claim's points agree with every other page about which weeks count. A season with
  * transactions but no weekly rows reports null points rather than zero.
  */
+/**
+ * The weekly rows behind FAAB claims: every rostered week of a player who was ever won on
+ * waivers, with that week's NFL stats where they exist. The stats join is optional: a database
+ * without the stats table gets the same rows with no stats, and the claim lines simply say
+ * nothing about stats.
+ */
+async function faabWeekRows(
+  sql: ReturnType<typeof getSql>,
+  only: number | null,
+): Promise<Array<Record<string, unknown>>> {
+  const where = `($1::int IS NULL OR w.season = $1::int)
+    AND (w.season, w.player_id) IN (SELECT season, player_id_added FROM season_transactions
+                                     WHERE type = 'waiver' AND status = 'complete')`
+  const base = 'w.season, w.week, w.manager_id, w.player_id, w.position, w.is_starter, w.points'
+  try {
+    const cols = STAT_KEYS.map((k) => `st.${k}`).join(', ')
+    return (await sql.query(
+      `SELECT ${base}, st.gp AS stat_gp, st.player_id IS NOT NULL AS has_stats, ${cols}
+         FROM player_weeks w
+         LEFT JOIN player_week_stats st
+           ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+        WHERE ${where}`,
+      [only],
+    )) as Array<Record<string, unknown>>
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+    return (await sql.query(`SELECT ${base} FROM player_weeks w WHERE ${where}`, [only])) as Array<
+      Record<string, unknown>
+    >
+  }
+}
+
 export async function getFaab(opts: { season?: number } = {}): Promise<FaabSeason[]> {
   const sql = getSql()
   // `season` narrows BOTH reads to one year: the front page asks only for the season in
@@ -1602,11 +1719,7 @@ export async function getFaab(opts: { season?: number } = {}): Promise<FaabSeaso
           FROM season_transactions
          WHERE (${only}::int IS NULL OR season = ${only}::int)
          ORDER BY season, week, created_at, transaction_id, line`,
-    sql`SELECT season, week, manager_id, player_id, position, is_starter, points
-          FROM player_weeks
-         WHERE (${only}::int IS NULL OR season = ${only}::int)
-           AND (season, player_id) IN (SELECT season, player_id_added FROM season_transactions
-                                        WHERE type = 'waiver' AND status = 'complete')`,
+    faabWeekRows(sql, only),
   ])
   const seasons = new Set(weekRows.map((r) => Number(r.season)))
   const regular = regularSeasonWeekKeys(input.matchups)
@@ -1643,7 +1756,173 @@ export async function getFaab(opts: { season?: number } = {}): Promise<FaabSeaso
       position: (r.position as string | null) ?? null,
       isStarter: Boolean(r.is_starter),
       points: num(r.points),
+      // Only a week with a stat row carries stats; no row is absent, not zero.
+      ...(r.has_stats
+        ? {
+            gp: numOrNull(r.stat_gp),
+            stats: Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+          }
+        : {}),
     })),
     { weekKeys: keys, weeklySeasons: new Set(input.matchups.map((m) => m.season)) },
   )
+}
+
+/**
+ * NFL stat records for rostered players (step 70): regular season, complete weeks, the same week
+ * keys as the other player records. Empty (not an error) when the stats table does not exist, so
+ * the Records page survives a database that has not had `db:migrate-player-stats`.
+ */
+export async function getPlayerStatRecords(): Promise<PositionStatRecords[]> {
+  const sql = getSql()
+  let rows: Array<Record<string, unknown>>
+  try {
+    rows = await sql`
+      SELECT w.season, w.week, w.manager_id, w.player_id, w.player_name, w.position, w.is_starter,
+             st.*
+        FROM player_weeks w
+        JOIN player_week_stats st
+          ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+       WHERE st.gp >= 1
+       ORDER BY w.season, w.week, w.manager_id, w.player_id`
+  } catch (err) {
+    if ((err as { code?: string }).code === '42P01') return []
+    throw err
+  }
+  const input = await getHistoryInput()
+  const regular = regularSeasonWeekKeys(input.matchups)
+  const complete = new Set<string>()
+  for (const season of new Set(rows.map((r) => Number(r.season)))) {
+    for (const [week] of completeWeeks(input.matchups, season).complete) complete.add(`${season}:${week}`)
+  }
+  const keys = new Set([...regular].filter((k) => complete.has(k)))
+  return playerStatRecords(
+    rows.map((r) => ({
+      season: Number(r.season),
+      week: Number(r.week),
+      managerId: Number(r.manager_id),
+      playerId: String(r.player_id),
+      playerName: (r.player_name as string | null) ?? null,
+      position: (r.position as string | null) ?? null,
+      isStarter: Boolean(r.is_starter),
+      gp: numOrNull(r.gp),
+      stats: Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])),
+    })),
+    keys,
+  )
+}
+
+export interface BiggestWeek {
+  season: number
+  week: number
+  isPlayoff: boolean
+  playerId: string
+  playerName: string
+  position: string | null
+  points: number
+  /** The NFL stat line behind the week. Null when there is none (a dash, never zeros). */
+  statLine: string | null
+}
+
+/**
+ * One manager's five highest-scoring STARTED player-weeks (step 72), playoffs included and
+ * labelled. "Highest fantasy points" is a plain statement about points scored, so it may span
+ * positions, as the single-week records do; the stat line is only the explanation, and nothing
+ * is ranked by it. Each carries the NFL line behind it, from the stat row for the same week.
+ *
+ * Tolerates a database without the stats table (the lines are then null).
+ */
+export async function getBiggestWeeks(managerId: number, limit = 5): Promise<BiggestWeek[]> {
+  const sql = getSql()
+  const base = (stats: boolean) =>
+    stats
+      ? sql`
+          SELECT w.season, w.week, w.player_id, w.player_name, w.position, w.points,
+                 (se.playoff_week_start IS NOT NULL AND w.week >= se.playoff_week_start) AS is_playoff,
+                 st.*
+            FROM player_weeks w
+            JOIN seasons se ON se.season = w.season
+            LEFT JOIN player_week_stats st
+              ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+           WHERE w.manager_id = ${managerId} AND w.is_starter
+           ORDER BY w.points DESC, w.season, w.week LIMIT ${limit}`
+      : sql`
+          SELECT w.season, w.week, w.player_id, w.player_name, w.position, w.points,
+                 (se.playoff_week_start IS NOT NULL AND w.week >= se.playoff_week_start) AS is_playoff
+            FROM player_weeks w JOIN seasons se ON se.season = w.season
+           WHERE w.manager_id = ${managerId} AND w.is_starter
+           ORDER BY w.points DESC, w.season, w.week LIMIT ${limit}`
+  let rows: Array<Record<string, unknown>>
+  try {
+    rows = await base(true)
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+    rows = await base(false)
+  }
+  return rows.map((r) => ({
+    season: Number(r.season),
+    week: Number(r.week),
+    isPlayoff: Boolean(r.is_playoff),
+    playerId: String(r.player_id),
+    playerName: (r.player_name as string | null) ?? String(r.player_id),
+    position: (r.position as string | null) ?? null,
+    points: num(r.points),
+    statLine: formatStatLine(
+      (r.position as string | null) ?? null,
+      STAT_KEYS.some((k) => k in r) ? Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])) : null,
+    ),
+  }))
+}
+
+export interface TopStart {
+  playerId: string
+  playerName: string
+  position: string | null
+  managerId: number
+  points: number
+  /** The NFL stat line behind the week. Null when there is none (never zeros). */
+  statLine: string | null
+}
+
+/**
+ * The highest-scoring STARTED players of one completed week (step 74), for the front page while
+ * a season is on. "Highest fantasy points" is a plain statement about points scored, so it spans
+ * positions; the stat line is the explanation and nothing is ranked by it. The caller passes a
+ * week the season has COMPLETED (the same `throughWeek` the other panels use), so a half-played
+ * week can never appear. Tolerates a database without the stats table (lines are then null).
+ */
+export async function getTopStarts(season: number, week: number, limit = 5): Promise<TopStart[]> {
+  const sql = getSql()
+  const base = (stats: boolean) =>
+    stats
+      ? sql`
+          SELECT w.manager_id, w.player_id, w.player_name, w.position, w.points, st.*
+            FROM player_weeks w
+            LEFT JOIN player_week_stats st
+              ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+           WHERE w.season = ${season} AND w.week = ${week} AND w.is_starter
+           ORDER BY w.points DESC, w.player_id LIMIT ${limit}`
+      : sql`
+          SELECT w.manager_id, w.player_id, w.player_name, w.position, w.points
+            FROM player_weeks w
+           WHERE w.season = ${season} AND w.week = ${week} AND w.is_starter
+           ORDER BY w.points DESC, w.player_id LIMIT ${limit}`
+  let rows: Array<Record<string, unknown>>
+  try {
+    rows = await base(true)
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+    rows = await base(false)
+  }
+  return rows.map((r) => ({
+    playerId: String(r.player_id),
+    playerName: (r.player_name as string | null) ?? String(r.player_id),
+    position: (r.position as string | null) ?? null,
+    managerId: Number(r.manager_id),
+    points: num(r.points),
+    statLine: formatStatLine(
+      (r.position as string | null) ?? null,
+      STAT_KEYS.some((k) => k in r) ? Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])) : null,
+    ),
+  }))
 }

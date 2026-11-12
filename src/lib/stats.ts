@@ -46,6 +46,8 @@ export interface StatsPick {
    * verdict on a draft, and nothing on the polling path fetches them.
    */
   points?: number | null
+  /** That season's NFL stat line for him, display only. Absent on the live board. */
+  statLine?: string | null
 }
 
 export interface StatsTrade {

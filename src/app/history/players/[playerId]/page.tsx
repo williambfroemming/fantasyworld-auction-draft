@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { PlayerGameLog } from '@/components/history/PlayerGameLog'
+import { PlayerStatTotalsTable } from '@/components/history/PlayerStatTotalsTable'
 import { PlayerTimeline } from '@/components/history/PlayerTimeline'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
@@ -114,7 +116,12 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
           />
         </div>
 
-        <PlayerTimeline weekly={player.weekly} statsCoverage={player.statsCoverage} className="mt-8" />
+        <PlayerTimeline
+          weekly={player.weekly}
+          statsCoverage={player.statsCoverage}
+          headline={player.headline}
+          className="mt-8"
+        />
 
         {/* Season table. A bar column rather than a second chart: six values do
             not need axes, and the numbers are wanted anyway. */}
@@ -188,6 +195,12 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
             </tbody>
           </table>
         </div>
+
+        {/* NFL stat totals, only for a player who has stat rows at all. */}
+        {player.statTotals && <PlayerStatTotalsTable totals={player.statTotals} />}
+
+        {/* The same weeks as the timeline, as a log with the stat line behind each. */}
+        <PlayerGameLog weekly={player.weekly} statsCoverage={player.statsCoverage} />
 
         {/* "Managers" rather than "Who kept him": this page also serves team
             defenses (Kansas City Chiefs, Tampa Bay Buccaneers), where a pronoun
