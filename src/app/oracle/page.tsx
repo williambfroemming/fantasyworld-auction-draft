@@ -32,17 +32,17 @@ export default async function OraclePage() {
       </header>
 
       <div className="mx-auto max-w-3xl px-4 py-6">
-        <p className="mb-6 text-base leading-relaxed text-slate-300">
-          Ask a question about this league in plain English and the Oracle works it out from the
-          record: games from 2020, standings from 2011, auctions from 2021, champions from 2006.
-          It knows nothing about the NFL at large, and player scores count only the weeks that
-          player was on a roster in this league. The SQL and the rows are shown under every
-          answer so you can check it.
+        <p className="text-base leading-relaxed text-slate-300">
+          Ask anything about the league in plain English. Answers come from the league record
+          only, and every one shows its working.
+        </p>
+        <p className="mt-1.5 mb-6 text-xs text-slate-500">
+          Games from 2020 · standings from 2011 · auctions from 2021 · champions from 2006
         </p>
 
         {!enabled ? (
           <p className="text-base text-amber-300">
-            The Oracle is switched off right now. Ask the commissioner if you need it back.
+            The Oracle is off right now. Ask the commissioner.
           </p>
         ) : signedIn ? (
           <OracleBar />
@@ -51,7 +51,7 @@ export default async function OraclePage() {
             <Link href="/join" className="underline underline-offset-2">
               Sign in to ask the Oracle
             </Link>
-            . Every question costs real money, so it is for league members only.
+ · members only.
           </p>
         )}
       </div>

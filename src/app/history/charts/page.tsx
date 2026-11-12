@@ -128,13 +128,9 @@ export default async function ChartsPage({
 
         <Section
           title="Wins, added up"
-          caption={`Each line is a manager’s running regular-season win total; the steeper it climbs, the better the run. A line that starts late is someone who joined later.${startsNote}`}
+          caption={`Career regular-season wins, season by season.${startsNote}`}
           coverage={<EraBadge coverage={standingsCoverage} />}
-          note={
-            inProgress
-              ? `${inProgress} is still being played, so the right-hand end is not final.`
-              : undefined
-          }
+          note={inProgress ? `${inProgress} in progress.` : undefined}
         >
           <LineChart
             series={toLines(wins.series)}
@@ -146,11 +142,11 @@ export default async function ChartsPage({
 
         <Section
           title="Points vs the league average"
-          caption={`How far above or below the average team each manager has scored, season by season, added up. The heavy line is an average team: climbing means out-scoring the field year after year, falling means the opposite.${startsNote}`}
+          caption={`Running points above or below the average team. The heavy line is average.${startsNote}`}
           coverage={<EraBadge coverage={standingsCoverage} />}
           note={
             points.missing.length
-              ? `${points.missing.length} manager-season(s) have no points figure on record, so those totals add nothing for that year.`
+              ? `${points.missing.length} manager-season${points.missing.length === 1 ? '' : 's'} missing points.`
               : undefined
           }
         >
@@ -165,9 +161,8 @@ export default async function ChartsPage({
 
         <Section
           title="Where everyone finished"
-          caption="Regular-season finish each year, first place at the top. Look for the steady climbers and the ones who fell off a cliff."
+          caption="Regular-season finish each year, not the playoff result."
           coverage={<EraBadge coverage={standingsCoverage} />}
-          note="This is the regular season, not the playoffs: the champion is not always the team on top."
         >
           <LineChart
             series={toLines(finish.series)}
@@ -182,11 +177,6 @@ export default async function ChartsPage({
 
         <Section
           title="Titles"
-          caption={
-            filtered
-              ? 'Championships won in the years shown.'
-              : 'Championships won, counted from the start of the record.'
-          }
           coverage={<EraBadge coverage={titlesCoverage} />}
         >
           <BarChart rows={ranked((r) => r.titles)} ariaLabel="Championships won, per manager" />
@@ -194,11 +184,11 @@ export default async function ChartsPage({
 
         <Section
           title="Money won"
-          caption="Gross prize money across every placing; a dash means nothing on record, which is not the same as nothing won."
+          caption="Prize money, every placing."
           coverage={<EraBadge coverage={titlesCoverage} />}
           note={
             moneyUnknownSeasons.length
-              ? `The payout for ${moneyUnknownSeasons.join(', ')} is unknown, so those seasons add nothing.`
+              ? `Payouts unknown for ${moneyUnknownSeasons.join(', ')}.`
               : undefined
           }
         >
@@ -221,7 +211,7 @@ function Section({
   children,
 }: {
   title: string
-  caption: string
+  caption?: string
   coverage: React.ReactNode
   note?: string
   children: React.ReactNode
@@ -232,7 +222,7 @@ function Section({
         <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">{title}</h2>
         {coverage}
       </div>
-      <p className="mb-3 text-sm text-slate-400">{caption}</p>
+      {caption ? <p className="mb-3 text-sm text-slate-400">{caption}</p> : <div className="mb-3" />}
       {children}
       {note && <p className="mt-2 text-xs text-slate-500">{note}</p>}
     </section>

@@ -90,8 +90,7 @@ export function OracleLauncher() {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
               <p className="mb-4 text-sm leading-relaxed text-slate-400">
-                Ask about this league in plain English. The Oracle answers from the record and
-                shows the SQL under every answer.
+                Ask anything about the league in plain English. Every answer shows its working.
               </p>
               <OracleBar autoFocus />
             </div>

@@ -43,8 +43,7 @@ export function PlayerStatTotalsTable({ totals }: { totals: PlayerStatTotals }) 
         />
       </h2>
       <p className="mt-2 text-xs text-slate-500">
-        NFL stats, not fantasy points, counting only the weeks he played while on a roster in this
-        league, from 2020. Not an NFL season or career total.
+        NFL stats from weeks rostered in this league, 2020 on. Not career totals.
       </p>
 
       {totals.hasPlayoffGames && (

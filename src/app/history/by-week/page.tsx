@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { GlossaryLink } from '@/components/GlossaryLink'
+import { ColumnKey } from '@/components/ColumnKey'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
@@ -67,8 +68,8 @@ export default async function RecordByWeekPage() {
           <>
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
               <p className="flex items-baseline gap-2 text-xs text-slate-400">
-                Every team&rsquo;s record after every week, {first}
-                {last !== first ? `–${last}` : ''}, and how many of them made the playoffs.
+                How often each record made the playoffs, {first}
+                {last !== first ? `–${last}` : ''}.
                 <GlossaryLink anchor="record-by-week" label="record by week" />
               </p>
               <p className="flex items-center gap-2 text-[0.68rem] text-slate-500">
@@ -194,14 +195,14 @@ export default async function RecordByWeekPage() {
               </table>
             </div>
 
-            <p className="mt-3 border-t border-rule pt-3 text-xs text-slate-400">
-              Each cell is <strong className="text-slate-300">made it / teams</strong>: how many teams
-              held that record after that week, and how many of them made the playoffs. Grey numbers
-              are fewer than {MIN_SAMPLE} teams — an anecdote, not a pattern. Weekly results begin
-              in {first}, so the grid fills in a season at a time.
-              {paths.tiesExcluded > 0 &&
-                ` ${paths.tiesExcluded} team-weeks after a tie are left out: a tied record has no cell here.`}
-            </p>
+            {/* Why grey, why counts rather than percentages, and what happens
+                to a team that ties are in the glossary, behind the `?`. */}
+            <ColumnKey
+              items={[
+                ['Cells', 'made the playoffs / teams at that record'],
+                ['Grey', `fewer than ${MIN_SAMPLE} teams`],
+              ]}
+            />
           </>
         )}
       </div>

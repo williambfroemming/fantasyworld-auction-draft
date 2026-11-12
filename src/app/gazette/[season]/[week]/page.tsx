@@ -71,8 +71,7 @@ export default async function IssuePage({
             when it went to press.
           */}
           <p className="text-[0.68rem] leading-relaxed text-slate-500">
-            Every figure above is from the league record as it stood at press time. Scores can
-            still move for a day or two after a week ends; an issue does not.
+            Figures as of press time. Later stat corrections don&rsquo;t change an issue.
           </p>
           <nav className="mt-3 flex flex-wrap items-center justify-between gap-3 font-display text-[0.7rem] uppercase tracking-[0.12em]">
             {prev ? (

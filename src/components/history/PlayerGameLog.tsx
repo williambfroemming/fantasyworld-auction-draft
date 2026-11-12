@@ -55,8 +55,7 @@ export function PlayerGameLog({
         {statsCoverage && <EraBadge coverage={statsCoverage} />}
       </h2>
       <p className="mt-2 text-xs text-slate-500">
-        Each week he was on a roster in this league. Fantasy points are this league&rsquo;s scoring;
-        the line is the NFL stats behind them.
+        Every week on a roster here: league points, and the NFL stat line behind them.
       </p>
       <div className="mt-2 space-y-2">
         {seasons.map((season, i) => {

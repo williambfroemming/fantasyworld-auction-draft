@@ -53,7 +53,7 @@ export function PositionalGrid({
         />
       </div>
       <p className="mb-3 text-xs text-slate-400">
-        Started points at each position against the league average there. Green is above it.
+        Started points against the league average at each position. Green is above.
       </p>
 
       <div className="overflow-x-auto">
@@ -112,8 +112,8 @@ export function PositionalGrid({
       </div>
       {scorecard.unknownRows > 0 && (
         <p className="mt-2 text-xs text-amber-300">
-          {scorecard.unknownRows} started row(s) had no recognised position and are left out of
-          the position columns, though they count in Started.
+          {scorecard.unknownRows} started {scorecard.unknownRows === 1 ? 'player has' : 'players have'}{' '}
+          no position on record and count in Started only.
         </p>
       )}
     </section>

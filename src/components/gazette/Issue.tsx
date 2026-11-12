@@ -266,8 +266,7 @@ function PreviewTables({ facts, members }: { facts: PreviewFacts; members: Histo
             one number that is unambiguously a mistake — every dollar not spent
             was a player not bought, and there is no next round to save it for.
           */}
-          Each man began with ${facts.budget} and {facts.rosterSize} slots to fill. Money left over
-          is money that bought nobody. &ldquo;Top 30&rdquo; counts the pool&rsquo;s thirty
+          ${facts.budget} and {facts.rosterSize} slots each. Top 30 counts the pool&rsquo;s thirty
           best-ranked players.
         </p>
       </section>
@@ -374,9 +373,7 @@ export function Tables({
           </tbody>
         </table>
         <p className="mt-1.5 text-[0.66rem] text-slate-500">
-          Ranked on record against the whole field, points scored, and how much of the best
-          available lineup was actually started. The gap between this and the standings is the
-          argument.
+          Ranked on all-play record, points and lineup efficiency.
         </p>
       </section>
     </div>
@@ -474,9 +471,7 @@ function PreviewFurniture({ facts, members }: { facts: PreviewFacts; members: Hi
             </>
           )}
           <p className="mt-1.5 text-[0.66rem] text-slate-500">
-            Price against the board <em>within a position</em> — a quarterback measured against
-            other quarterbacks, never against a running back. It is what the room thought, not a
-            verdict; only December gives one of those.{' '}
+            Price against the board, within each position.{' '}
             {facts.marketDiscipline.scored > 0 && (
               <>
                 {facts.marketDiscipline.withinThree} of {facts.marketDiscipline.scored} scored picks
@@ -555,8 +550,7 @@ function PreviewFurniture({ facts, members }: { facts: PreviewFacts; members: Hi
           {last.champion && (
             <p className="mt-1.5 text-[0.66rem] text-slate-500">
               The table is the regular season; {last.champion} won the title
-              {last.runnerUp && `, beating ${last.runnerUp}`}. None of it carries forward — this is
-              not a keeper league.
+              {last.runnerUp && `, beating ${last.runnerUp}`}.
             </p>
           )}
         </section>
@@ -608,8 +602,7 @@ function PreviewFurniture({ facts, members }: { facts: PreviewFacts; members: Hi
             ))}
           </ul>
           <p className="mt-1.5 text-[0.66rem] text-slate-500">
-            Career marks a man reaches this season by turning up. Nothing here has been crossed —
-            the season has not started.
+            Career marks within reach this season.
           </p>
         </section>
       )}
@@ -659,7 +652,7 @@ export function Furniture({
           ))}
         </ul>
         <p className="mt-1.5 text-[0.66rem] text-slate-500">
-          How everyone would have done against all nine opponents, not just the one they drew.
+          Everyone against all nine opponents, every week.
         </p>
       </section>
 
@@ -700,7 +693,7 @@ export function Furniture({
         </ul>
         <p className="mt-1.5 text-[0.66rem] text-slate-500">
           {facts.sideBet === null
-            ? 'Counts only — no rate on record for this season, and unknown is not the same as nothing.'
+            ? 'Counts only — no rate on record for this season.'
             : `The low scorer pays the high scorer $${facts.sideBet}. Season to date.`}
         </p>
       </section>
@@ -795,8 +788,7 @@ export function Furniture({
             ))}
           </ul>
           <p className="mt-1.5 text-[0.66rem] text-slate-500">
-            Ranked by how unusual each is against its own history, so a bust and a streak can be
-            weighed against each other.
+            Ranked by how unusual each is against its own history.
           </p>
         </section>
       )}

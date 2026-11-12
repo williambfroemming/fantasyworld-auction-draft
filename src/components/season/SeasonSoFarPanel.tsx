@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { HistoryMember } from '@/lib/history'
 import type { SeasonSoFar } from '@/lib/season-so-far'
 import { managerColor } from '@/lib/colors'
+import { ColumnKey } from '../ColumnKey'
 
 /**
  * The season in progress: the record, and then the columns that argue with it.
@@ -83,8 +84,8 @@ export function SeasonSoFarPanel({
           */}
           {report.incompleteWeeks > 0 && (
             <p className="mt-5 text-sm text-slate-400">
-              {report.incompleteWeeks} week{report.incompleteWeeks === 1 ? '' : 's'} not counted —
-              the whole field did not play.
+              {report.incompleteWeeks} week{report.incompleteWeeks === 1 ? '' : 's'} not counted
+              (not every team played).
             </p>
           )}
         </div>
@@ -94,14 +95,9 @@ export function SeasonSoFarPanel({
             {report.season} · through week {report.throughWeek}
           </h2>
           <p className="text-xs text-slate-400">
-            Sorted by all-play, not by record.
-            {report.incompleteWeeks > 0 && (
-              <>
-                {' '}
-                {report.incompleteWeeks} week{report.incompleteWeeks === 1 ? '' : 's'} skipped —
-                the whole field did not play.
-              </>
-            )}
+            Sorted by all-play
+            {report.incompleteWeeks > 0 &&
+              ` · ${report.incompleteWeeks} week${report.incompleteWeeks === 1 ? '' : 's'} not counted`}
           </p>
         </div>
       )}
@@ -201,28 +197,26 @@ export function SeasonSoFarPanel({
       </div>
 
       {/*
-        The one piece of prose kept, and the distinction is worth stating: it
-        defines the columns whose *names* do not define them. "Record" and "PF"
-        need nothing; "Luck" and "Eff" are meaningless without a sentence, and a
-        table with a column nobody can read is worse than a table with a
-        footnote. The standfirst that used to sit under the heading went because
-        it explained the page's argument rather than its columns — the argument
-        is made by the sort order, not by being described.
+        A key for the columns whose *names* do not define them. "Record" and
+        "PF" need nothing; "Luck" and "Eff" are meaningless without a few words,
+        and a table with a column nobody can read is worse than a footnote. A
+        few words, though — it used to be a paragraph, which nobody read either.
       */}
-      <p className="mt-3 border-t border-rule pt-3 text-xs text-slate-400">
-        <strong className="text-slate-300">All-play</strong> is your record against every
-        manager every week — the season without a schedule.{' '}
-        <strong className="text-slate-300">w/ Median</strong> adds a second game each week
-        against the league&rsquo;s median score, so every week is 2-0, 1-1 or 0-2.{' '}
-        <strong className="text-slate-300">Luck</strong> is wins minus what that all-play rate
-        expected, so a positive number is a kind schedule rather than a good team.{' '}
-        <strong className="text-slate-300">Eff</strong> is points started over points startable.{' '}
-        <strong className="text-slate-300">Hi/Lo</strong> counts weeks as the league&rsquo;s top
-        and bottom scorer
-        {report.sideBet === null
-          ? '.'
-          : `, which is $${report.sideBet} a week between those two.`}
-      </p>
+      <ColumnKey
+        items={[
+          ['All-play', 'record against every team, every week'],
+          ['w/ Median', 'plus a weekly game against the median score'],
+          ['Luck', 'wins above what all-play predicts'],
+          ['Opp PPG', 'opponents’ points per game'],
+          ['Eff', 'points started ÷ best possible lineup'],
+          [
+            'Hi/Lo',
+            report.sideBet === null
+              ? 'weeks as top / bottom scorer'
+              : `weeks as top / bottom scorer ($${report.sideBet} a week)`,
+          ],
+        ]}
+      />
     </section>
   )
 }
