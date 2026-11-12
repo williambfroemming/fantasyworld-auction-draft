@@ -1873,3 +1873,56 @@ export async function getBiggestWeeks(managerId: number, limit = 5): Promise<Big
     ),
   }))
 }
+
+export interface TopStart {
+  playerId: string
+  playerName: string
+  position: string | null
+  managerId: number
+  points: number
+  /** The NFL stat line behind the week. Null when there is none (never zeros). */
+  statLine: string | null
+}
+
+/**
+ * The highest-scoring STARTED players of one completed week (step 74), for the front page while
+ * a season is on. "Highest fantasy points" is a plain statement about points scored, so it spans
+ * positions; the stat line is the explanation and nothing is ranked by it. The caller passes a
+ * week the season has COMPLETED (the same `throughWeek` the other panels use), so a half-played
+ * week can never appear. Tolerates a database without the stats table (lines are then null).
+ */
+export async function getTopStarts(season: number, week: number, limit = 5): Promise<TopStart[]> {
+  const sql = getSql()
+  const base = (stats: boolean) =>
+    stats
+      ? sql`
+          SELECT w.manager_id, w.player_id, w.player_name, w.position, w.points, st.*
+            FROM player_weeks w
+            LEFT JOIN player_week_stats st
+              ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+           WHERE w.season = ${season} AND w.week = ${week} AND w.is_starter
+           ORDER BY w.points DESC, w.player_id LIMIT ${limit}`
+      : sql`
+          SELECT w.manager_id, w.player_id, w.player_name, w.position, w.points
+            FROM player_weeks w
+           WHERE w.season = ${season} AND w.week = ${week} AND w.is_starter
+           ORDER BY w.points DESC, w.player_id LIMIT ${limit}`
+  let rows: Array<Record<string, unknown>>
+  try {
+    rows = await base(true)
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+    rows = await base(false)
+  }
+  return rows.map((r) => ({
+    playerId: String(r.player_id),
+    playerName: (r.player_name as string | null) ?? String(r.player_id),
+    position: (r.position as string | null) ?? null,
+    managerId: Number(r.manager_id),
+    points: num(r.points),
+    statLine: formatStatLine(
+      (r.position as string | null) ?? null,
+      STAT_KEYS.some((k) => k in r) ? Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])) : null,
+    ),
+  }))
+}

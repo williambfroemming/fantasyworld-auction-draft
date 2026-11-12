@@ -19,7 +19,8 @@ import {
   listHistorySeasons,
 } from '@/server/history-service'
 import { listIssues } from '@/server/gazette-service'
-import { getFaab, getPositionalScorecards, getSeasonSoFar } from '@/server/history-service'
+import { getFaab, getPositionalScorecards, getSeasonSoFar, getTopStarts } from '@/server/history-service'
+import { TopStartsPanel } from '@/components/season/TopStartsPanel'
 import { FaabLeftPanel } from '@/components/season/FaabLeftPanel'
 import { SeasonSoFarPanel } from '@/components/season/SeasonSoFarPanel'
 import { PlayoffOddsPanel } from '@/components/season/PlayoffOddsPanel'
@@ -150,6 +151,14 @@ export default async function FrontPage({
           .catch(() => null)
       : null
 
+  // The week's biggest starts, for the latest COMPLETED week (the same `throughWeek` the table
+  // beside it stops at, so a half-played week never appears). One small query, only while a
+  // season is underway; the front page survives any failure here by showing no panel.
+  const topStarts =
+    seasonUnderway && soFar.report
+      ? await getTopStarts(soFar.season, soFar.report.throughWeek, 5).catch(() => [])
+      : []
+
   // The most recent auction with picks in it. `listAuctions()` is built from
   // `picks`, so a season appears exactly when somebody drafted in it — which
   // means this is empty, not zero, before the first nomination of a new year.
@@ -233,6 +242,16 @@ export default async function FrontPage({
             {positional && positional.rows.length > 0 && (
               <div className="mt-12">
                 <PositionalGrid scorecard={positional} members={soFar.members} />
+              </div>
+            )}
+            {topStarts.length > 0 && soFar.report && (
+              <div className="mt-12">
+                <TopStartsPanel
+                  season={soFar.season}
+                  week={soFar.report.throughWeek}
+                  starts={topStarts}
+                  members={soFar.members}
+                />
               </div>
             )}
             {faab && faab.managers.length > 0 && (
