@@ -1776,3 +1776,65 @@ export async function getPlayerStatRecords(): Promise<PositionStatRecords[]> {
     keys,
   )
 }
+
+export interface BiggestWeek {
+  season: number
+  week: number
+  isPlayoff: boolean
+  playerId: string
+  playerName: string
+  position: string | null
+  points: number
+  /** The NFL stat line behind the week. Null when there is none (a dash, never zeros). */
+  statLine: string | null
+}
+
+/**
+ * One manager's five highest-scoring STARTED player-weeks (step 72), playoffs included and
+ * labelled. "Highest fantasy points" is a plain statement about points scored, so it may span
+ * positions, as the single-week records do; the stat line is only the explanation, and nothing
+ * is ranked by it. Each carries the NFL line behind it, from the stat row for the same week.
+ *
+ * Tolerates a database without the stats table (the lines are then null).
+ */
+export async function getBiggestWeeks(managerId: number, limit = 5): Promise<BiggestWeek[]> {
+  const sql = getSql()
+  const base = (stats: boolean) =>
+    stats
+      ? sql`
+          SELECT w.season, w.week, w.player_id, w.player_name, w.position, w.points,
+                 (se.playoff_week_start IS NOT NULL AND w.week >= se.playoff_week_start) AS is_playoff,
+                 st.*
+            FROM player_weeks w
+            JOIN seasons se ON se.season = w.season
+            LEFT JOIN player_week_stats st
+              ON st.season = w.season AND st.week = w.week AND st.player_id = w.player_id
+           WHERE w.manager_id = ${managerId} AND w.is_starter
+           ORDER BY w.points DESC, w.season, w.week LIMIT ${limit}`
+      : sql`
+          SELECT w.season, w.week, w.player_id, w.player_name, w.position, w.points,
+                 (se.playoff_week_start IS NOT NULL AND w.week >= se.playoff_week_start) AS is_playoff
+            FROM player_weeks w JOIN seasons se ON se.season = w.season
+           WHERE w.manager_id = ${managerId} AND w.is_starter
+           ORDER BY w.points DESC, w.season, w.week LIMIT ${limit}`
+  let rows: Array<Record<string, unknown>>
+  try {
+    rows = await base(true)
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+    rows = await base(false)
+  }
+  return rows.map((r) => ({
+    season: Number(r.season),
+    week: Number(r.week),
+    isPlayoff: Boolean(r.is_playoff),
+    playerId: String(r.player_id),
+    playerName: (r.player_name as string | null) ?? String(r.player_id),
+    position: (r.position as string | null) ?? null,
+    points: num(r.points),
+    statLine: formatStatLine(
+      (r.position as string | null) ?? null,
+      STAT_KEYS.some((k) => k in r) ? Object.fromEntries(STAT_KEYS.map((k) => [k, numOrNull(r[k])])) : null,
+    ),
+  }))
+}

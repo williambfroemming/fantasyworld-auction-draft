@@ -459,7 +459,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **69.** Players index: position and season filters, one stat column (stat sort only within one position)
 - [x] **70.** Records: stat records within a position
 - [x] **71.** Spend & Value / Past Auctions: what each pick returned
-- [ ] **72.** Member page: biggest weeks, with stat lines
+- [x] **72.** Member page: biggest weeks, with stat lines
 - [ ] **73.** Waivers: what a claim did since pickup
 - [ ] **74.** Front page (season underway): the week's biggest starts
 - [ ] **75.** Oracle suggested questions, glossary, UAT

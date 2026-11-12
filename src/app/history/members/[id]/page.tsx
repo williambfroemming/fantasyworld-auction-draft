@@ -22,6 +22,7 @@ import {
   getPositionalScorecards,
   getRosterOrigins,
   getHistoryInput,
+  getBiggestWeeks,
 } from '@/server/history-service'
 
 /**
@@ -60,13 +61,14 @@ function ordinal(n: number): string {
 export default async function MemberPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const managerId = Number(id)
-  const [{ profile, members }, favorites, dna, scorecards, origins, historyInput] = await Promise.all([
+  const [{ profile, members }, favorites, dna, scorecards, origins, historyInput, biggest] = await Promise.all([
     getMemberProfile(managerId),
     getMostStarted(managerId, 10),
     getDraftDna(managerId),
     getPositionalScorecards(),
     getRosterOrigins(),
     getHistoryInput(),
+    getBiggestWeeks(managerId, 5),
   ])
   if (!profile) notFound()
 
@@ -343,6 +345,50 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           </h2>
           <PlayerTable rows={favorites} />
         </section>
+
+        {/*
+          The five biggest started weeks, with the NFL line behind each. Highest fantasy points,
+          which is a plain statement about points scored, so it may span positions; the line is
+          the explanation and nothing here is ranked by it.
+        */}
+        {biggest.length > 0 && (
+          <section className="mt-10 min-w-0">
+            <h2 className="mb-2 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-1.5 font-display text-sm font-bold uppercase tracking-[0.1em]">
+              Biggest weeks
+              <EraBadge coverage={profile.weeklyCoverage} />
+            </h2>
+            <p className="mb-2 text-xs text-slate-400">
+              Their highest-scoring started player-weeks, playoffs included, with the NFL stats behind
+              each.
+            </p>
+            <ol className="space-y-2">
+              {biggest.map((b, i) => (
+                <li key={`${b.season}-${b.week}-${b.playerId}`} className="text-sm">
+                  <div className="leaders">
+                    <span className="flex min-w-0 items-baseline gap-2">
+                      <span className="w-3 shrink-0 font-mono text-xs text-slate-500 tabular-nums">{i + 1}</span>
+                      <Link
+                        href={`/history/players/${encodeURIComponent(b.playerId)}`}
+                        className="font-semibold hover:underline"
+                      >
+                        {b.playerName}
+                      </Link>
+                      {b.position && <span className="font-mono text-[0.62rem] text-slate-600">{b.position}</span>}
+                    </span>
+                    <span className="shrink-0 font-mono font-semibold tabular-nums">{b.points.toFixed(1)}</span>
+                  </div>
+                  <div className="flex flex-wrap items-baseline gap-x-2 pl-5 text-[0.7rem] text-slate-500">
+                    <span className="font-mono tabular-nums">
+                      wk {b.week} · {b.season}
+                      {b.isPlayoff ? ' · playoffs' : ''}
+                    </span>
+                    {b.statLine && <span className="font-mono tabular-nums text-slate-400">{b.statLine}</span>}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
       </div>
     </main>
   )
