@@ -106,7 +106,7 @@ const VIEWS: OracleView[] = [
     select: `season, week, manager_id, player_id, player_name, position, nfl_team,
       is_starter, slot, points`,
     comment:
-      'Every rostered player score per week, 2020 on. A row exists only for a week the player was on a roster in this league. player_id is the Sleeper id.',
+      'Every rostered player score per week, 2020 on. A row exists only for a week the player was on a roster in this league. player_id is the Sleeper id. It has rows for every team in a playoff week, including teams that were not in the playoffs: for playoff games only, join games on season, week and manager_id and filter is_playoff.',
   },
   {
     name: 'player_seasons',

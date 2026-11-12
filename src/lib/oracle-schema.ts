@@ -100,7 +100,7 @@ export const ORACLE_VIEWS: OracleViewNote[] = [
       'slot',
       'points',
     ],
-    note: 'One row per rostered player per week, 2020 on. A row exists ONLY for a week that player was on a roster in this league, so it is not the player NFL career. player_id is the Sleeper id. slot is null on the bench.',
+    note: 'One row per rostered player per week, 2020 on. A row exists ONLY for a week that player was on a roster in this league, so it is not the player NFL career. player_id is the Sleeper id. slot is null on the bench. It has rows for every team in a playoff week, including teams that were not in the playoffs: for playoff games only, join games on season, week and manager_id and filter is_playoff.',
   },
   {
     name: 'player_seasons',

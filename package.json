@@ -46,6 +46,7 @@
     "db:migrate-gazette": "dotenv -e .env.local -- tsx scripts/migrate-gazette.ts",
     "db:migrate-schedule": "dotenv -e .env.local -- tsx scripts/migrate-schedule.ts",
     "db:migrate-transactions": "dotenv -e .env.local -- tsx scripts/migrate-transactions.ts",
+    "oracle:eval": "dotenv -e .env.local -- tsx scripts/oracle-eval.ts",
     "odds:backtest": "dotenv -e .env.local -- tsx scripts/odds-backtest.ts",
     "db:local:up": "docker compose up -d --wait",
     "db:local:down": "docker compose down",

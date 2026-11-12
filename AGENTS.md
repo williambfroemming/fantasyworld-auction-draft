@@ -137,6 +137,7 @@ npm run db:migrate-activity       # page_visits, for Admin → Activity. RUN BEF
 npm run db:migrate-activity -- --test
 npm run db:migrate-oracle         # the Oracle's schema of views, restricted role and log table
 npm run db:migrate-oracle -- --test
+npm run local -- npm run oracle:eval   # ask the Oracle 45 real questions, score each against independent SQL. Calls the model (about $2). Run after ANY change to ORACLE_RULES or a view note
 npm run db:migrate-access         # PIN lockout columns + app_settings. RUN BEFORE DEPLOYING the code that reads them
 npm run db:migrate-access -- --test
 npm run db:migrate-pick-ranks     # snapshots pool rank onto picks. RE-RUN AFTER EVERY DRAFT,

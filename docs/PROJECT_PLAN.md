@@ -404,7 +404,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **41.** The tool loop — `askOracle()`
 - [x] **42.** `POST /api/ask` — session, daily cap, log
 - [x] **43.** `/history/oracle` and the nav entry
-- [ ] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
+- [x] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
 
 **B. Charts**
 - [x] **45.** The chart kit — line, bar, stacked bar, donut
