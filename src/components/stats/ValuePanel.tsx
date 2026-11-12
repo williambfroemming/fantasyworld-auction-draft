@@ -285,8 +285,7 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
         </table>
         {unmeasured > 0 && (
           <p className="mt-3 text-[11px] text-slate-600">
-            {unmeasured} pick{unmeasured === 1 ? '' : 's'} have no season on record and are left out
-            rather than scored zero.
+            {unmeasured} pick{unmeasured === 1 ? '' : 's'} not scored — no season on record.
           </p>
         )}
       </div>,
@@ -389,8 +388,7 @@ export function ValuePanel({ input, className = '' }: { input: StatsInput; class
       */}
       {unscored > 0 && (
         <p className="mt-3 text-[11px] text-slate-600">
-          {unscored} pick{unscored === 1 ? '' : 's'} had no rank on record and{' '}
-          {unscored === 1 ? 'is' : 'are'} not scored.
+          {unscored} pick{unscored === 1 ? '' : 's'} not scored — no rank on record.
         </p>
       )}
     </div>,

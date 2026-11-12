@@ -105,8 +105,7 @@ export function NominationsPanel({
         */}
         {input.season === 2026 && (
           <p className="mt-3 text-[11px] leading-relaxed text-amber-400/80">
-            2026: the final 8 picks were entered by hand after the draft stalled, with the buyer
-            recorded as their own nominator — so &ldquo;won&rdquo; is a touch high for Daniel,
+            The last 8 picks of 2026 were entered by hand, so Won runs slightly high for Daniel,
             Mario, Nate and Eric/Blakey.
           </p>
         )}

@@ -95,8 +95,7 @@ export function PlayerRecordsSection({
         />
       </div>
       <p className="mb-4 text-xs text-slate-400">
-        Players somebody rostered, regular season. A season total is the points a player scored
-        while one manager had him, and is ranked within a position only.
+        Regular season, counted per manager, ranked within position.
       </p>
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {book.records.map((l) => (

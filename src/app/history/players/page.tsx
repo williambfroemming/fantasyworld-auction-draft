@@ -23,8 +23,7 @@ export default async function PlayersPage() {
 
       <div className="mx-auto max-w-3xl px-4 py-6">
         <p className="mb-3 text-xs text-slate-500">
-          Every player on a Fantasy World roster since 2020, when week-by-week scoring starts.
-          Ordered by total points scored while rostered.
+          Everyone rostered since 2020, by points scored while rostered.
         </p>
         <PlayerSearch players={players} />
       </div>

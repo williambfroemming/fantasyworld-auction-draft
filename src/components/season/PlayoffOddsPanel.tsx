@@ -5,6 +5,7 @@ import type { SeasonSoFar } from '@/lib/season-so-far'
 import { MIN_SAMPLE, recordCell, type RecordPaths } from '@/lib/record-paths'
 import { managerColor } from '@/lib/colors'
 import { GlossaryLink } from '../GlossaryLink'
+import { ColumnKey } from '../ColumnKey'
 
 /**
  * Who is getting in: the rest of the regular season, simulated.
@@ -46,7 +47,7 @@ export function PlayoffOddsPanel({
         </h2>
         {since !== null && (
           <Link href="/history/by-week" className="text-xs text-amber-300 hover:underline">
-            How have teams at this record done? →
+            Past teams at each record →
           </Link>
         )}
         <p className="text-xs text-slate-400">
@@ -70,7 +71,13 @@ export function PlayoffOddsPanel({
               <th scope="col" className="px-2 py-2 text-left font-display">Manager</th>
               <th scope="col" className="px-2 py-2 text-right font-display">Record</th>
               <th scope="col" className="px-2 py-2 text-right font-display">Proj W</th>
-              <th scope="col" className="px-2 py-2 text-right font-display">Rem SOS</th>
+              <th
+                scope="col"
+                className="px-2 py-2 text-right font-display"
+                title="Remaining strength of schedule: the expected weekly score of opponents still to play"
+              >
+                Rem SOS
+              </th>
               {since !== null && (
                 <th
                   scope="col"
@@ -182,31 +189,19 @@ export function PlayoffOddsPanel({
         </table>
       </div>
 
-      <p className="mt-3 border-t border-rule pt-3 text-xs text-slate-400">
-        The rest of the regular season played {odds.simulations.toLocaleString('en-US')} times
-        against the real schedule. Each team scores around its average so far, pulled toward the
-        league average while the sample is small, and seeds by wins then points for.{' '}
-        <strong className="text-slate-300">Rem SOS</strong> is the expected weekly score of the
-        opponents still to play — higher is harder. The median game is not counted: it does not
-        decide a seed.{' '}
-        <strong className="text-slate-300">Title</strong> plays the bracket out the same way, fixed
-        rather than re-seeded, so a bye is worth something.{' '}
-        <GlossaryLink anchor="title-odds" label="title odds" />{' '}
-        <strong className="text-slate-300">If W / L</strong> is their playoff odds among the
-        simulations where they won, and where they lost, their next game: a win also says the team
-        is good, so it overstates what one game is worth.{' '}
-        <GlossaryLink anchor="odds-leverage" label="the win and lose odds" />{' '}
-        <strong className="text-slate-300">Seeds</strong> shades one cell per seed, first to last;
-        the darker the cell, the likelier.{' '}
-        <GlossaryLink anchor="seed-strip" label="the seed strip" />
-        {since !== null && (
-          <>
-            {' '}
-            <strong className="text-slate-300">Since {since}</strong> is how many teams with the same
-            record after the same week made it — grey under {MIN_SAMPLE} teams.
-          </>
-        )}
-      </p>
+      {/*
+        A key, not an essay. How the simulation works, why the bracket is fixed
+        and why If W / L overstates a game are in the glossary, behind the `?`.
+      */}
+      <ColumnKey
+        lead={`${odds.simulations.toLocaleString('en-US')} simulations of the remaining schedule`}
+        items={[
+          ['Rem SOS', 'opponents’ average score, higher is harder'],
+          since !== null && [`Since ${since}`, 'teams at this record who made it'],
+          hasLeverage && ['If W / L', 'odds after a win or loss next week'],
+          ['Seeds', 'chance of each seed, 1st to last'],
+        ]}
+      />
     </section>
   )
 }

@@ -528,7 +528,7 @@ export function AuctionNumbers({
               <span className="font-mono text-slate-200 tabular-nums">
                 {money(auction.topPick.price)}
               </span>{' '}
-              — the priciest of the night, to {auction.topPick.displayName}
+              · top price, to {auction.topPick.displayName}
             </p>
           </div>
         )}
@@ -537,7 +537,7 @@ export function AuctionNumbers({
             {money(auction.medianPrice)}
           </p>
           <p className="mt-0.5 text-xs text-slate-400">
-            median price — half the board went for less
+            median price
           </p>
         </div>
         <div>

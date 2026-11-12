@@ -279,8 +279,8 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
           {dna.seasons.length > 0 && (
             <div className="mb-5 max-w-md">
               <p className="mb-1 text-xs text-slate-400">
-                Career auction dollars by position, across {dna.career.seasons}{' '}
-                {dna.career.seasons === 1 ? 'auction' : 'auctions'}.
+                Career spend by position · {dna.career.seasons}{' '}
+                {dna.career.seasons === 1 ? 'auction' : 'auctions'}
               </p>
               <Donut
                 slices={SPEND_SEGMENTS_BY_POSITION.map((seg) => ({
@@ -312,10 +312,9 @@ export default async function MemberPage({ params }: { params: Promise<{ id: str
               <EraBadge coverage={profile.weeklyCoverage} />
             </h2>
             <p className="mb-3 text-xs text-slate-400">
-              A model, not a record. Peak {Math.round(ratingLimits.peak.rating)} (wk{' '}
-              {ratingLimits.peak.week}, {ratingLimits.peak.season}), low{' '}
-              {Math.round(ratingLimits.low.rating)} (wk {ratingLimits.low.week},{' '}
-              {ratingLimits.low.season}). Dashed lines mark the start of each season.
+              Peak {Math.round(ratingLimits.peak.rating)} (wk {ratingLimits.peak.week},{' '}
+              {ratingLimits.peak.season}) · Low {Math.round(ratingLimits.low.rating)} (wk{' '}
+              {ratingLimits.low.week}, {ratingLimits.low.season})
             </p>
             <LineChart
               series={myRating.series}

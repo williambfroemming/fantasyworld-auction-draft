@@ -58,7 +58,7 @@ export default async function DraftsPage() {
               />
             </div>
             <p className="mb-3 text-sm text-slate-400">
-              Each auction&rsquo;s dollars, split by the position of the player bought.
+              Each auction&rsquo;s dollars by position.
             </p>
             <StackedBar
               rows={spend.map((r) => ({
