@@ -1,4 +1,4 @@
-import { type StatKey } from '@/lib/player-stats'
+import { formatStatLine, type StatKey } from '@/lib/player-stats'
 
 /**
  * Season and career NFL stat totals for one player, from his weekly stat lines
@@ -336,4 +336,26 @@ export type GameLogCell =
 export function gameLogCell(statLine: string | null, points: number): GameLogCell {
   if (statLine) return { kind: 'line', text: statLine }
   return points === 0 ? { kind: 'did-not-play' } : { kind: 'unknown' }
+}
+
+// ---------------------------------------------------------------------------
+// A season, as one line
+// ---------------------------------------------------------------------------
+
+/**
+ * One player's season as a single line, from his totals: `3,447 yds, 25 TD · 13 g`. Built on
+ * `formatStatLine` (so it groups on the position and never prints a secondary group that is zero),
+ * with the games played on the end. Null with no games: a player who never played a counted week
+ * has no line, and nothing is printed for him rather than a row of zeros.
+ *
+ * Totals only ever cover the weeks he was on a roster in this league, so the caller says so.
+ */
+export function seasonStatLine(
+  position: string | null | undefined,
+  totals: StatMap,
+  games: number,
+): string | null {
+  if (games <= 0) return null
+  const line = formatStatLine(position, totals)
+  return line ? `${line} · ${games} g` : null
 }

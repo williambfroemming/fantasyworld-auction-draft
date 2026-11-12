@@ -99,3 +99,25 @@ describe('valueVsResults', () => {
     expect(r.scored.reduce((s, x) => s + x.delta, 0)).toBe(0)
   })
 })
+
+describe('a stat line never changes a verdict', () => {
+  const base: ResultPick[] = [
+    { pickId: 1, name: 'A', position: 'WR', price: 50, managerId: 1, points: 100 },
+    { pickId: 2, name: 'B', position: 'WR', price: 10, managerId: 2, points: 200 },
+    { pickId: 3, name: 'C', position: 'WR', price: 30, managerId: 3, points: 150 },
+  ]
+  const strip = (r: ReturnType<typeof valueVsResults>) =>
+    r.scored.map(({ statLine: _s, ...rest }) => rest)
+
+  it('gives identical ranks and deltas with or without stat lines', () => {
+    const withLines = base.map((p) => ({ ...p, statLine: `${p.pickId * 1000} yds` }))
+    expect(strip(valueVsResults(withLines))).toEqual(strip(valueVsResults(base)))
+  })
+
+  it('carries the line through to the result for display', () => {
+    const r = valueVsResults([{ ...base[0], statLine: '96 rec, 1253 yds' }, base[1]])
+    expect(r.scored.find((s) => s.pickId === 1)!.statLine).toBe('96 rec, 1253 yds')
+    expect(r.scored.find((s) => s.pickId === 2)!.statLine).toBeNull()
+  })
+})
+

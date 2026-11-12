@@ -3,6 +3,7 @@ import {
   gameLogCell,
   headlineStat,
   playerStatTotals,
+  seasonStatLine,
   statColumns,
   sumStats,
   type StatWeek,
@@ -290,5 +291,25 @@ describe('gameLogCell', () => {
 
   it('a line wins even at 0 points (a played week that scored nothing)', () => {
     expect(gameLogCell('0 rec / 2 tgt, 0 yds', 0).kind).toBe('line')
+  })
+})
+
+describe('seasonStatLine', () => {
+  it("prints the position's own line with the games on the end", () => {
+    expect(
+      seasonStatLine(
+        'WR',
+        { rec_tgt: 131, rec: 96, rec_yd: 1253, rec_td: 8, rush_att: 0, rush_yd: 0, rush_td: 0 },
+        13,
+      ),
+    ).toBe('96 rec / 131 tgt, 1253 yds, 8 TD · 13 g')
+  })
+
+  it('is null with no games, never a row of zeros', () => {
+    expect(seasonStatLine('WR', { rec: 0, rec_yd: 0 }, 0)).toBeNull()
+  })
+
+  it('is null when there are no stats to print', () => {
+    expect(seasonStatLine('WR', {}, 5)).toBeNull()
   })
 })
