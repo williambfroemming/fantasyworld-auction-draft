@@ -41,6 +41,14 @@ export const managers = pgTable(
     pinAttempts: integer('pin_attempts').notNull().default(0),
     /** Set when the limit is hit; sign-in is refused until it passes. Null = not locked. */
     pinLockedUntil: timestamp('pin_locked_until', { withTimezone: true }),
+    /**
+     * SHA-256 of the one-time "choose a new PIN" link the commissioner issued, and when
+     * it stops working. Null = no link outstanding. The token itself is never stored, and
+     * the old `pin_hash` stays valid until the link is used, so the seat is never
+     * claimable in between (src/server/pin-service.ts `redeemPinReset`).
+     */
+    pinResetHash: text('pin_reset_hash'),
+    pinResetExpires: timestamp('pin_reset_expires', { withTimezone: true }),
     /** 0-indexed seat in the snake order. Re-drawn every season at setup. */
     draftSlot: integer('draft_slot').notNull(),
     isCommish: boolean('is_commish').notNull().default(false),
@@ -1056,6 +1064,65 @@ export const appSettings = pgTable('app_settings', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   updatedBy: integer('updated_by').references(() => managers.id),
 })
+
+/**
+ * Which external fantasy accounts belong to which seat — the sign-up side of identity.
+ *
+ * Provider-agnostic on purpose: `provider` is 'sleeper' today, and Yahoo or ESPN later
+ * are new rows, not new columns. A seat may have several (Grossman's has two Sleeper
+ * accounts, one per co-owner).
+ *
+ * This is NOT the history importer's map. `MEMBERS` in src/lib/history-identity.ts stays
+ * a frozen, reviewed constant because the importer must refuse an unknown name. This
+ * table exists because a new member arrives at runtime, through the sign-up challenge,
+ * with no code change; it is backfilled from `MEMBERS` once by scripts/migrate-accounts.ts.
+ *
+ * `verified_at` null = linked by the backfill, never challenged. ⚠️ No Oracle view.
+ */
+export const memberIdentities = pgTable(
+  'member_identities',
+  {
+    id: serial('id').primaryKey(),
+    managerId: integer('manager_id')
+      .notNull()
+      .references(() => managers.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    externalUserId: text('external_user_id').notNull(),
+    externalUsername: text('external_username'),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('member_identities_provider_user_idx').on(t.provider, t.externalUserId),
+    index('member_identities_manager_idx').on(t.managerId),
+  ],
+)
+
+/**
+ * Someone who proved they are in the league (src/server/onboarding-service.ts) and is
+ * waiting for the commissioner to give them a seat.
+ *
+ * A seat is never created automatically: it changes the draft order, the board and
+ * every max-bid calculation, so the commissioner approves it, normally between seasons.
+ * The PIN they chose is held here, hashed, and moves to `managers` on approval.
+ *
+ * One pending request per external account; asking again replaces it.
+ * ⚠️ Holds a PIN hash. No Oracle view, ever.
+ */
+export const joinRequests = pgTable(
+  'join_requests',
+  {
+    id: serial('id').primaryKey(),
+    provider: text('provider').notNull(),
+    externalUserId: text('external_user_id').notNull(),
+    externalUsername: text('external_username'),
+    displayName: text('display_name').notNull(),
+    pinHash: text('pin_hash').notNull(),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('join_requests_provider_user_idx').on(t.provider, t.externalUserId)],
+)
 
 export type Manager = typeof managers.$inferSelect
 export type Player = typeof players.$inferSelect

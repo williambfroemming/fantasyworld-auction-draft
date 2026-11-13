@@ -8,8 +8,8 @@
  * All of them bump `draft.rev`, which is part of the polling fingerprint, so
  * every client picks the change up on its next poll.
  */
-import { randomInt } from 'node:crypto'
-import { hashPin } from '@/lib/auth'
+import { RESET_LINK_HOURS, hashResetToken, newResetToken } from '@/lib/auth'
+import { colorForSeat } from '@/lib/colors'
 import { getSql } from './sql'
 import { getState, type ActionResult } from './draft-service'
 
@@ -317,23 +317,29 @@ export async function clearPin(managerId: number): Promise<ActionResult<null>> {
 }
 
 /**
- * Give a member a new PIN and hand it back, once, to the commissioner to pass on.
+ * Issue a one-time "choose your new PIN" link for a member, handed back once to the
+ * commissioner to pass on. This is the "I forgot my PIN" path, and also how a seat with
+ * no PIN gets its first one.
  *
- * This is the "I forgot my PIN" path. It sets a PIN rather than clearing one on purpose:
- * a cleared seat can be claimed by whoever reaches the sign-in screen first, and the
- * sign-in screen is public. Here there is no unclaimed moment. The member signs in with
- * the PIN they are given and can ask for another any time.
+ * The member picks the PIN — the commissioner never sees or chooses it.
  *
- * Random, so the commissioner is not choosing (or reusing) a PIN. Also lifts a lockout.
+ * It does NOT touch `pin_hash`. The old PIN keeps working until the link is used, so
+ * there is never a moment when the seat is empty; an empty seat used to be claimable by
+ * whoever reached the public sign-in screen first. Only the SHA-256 of the token is
+ * stored. A second link replaces the first. Redeemed by `redeemPinReset` in
+ * src/server/pin-service.ts, which also lifts any lockout.
  */
-export async function resetPin(managerId: number): Promise<ActionResult<{ pin: string }>> {
-  const sql = getSql()
-  const pin = String(randomInt(0, 10_000)).padStart(4, '0')
-  const rows = await sql`
-    UPDATE managers SET pin_hash = ${await hashPin(pin)}, pin_attempts = 0, pin_locked_until = NULL
-    WHERE id = ${managerId} RETURNING id`
+export async function issuePinReset(
+  managerId: number,
+): Promise<ActionResult<{ token: string; expiresAt: string }>> {
+  const token = newResetToken()
+  const rows = await getSql()`
+    UPDATE managers SET
+      pin_reset_hash = ${hashResetToken(token)},
+      pin_reset_expires = now() + make_interval(hours => ${RESET_LINK_HOURS})
+    WHERE id = ${managerId} RETURNING pin_reset_expires`
   if (rows.length === 0) return { ok: false, reason: 'Unknown manager' }
-  return { ok: true, data: { pin } }
+  return { ok: true, data: { token, expiresAt: new Date(rows[0].pin_reset_expires as string).toISOString() } }
 }
 
 /** Budget and roster size. Locked once picks exist — both feed max bid. */
@@ -562,10 +568,85 @@ export async function startNewSeason(year: number): Promise<ActionResult<{ seaso
 }
 
 /**
+ * Turn a verified sign-up (src/server/onboarding-service.ts) into a seat.
+ *
+ * ## Only between seasons
+ *
+ * A seat is a column on the live board and a turn in `nominatorAt`. Added to a
+ * finished draft, it makes the draft incomplete again and puts the newcomer on the
+ * clock; added mid-auction, it rewrites the order under the room. So approval is
+ * refused unless the current season is in setup with no picks — i.e. after
+ * `npm run season:new`, before the auction.
+ *
+ * ONE statement: the season check, deleting the request, creating the seat and linking
+ * the account all happen together or not at all. The PIN the member chose moves across
+ * from the request; nobody else ever sees it.
+ */
+export async function approveJoinRequest(requestId: number): Promise<ActionResult<{ managerId: number; displayName: string }>> {
+  const sql = getSql()
+  const [req] = await sql`SELECT display_name FROM join_requests WHERE id = ${requestId}`
+  if (!req) return { ok: false, reason: 'That request is gone — already approved or declined.' }
+  const displayName = req.display_name as string
+
+  // `name` is the canonical, unique key; keep it readable and make it unique.
+  const names = new Set(((await sql`SELECT lower(name) AS n FROM managers`) as Array<{ n: string }>).map((r) => r.n))
+  let name = displayName
+  for (let k = 2; names.has(name.toLowerCase()); k++) name = `${displayName} ${k}`
+  const [{ slot }] = await sql`SELECT COALESCE(max(draft_slot) + 1, 0)::int AS slot FROM managers`
+
+  let rows
+  try {
+    rows = await sql`
+      WITH gate AS (
+        SELECT d.season FROM draft d
+        WHERE d.id = 1 AND d.status = 'setup'
+          AND NOT EXISTS (SELECT 1 FROM picks p WHERE p.season = d.season)
+      ),
+      req AS (
+        DELETE FROM join_requests WHERE id = ${requestId} AND EXISTS (SELECT 1 FROM gate)
+        RETURNING provider, external_user_id, external_username, pin_hash, verified_at
+      ),
+      m AS (
+        INSERT INTO managers (name, display_name, color, draft_slot, pin_hash)
+        SELECT ${name}, ${displayName}, ${colorForSeat(Number(slot))}, ${Number(slot)}, req.pin_hash FROM req
+        RETURNING id
+      ),
+      i AS (
+        INSERT INTO member_identities (manager_id, provider, external_user_id, external_username, verified_at)
+        SELECT m.id, req.provider, req.external_user_id, req.external_username, req.verified_at FROM m, req
+        RETURNING id
+      )
+      SELECT m.id FROM m`
+  } catch {
+    // A unique violation: the account was linked, or the name taken, since we looked.
+    return { ok: false, reason: 'Could not add them — that account or name is already in use. Refresh and check.' }
+  }
+  if (rows.length === 0) {
+    const [d] = await sql`SELECT status FROM draft WHERE id = 1`
+    return {
+      ok: false,
+      reason:
+        d?.status === 'setup'
+          ? 'This season already has picks. New members join between seasons.'
+          : 'New members join between seasons: start the next season first (it begins in setup), then approve.',
+    }
+  }
+  await snapshotOrder(await currentSeason())
+  await bumpRev()
+  return { ok: true, data: { managerId: Number(rows[0].id), displayName } }
+}
+
+export async function declineJoinRequest(requestId: number): Promise<ActionResult<null>> {
+  const rows = await getSql()`DELETE FROM join_requests WHERE id = ${requestId} RETURNING id`
+  if (rows.length === 0) return { ok: false, reason: 'That request is gone — already approved or declined.' }
+  return { ok: true, data: null }
+}
+
+/**
  * Lift a PIN lockout without touching the PIN.
  *
- * `resetPin` also lifts a lock, but it hands the member a new PIN they did not
- * ask for. When a seat is locked because someone fat-fingered it five times (or
+ * `issuePinReset` also lifts a lock once its link is used, but it makes the member
+ * choose a new PIN they did not need. When a seat is locked because someone fat-fingered it five times (or
  * because a stranger guessed at it — see src/lib/pin-lockout.ts), the member's
  * own PIN is still fine, and they should be able to use it.
  */

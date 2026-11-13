@@ -6,6 +6,7 @@ import { useDraft } from '@/hooks/useDraft'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import type { AdminMember, SeasonDetails } from '@/server/commish-service'
+import type { JoinRequest } from '@/server/onboarding-service'
 import { ActivitySection } from './ActivitySection'
 import { DraftOrderSection } from './DraftOrderSection'
 import { LiveDraftSection } from './LiveDraftSection'
@@ -33,6 +34,7 @@ import { Btn, Section, type Act, type ActResult } from './ui'
  */
 interface AdminData {
   members: AdminMember[]
+  joinRequests: JoinRequest[]
   current: number
   seasons: SeasonDetails[]
 }
@@ -60,7 +62,7 @@ export function AdminPanel({ me }: { me: number }) {
       fetch('/api/admin', { cache: 'no-store' })
         .then((r) => r.json())
         .then((d) => {
-          if (d.ok) setAdmin({ members: d.members, current: d.current, seasons: d.seasons })
+          if (d.ok) setAdmin({ members: d.members, joinRequests: d.joinRequests ?? [], current: d.current, seasons: d.seasons })
         })
         // Keep whatever is on screen; the next action reloads it.
         .catch(() => {}),
@@ -71,7 +73,7 @@ export function AdminPanel({ me }: { me: number }) {
     fetch('/api/admin', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
-        if (d.ok) setAdmin({ members: d.members, current: d.current, seasons: d.seasons })
+        if (d.ok) setAdmin({ members: d.members, joinRequests: d.joinRequests ?? [], current: d.current, seasons: d.seasons })
       })
       .catch(() => {})
   }, [])
@@ -150,7 +152,16 @@ export function AdminPanel({ me }: { me: number }) {
         <PicksSection state={state} board={board} act={act} busy={busy} />
         <DraftOrderSection state={state} picksMade={picksMade} act={act} busy={busy} />
         <RulesSection key={`${state.draft.startingBudget}-${state.draft.rosterSize}`} state={state} locked={picksMade > 0} act={act} busy={busy} />
-        <MembersSection members={admin?.members ?? null} me={me} act={act} busy={busy} onChanged={loadAdmin} />
+        <MembersSection
+          members={admin?.members ?? null}
+          joinRequests={admin?.joinRequests ?? []}
+          draftStatus={state.draft.status}
+          picksMade={picksMade}
+          me={me}
+          act={act}
+          busy={busy}
+          onChanged={loadAdmin}
+        />
         <SeasonsSection
           // A new season changes `current`; remount so the picker follows it.
           key={admin?.current ?? 0}

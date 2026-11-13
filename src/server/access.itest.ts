@@ -4,8 +4,8 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { hashPin } from '@/lib/auth'
-import { resetPin } from './commish-service'
-import { signIn } from './pin-service'
+import { issuePinReset } from './commish-service'
+import { changePin, redeemPinReset, signIn } from './pin-service'
 import { oracleAdminSummary, oracleEnabled, setOracleEnabled } from './settings-service'
 import { getSql } from './sql'
 
@@ -86,19 +86,37 @@ d('PIN lockout (real Postgres)', () => {
     expect(await status('1234', other)).toBe(200)
   })
 
-  it('is lifted at once by a commissioner reset', async () => {
+  it('is lifted at once by using a commissioner reset link', async () => {
     for (let i = 0; i < 5; i++) await status('0000')
-    const r = await resetPin(id)
-    expect(r.ok).toBe(true)
-    if (r.ok) expect(await status(r.data.pin)).toBe(200)
+    const r = await issuePinReset(id)
+    if (!r.ok) throw new Error('issue failed')
+    expect((await redeemPinReset(r.data.token, '9876')).ok).toBe(true)
+    expect(await status('9876')).toBe(200)
   })
 
-  it('does not count claiming an unclaimed seat', async () => {
+  it('refuses to let anyone claim a seat that has no PIN', async () => {
+    // This used to succeed: the first visitor to type four digits owned the seat.
     await sql`UPDATE managers SET pin_hash = NULL WHERE id = ${id}`
-    expect(await status('4321')).toBe(200)
-    const [row] = await sql`SELECT pin_attempts FROM managers WHERE id = ${id}`
+    const r = await signIn(id, '4321')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.status).toBe(403)
+    const [row] = await sql`SELECT pin_hash, pin_attempts FROM managers WHERE id = ${id}`
+    expect(row.pin_hash).toBeNull()
     expect(row.pin_attempts).toBe(0)
-    expect(await status('4321')).toBe(200)
+  })
+
+  it('changes a PIN only with the right current PIN', async () => {
+    expect((await changePin(id, '1234', '5555')).ok).toBe(true)
+    expect(await status('1234')).toBe(401)
+    expect(await status('5555')).toBe(200)
+  })
+
+  it('counts a wrong current PIN on the account page toward the same lock', async () => {
+    for (let i = 0; i < 4; i++) expect((await changePin(id, '0000', '5555')).ok).toBe(false)
+    const fifth = await changePin(id, '0000', '5555')
+    expect(fifth.ok).toBe(false)
+    if (!fifth.ok) expect(fifth.status).toBe(429)
+    expect(await status('1234')).toBe(429)
   })
 })
 

@@ -208,9 +208,9 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | `curl https://…/api/state` and `curl -X POST https://…/api/ask` signed out both return 401 | |
 | ⬜ | Signing in from the front page goes to the front page (draft complete) and does not drop you in the draft room | |
 | ⬜ | Stay signed in across a few days; you are not asked again within a week | |
-| ⬜ | Admin panel → Members & access: **Reset PIN** shows a new 4-digit PIN once; the member signs in with it and their old PIN stops working | |
-| ⬜ | A member who forgot their PIN sees "ask the commissioner" on the PIN screen | |
-| ⬜ | A signed-in non-commissioner calling `/api/commish` `resetPin` gets 403 | |
+| ⬜ | Admin panel → Members & access: **Reset PIN** shows a one-time link once; the member opens it, chooses a PIN, and lands signed in. Their old PIN works up to that moment and not after | |
+| ⬜ | A member who forgot their PIN sees "ask the commissioner for a reset link" on the PIN screen | |
+| ⬜ | A signed-in non-commissioner calling `/api/commish` `issuePinReset` gets 403 | |
 
 ## L. PIN lockout and the Oracle switch
 
@@ -218,7 +218,7 @@ problem. Either way read `oracle_log.steps` before fixing it.
 |---|---|---|
 | ⬜ | Five wrong PINs on a seat: tries-left counts down 4, 3, 2, 1, then it locks with a "try again in 15 minutes" message | |
 | ⬜ | While locked, even the correct PIN is refused | |
-| ⬜ | Admin panel → Members & access → Reset PIN unlocks the seat; the new PIN works at once | |
+| ⬜ | Admin panel → Members & access → Reset PIN, then using the link, unlocks the seat; the chosen PIN works at once | |
 | ⬜ | Admin panel → Ask the Oracle shows On/Off, the last 24 hours of questions and tokens, and who asked most | |
 | ⬜ | Turn it **Off**: the next question is refused in words, `/oracle` and the Ask panel show the switched-off notice, and no `oracle_log` row is added | |
 | ⬜ | Turn it **On** again: questions work with no redeploy | |
@@ -293,3 +293,18 @@ Nothing here needs a migration; the stat lines are already on live.
 | ⬜ | Ask "Which receiver had the most receiving yards in a season?": the answer is a receiver, not a team defense | |
 | ⬜ | Every stat panel says it covers weeks rostered in this league, from 2020, and none claims to be an NFL career | |
 
+## Q. Accounts — reset links, your account, joining the league
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | Before deploying: `npm run db:migrate-accounts` on live reports 11 Sleeper accounts linked and **zero seats without a PIN** (any it lists need a reset link first) | |
+| ⬜ | Open a reset link a second time: "expired or was already used" | |
+| ⬜ | Issue two links for the same member; only the second works | |
+| ⬜ | Menu → **Your account**: change PIN with the right current PIN works; five wrong current PINs lock the seat for 15 minutes | |
+| ⬜ | Your account → change name: the board and the menu show it; a past season's archive keeps the old name | |
+| ⬜ | Your account → Linked accounts shows your Sleeper username | |
+| ⬜ | On `/join`, **New to the league? Join with Sleeper** with an existing member's Sleeper username says that account already has a seat | |
+| ⬜ | With a Sleeper username that is not in this season's league: "not in this season's league" | |
+| ⬜ | A real newcomer: code shown → put it in their Sleeper team name → Verify & request → "Request sent"; it appears under **Wants to join** in Admin → Members | |
+| ⬜ | Approve is disabled (and refused by the server) unless the season is in setup with no picks | |
+| ⬜ | After approval in setup: the newcomer signs in with the PIN they chose, and appears in the draft order | |

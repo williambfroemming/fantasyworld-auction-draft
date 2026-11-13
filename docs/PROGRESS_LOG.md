@@ -406,3 +406,31 @@ The `oracle_reader` role reads `oracle.player_week_stats` and is refused `public
 **Learned:** the cumulative-points chart was not wrong, it was uninformative: ten managers who each score about the same draw ten lines on top of each other. Subtracting each season's league average and adding up the differences keeps the exact same gaps and centres them on zero, which is what makes them visible: on real data Mario sits above the average almost every year, Bill below it, Daniel climbs from 2019, and Bryan and Jack fall away from 2021. Checked a windowed result against SQL: 2020-2025 points vs average, Daniel +450.11, Gabes +330.47 … Bryan −761.43, and the chart's final cells print +450, +330 … −761. Interaction verified in a real browser over the DevTools protocol: clicking a preset, changing each select, and clicking "All years" all update the URL and the charts. Funny reading of the data: Bryan leads the league in titles and is last in points vs the average since 2020.
 **Watch out for:** (1) `cumulativePoints()` (raw totals) is no longer used by the page; it is kept with its tests in case a raw total is wanted again. (2) A one-season window draws single points rather than lines. (3) Titles and money are windowed too, so a window starting after 2010 drops the legacy champions; the badge shows the years actually covered. (4) The unsigned axis labels elsewhere still use a plain hyphen for negatives; only `signed: true` prints a real minus.
 **Next:** E (how the roster was built, steps 52-53) or whatever the user picks.
+## Step 76 — accounts: reset links, /account, and sign-up proved on Sleeper
+**Date:** 2026-11-12  **Status:** done (not deployed; step 77 ships it)
+**Built:** Three flows, outside the analytics roadmap.
+- **Reset by link:** Admin → Reset PIN now issues a one-time link, `/join?reset=<token>`: 32 random bytes, SHA-256 stored in `managers.pin_reset_hash`, valid for 24h, a newer link replaces an older one. Redeemed through the existing `POST /api/session` (`{resetToken, pin}`) by one `UPDATE … WHERE hash AND unexpired RETURNING`.
+- **`/account`** (menu → Your account, `/api/account`): change PIN, change name (`renameManager` on the session's own id), linked accounts.
+- **Sign-up** (`/join` → "Join with Sleeper", public `/api/onboard`): Sleeper username → membership check against this season's league → a code `FW-NNNN` bound to that account by a signed, expiring token → the person puts it in their team name → `submitJoinRequest` reads the league back and stores a `join_requests` row (chosen name, hashed PIN). The commissioner approves it under Members & access → Wants to join, in one CTE that creates the seat and the `member_identities` link together.
+- **Supporting code:** `src/lib/identity/` (provider interface plus Sleeper), `signPayload`/`verifyPayload` and the reset-token helpers in `auth.ts`, `scripts/migrate-accounts.ts` (additive and idempotent; backfills the ten seats' Sleeper accounts from `MEMBERS`, matched on `managers.name`).
+- **Tests:** 11 unit, `pin-reset.itest.ts` rewritten (11), `onboarding.itest.ts` (10), `access.itest.ts` updated (13). All 664 unit and 158 integration tests pass on local Postgres. Smoke-tested every flow over HTTP against `dev:local`, including the real Sleeper API.
+**Decisions:**
+- **Sleeper cannot log anyone in.** There is no OAuth, and usernames and ids are public, so a typed username proves nothing. The team-name challenge is the one real proof it offers.
+- **Empty seats are no longer claimable on `/join`** ("first to type four digits owns it", on a public page). An empty seat gets a PIN only from a reset link or an approved sign-up.
+- **The old PIN keeps working until a link is used,** so there is no unclaimed moment.
+- **The challenge is a signed token, not a row,** so two people asking for codes cannot overwrite each other.
+- **Approval needs the season in setup with no picks:** a new seat on a finished 2026 draft would make it incomplete and put the newcomer on the clock.
+- **The existing ten are linked by the migration and never challenged,** as the user asked.
+**Learned:**
+- **`MEMBERS` and `member_identities` are deliberately two things.** The history importer must throw on an unknown name, so its map stays a reviewed constant. Sign-up must accept a new person at runtime, so it needs a table. The migration copies one into the other once.
+- **Matching the backfill on `managers.name`, not id,** is what made it link correctly on the test database, which is seeded in a different order. 11 accounts link on the first run and 0 on the second.
+- **The test provider must use the real matching rule.** The first run's only failure was the fake provider doing a case-sensitive `includes` while the real one ignores case and spaces. It now calls `containsCode`.
+- **`react-hooks/set-state-in-effect` caught reading `?reset=` in an effect.** The client page now reads `searchParams` with `use()` and seeds its initial state from it.
+**Watch out for:**
+1. **Run `db:migrate-accounts` on live BEFORE deploying,** because sign-in reads `pin_reset_hash`. It prints how many seats have no PIN, and those members need a link, because they can no longer claim the seat themselves.
+2. **`/api/onboard` is a fourth public path** and the only public route that calls a third party. Keep it off the polling path.
+3. **Never give `join_requests` or `member_identities` an Oracle view;** `join_requests` holds PIN hashes.
+4. **There is no way to retire a seat,** so a newcomer replacing someone becomes an eleventh seat (BACKLOG §16).
+5. **The reset link is shown once and held only in the admin row's state.** Reloading the page loses it; issue another.
+6. **Sleeper's league endpoint might be cached briefly at their edge.** The error asks people to wait a few seconds and retry.
+**Next:** step 77, shipping it: migration on live, check for PIN-less seats, deploy, UAT §Q.

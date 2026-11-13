@@ -3,11 +3,12 @@
  *
  *   npm run pins              # show who has claimed a seat
  *   npm run pins -- --set 1111   # set EVERY seat to the same PIN (testing)
- *   npm run pins -- --clear      # clear all PINs so everyone claims their own
+ *   npm run pins -- --clear      # clear all PINs (rehearsal clean-up)
  *
- * Run `--clear` before the real draft: a shared PIN is fine for a rehearsal and
- * pointless for the real thing, where the whole purpose is stopping someone
- * bidding from the wrong seat by mistake.
+ * ⚠️ A cleared seat can no longer be claimed from /join — that was a race anyone on
+ * the internet could win. After `--clear`, each member needs a reset link from
+ * Admin → Members & access (they choose their own PIN from it). A shared PIN from
+ * `--set` is fine for a rehearsal and pointless for the real thing.
  */
 import { neon } from '@neondatabase/serverless'
 import '../src/db/neon-local'
@@ -24,7 +25,7 @@ async function main() {
 
   if (args.includes('--clear')) {
     await sql`UPDATE managers SET pin_hash = NULL, pin_attempts = 0, pin_locked_until = NULL`
-    console.log('✓ cleared every PIN — each manager sets their own on first join\n')
+    console.log('✓ cleared every PIN — send each member a reset link from the admin panel\n')
   } else if (args.includes('--set')) {
     const pin = flagValue('--set')
     if (!pin || !isValidPinFormat(pin)) {
@@ -46,7 +47,7 @@ async function main() {
       seat: r.draft_slot + 1,
       manager: r.display_name,
       commissioner: r.is_commish ? 'yes' : '',
-      status: r.claimed ? 'PIN set' : 'unclaimed — any 4 digits',
+      status: r.claimed ? 'PIN set' : 'no PIN — needs a reset link',
     })),
   )
 }

@@ -2,7 +2,7 @@
  * Who may see what without signing in.
  *
  * The whole site sits behind the PIN session. This is the entire allow-list: the
- * sign-in page, the two endpoints it needs, and nothing else. It is a pure module so
+ * sign-in page, the three endpoints it needs, and nothing else. It is a pure module so
  * the rule can be tested without a server — and because "which paths are public" is
  * exactly the kind of list that grows by accident, it is kept short and kept here.
  *
@@ -14,6 +14,9 @@ const PUBLIC_PATHS = new Set([
   '/join', // the sign-in page, which is what a signed-out visitor is sent to
   '/api/session', // sign in (POST) and "who am I" (GET)
   '/api/seats', // the names on the sign-in screen: id, name, colour, whether a PIN is set
+  // Sign-up for someone new: a Sleeper challenge, then a request the commissioner
+  // approves. Reveals nothing about any seat; see the route's header.
+  '/api/onboard',
 ])
 
 export function isPublicPath(pathname: string): boolean {

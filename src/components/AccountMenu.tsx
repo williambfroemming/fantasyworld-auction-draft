@@ -112,6 +112,14 @@ export function AccountMenu() {
           </Link>
           <Link
             role="menuitem"
+            href="/account"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 text-slate-200 hover:bg-slate-800"
+          >
+            Your account
+          </Link>
+          <Link
+            role="menuitem"
             href="/join"
             className="block px-3 py-2 text-slate-200 hover:bg-slate-800"
           >

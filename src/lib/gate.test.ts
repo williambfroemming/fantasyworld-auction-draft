@@ -6,6 +6,7 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/join')).toBe(true)
     expect(isPublicPath('/api/session')).toBe(true)
     expect(isPublicPath('/api/seats')).toBe(true)
+    expect(isPublicPath('/api/onboard')).toBe(true)
   })
 
   it('gates everything else, including the pages and APIs that used to be open', () => {
@@ -25,6 +26,8 @@ describe('isPublicPath', () => {
       '/api/state',
       '/api/ask',
       '/api/queue',
+      '/api/account',
+      '/account',
       '/api/export',
     ]) {
       expect(isPublicPath(p), p).toBe(false)
@@ -35,6 +38,7 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/join/x')).toBe(false)
     expect(isPublicPath('/api/session/x')).toBe(false)
     expect(isPublicPath('/api/seats2')).toBe(false)
+    expect(isPublicPath('/api/onboard/x')).toBe(false)
     expect(isPublicPath('/JOIN')).toBe(false)
   })
 })

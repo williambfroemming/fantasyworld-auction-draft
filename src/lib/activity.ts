@@ -63,6 +63,7 @@ const PAGE_GROUPS: Array<{ key: string; label: string; test: RegExp }> = [
   { key: 'glossary', label: 'Glossary', test: /^\/glossary$/ },
   // /setup only redirects to /admin now; a visit to it is a visit to the panel.
   { key: 'admin', label: 'Admin', test: /^\/(admin|setup)$/ },
+  { key: 'account', label: 'Your account', test: /^\/account$/ },
   { key: 'history', label: 'League Summary', test: /^\/history$/ },
   { key: 'gazette-issue', label: 'Gazette issue', test: /^\/gazette\/[^/]+\/[^/]+$/ },
   { key: 'gazette', label: 'The Gazette', test: /^\/gazette$/ },

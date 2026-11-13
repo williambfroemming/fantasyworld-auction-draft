@@ -438,6 +438,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **61.** `/history/waivers`, and the Oracle learns about transactions
 
 **I. Commissioner tools** — added 2026-11-11, outside the analytics roadmap
+
 - [x] **62.** The admin panel: `/admin` from the account menu, replacing the ⚙ Commish drawer and `/setup`; edit any pick, record a sale, unlock a seat, rename, commissioner role, per-season prize money, start a new season
 - [x] **63.** Site structure (`docs/SITE_STRUCTURE.md`): the top bar becomes The Gazette · History ▾ · Auction ▾; the Gazette and the Oracle move to `/gazette` and `/oracle` with permanent redirects; a global Ask the Oracle launcher, hidden on the draft pages; Glossary in the account menu
 
@@ -464,3 +465,6 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **74.** Front page (season underway): the week's biggest starts
 - [x] **75.** Oracle suggested questions, glossary, UAT
 
+**M. Accounts** — added 2026-11-12, outside the roadmaps
+- [x] **76.** Accounts: PIN reset by one-time link (member chooses the PIN), `/account` (change PIN, change name, linked accounts), sign-up for new members proved by a Sleeper team-name challenge and approved by the commissioner; empty seats no longer claimable from `/join`
+- [ ] **77.** Ship accounts: `npm run db:migrate-accounts` on live BEFORE deploying, check no seat lacks a PIN, UAT §Q
