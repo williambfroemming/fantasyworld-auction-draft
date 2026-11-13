@@ -34,6 +34,11 @@ d('oracle-service (real Postgres)', () => {
     expect((await runOracleQuery('SELECT * FROM public.player_queue')).ok).toBe(false)
   })
 
+  it('refuses a read of page_visits (commissioner-only activity)', async () => {
+    expect((await runOracleQuery('SELECT * FROM page_visits')).ok).toBe(false)
+    expect((await runOracleQuery('SELECT * FROM public.page_visits')).ok).toBe(false)
+  })
+
   it('refuses pin_hash', async () => {
     expect((await runOracleQuery('SELECT pin_hash FROM managers')).ok).toBe(false)
   })

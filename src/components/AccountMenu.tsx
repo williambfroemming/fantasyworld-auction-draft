@@ -100,6 +100,16 @@ export function AccountMenu() {
               Admin panel
             </Link>
           )}
+          {/* The glossary's only entry in the nav: it explains both the auction
+              and the league numbers, so it belongs to neither top-bar menu. */}
+          <Link
+            role="menuitem"
+            href="/glossary"
+            onClick={() => setOpen(false)}
+            className="block px-3 py-2 text-slate-200 hover:bg-slate-800"
+          >
+            Glossary
+          </Link>
           <Link
             role="menuitem"
             href="/account"

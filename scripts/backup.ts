@@ -25,6 +25,7 @@ const TABLES = [
   'picks',
   'trades',
   'budget_adjustments',
+  'page_visits',
 ] as const
 
 async function main() {
@@ -38,6 +39,14 @@ async function main() {
 
   const data: Record<string, unknown[]> = {}
   for (const table of TABLES) {
+    // A table the database does not have yet has nothing to back up. This is the state of
+    // the live database between deploying code that adds a table and running its migration,
+    // which is exactly when a backup is wanted, so skip it and say so instead of failing.
+    const [{ present }] = await sql`SELECT to_regclass(${table}) IS NOT NULL AS present`
+    if (!present) {
+      console.log(`  ${table.padEnd(20)} (not in this database yet, skipped)`)
+      continue
+    }
     // `sql` is tagged-template-only in @neondatabase/serverless v1 — a plain
     // call throws. `sql.query` is the escape hatch for a dynamic identifier,
     // and the table names are a fixed literal list above, never user input.

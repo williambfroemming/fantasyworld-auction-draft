@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { PlayerGameLog } from '@/components/history/PlayerGameLog'
+import { PlayerStatTotalsTable } from '@/components/history/PlayerStatTotalsTable'
 import { PlayerTimeline } from '@/components/history/PlayerTimeline'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
@@ -33,16 +35,20 @@ function Stat({
   label,
   value,
   sub,
+  detail,
 }: {
   label: string
   value: string
   sub?: string
+  /** A second line under `sub`, e.g. the NFL stat line behind the best week. */
+  detail?: string | null
 }) {
   return (
     <div className="border border-rule p-3">
       <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
       <div className="font-mono text-xl font-bold tabular-nums">{value}</div>
       {sub && <div className="text-xs text-slate-400">{sub}</div>}
+      {detail && <div className="mt-0.5 font-mono text-xs tabular-nums text-slate-300">{detail}</div>}
     </div>
   )
 }
@@ -60,7 +66,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="league-history" current="/history/players" />
+        <SiteNav section="history" current="/history/players" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">
           {player.playerName}
         </h1>
@@ -104,10 +110,16 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
                 ? `${player.best.season} wk ${player.best.week} · ${player.best.displayName}`
                 : undefined
             }
+            detail={player.best?.statLine}
           />
         </div>
 
-        <PlayerTimeline weekly={player.weekly} className="mt-8" />
+        <PlayerTimeline
+          weekly={player.weekly}
+          statsCoverage={player.statsCoverage}
+          headline={player.headline}
+          className="mt-8"
+        />
 
         {/* Season table. A bar column rather than a second chart: six values do
             not need axes, and the numbers are wanted anyway. */}
@@ -181,6 +193,12 @@ export default async function PlayerPage({ params }: { params: Promise<{ playerI
             </tbody>
           </table>
         </div>
+
+        {/* NFL stat totals, only for a player who has stat rows at all. */}
+        {player.statTotals && <PlayerStatTotalsTable totals={player.statTotals} />}
+
+        {/* The same weeks as the timeline, as a log with the stat line behind each. */}
+        <PlayerGameLog weekly={player.weekly} statsCoverage={player.statsCoverage} />
 
         {/* "Managers" rather than "Who kept him": this page also serves team
             defenses (Kansas City Chiefs, Tampa Bay Buccaneers), where a pronoun

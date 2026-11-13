@@ -28,6 +28,8 @@
 import { getSql } from './sql'
 import { listTrades, type TradeSummary } from './trade-service'
 import { managerColor } from '@/lib/colors'
+import { STAT_KEYS } from '@/lib/player-stats'
+import { seasonStatLine } from '@/lib/player-stat-totals'
 
 export interface ArchiveManager {
   id: number
@@ -48,6 +50,12 @@ export interface ArchivePick {
    * row — and must never be read as zero.
    */
   points?: number | null
+  /**
+   * That season's regular-season NFL stat line for him, for the weeks he was rostered in this
+   * league: `96 rec / 131 tgt, 1253 yds, 8 TD · 13 g`. Null when he has no stat rows (unknown, not
+   * zero). Joined by Sleeper id and season, never through the live `players` table.
+   */
+  statLine?: string | null
   pickNo: number
   managerId: number
   nominatorId: number
@@ -167,7 +175,7 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
     // WR4 years later.
     sql`SELECT pk.id, pk.pick_no, pk.manager_id, pk.nominator_id, pk.price, pk.slot_override,
                pk.player_name, pk.player_team, pk.player_position,
-               pk.player_rank, pk.player_pos_rank, ps.total_points
+               pk.player_rank, pk.player_pos_rank, pk.player_sleeper_id, ps.total_points
         FROM picks pk
         LEFT JOIN player_seasons ps
           ON ps.season = pk.season AND ps.player_id = pk.player_sleeper_id
@@ -177,6 +185,33 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
   ])
 
   if (pickRows.length === 0 && orderRows.length === 0) return null
+
+  // Season stat totals per player for the pick lines. Regular season only (weeks before this
+  // season's own playoff start), played weeks only, and tolerant of the table not existing: an
+  // archived board must still render on a database that has not had `db:migrate-player-stats`.
+  const statsById = new Map<string, { games: number; totals: Record<string, number | null> }>()
+  try {
+    const sums = STAT_KEYS.map((k) => `sum(st.${k}) AS ${k}`).join(', ')
+    const rows = (await sql.query(
+      `SELECT st.player_id, count(*)::int AS games, ${sums}
+         FROM player_week_stats st
+         JOIN seasons se ON se.season = st.season
+        WHERE st.season = $1 AND st.gp >= 1
+          AND (se.playoff_week_start IS NULL OR st.week < se.playoff_week_start)
+        GROUP BY st.player_id`,
+      [season],
+    )) as Array<Record<string, unknown>>
+    for (const r of rows) {
+      statsById.set(String(r.player_id), {
+        games: Number(r.games),
+        totals: Object.fromEntries(
+          STAT_KEYS.map((k) => [k, r[k] === null || r[k] === undefined ? null : Number(r[k])]),
+        ),
+      })
+    }
+  } catch (err) {
+    if ((err as { code?: string }).code !== '42P01') throw err
+  }
 
   // A season predating season_orders, or one where the snapshot never ran, still
   // has picks — fall back to the live manager rows so the board is readable
@@ -227,6 +262,10 @@ export async function getArchivedSeason(season: number): Promise<ArchiveSeason |
       posRank: p.player_pos_rank === null ? null : Number(p.player_pos_rank),
       // Null is unknown, never zero — see `ResultPick.points` in draft-value.ts.
       points: p.total_points === null || p.total_points === undefined ? null : Number(p.total_points),
+      statLine: (() => {
+        const st = p.player_sleeper_id ? statsById.get(String(p.player_sleeper_id)) : undefined
+        return st ? seasonStatLine(p.player_position, st.totals, st.games) : null
+      })(),
       byeWeek: null,
     })),
     trades: await listTrades(season, 100),

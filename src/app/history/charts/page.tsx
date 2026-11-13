@@ -1,12 +1,14 @@
 import { BarChart } from '@/components/charts/BarChart'
+import { ChartFilter, type FilterPreset } from '@/components/charts/ChartFilter'
 import { LineChart, type LineSeries } from '@/components/charts/LineChart'
 import { EraBadge } from '@/components/history/EraBadge'
 import { HeaderControls } from '@/components/HeaderControls'
 import { SiteNav } from '@/components/SiteNav'
 import {
-  cumulativePoints,
+  cumulativePointsVsAverage,
   cumulativeWins,
   finishBySeason,
+  restrictToSeasons,
   titlesAndMoney,
   type MemberSeries,
 } from '@/lib/chart-series'
@@ -15,21 +17,64 @@ import { leagueSummary } from '@/lib/history'
 import { getHistoryInput } from '@/server/history-service'
 
 /**
- * The league, drawn. A Server Component: it computes the series once an hour and hands
- * the chart kit plain data (src/components/charts — formatting is a serialisable spec,
+ * The league, drawn. A Server Component: it computes every series for the chosen years and
+ * hands the chart kit plain data (src/components/charts: formatting is a serialisable spec,
  * never a function, because a function cannot cross into a client component).
+ *
+ * The year window is in the URL (`?from=&to=`), so it reads `searchParams` and the page is
+ * rendered per request rather than cached. Running totals restart at the first year shown:
+ * a window is its own accounting period, not a slice of an all-time total.
  */
-export const revalidate = 3600
-
 export const metadata = { title: 'Charts — FantasyWorld' }
 
-export default async function ChartsPage() {
-  const input = await getHistoryInput()
+const parseYear = (v: string | undefined) => (v && /^\d{4}$/.test(v) ? Number(v) : null)
+
+export default async function ChartsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>
+}) {
+  const query = await searchParams
+  const full = await getHistoryInput()
+
+  // The years that can be chosen: the ones with standings, which every line chart needs.
+  const seasons = [...new Set(full.standings.map((s) => s.season))].sort((a, b) => a - b)
+  const first = seasons[0]
+  const last = seasons[seasons.length - 1]
+
+  // An unparseable or out-of-range value falls back to the edge rather than erroring.
+  const clamp = (n: number) => Math.min(last, Math.max(first, n))
+  const askedFrom = parseYear(query.from)
+  const askedTo = parseYear(query.to)
+  const a = askedFrom === null ? first : clamp(askedFrom)
+  const b = askedTo === null ? last : clamp(askedTo)
+  const from = Math.min(a, b)
+  const to = Math.max(a, b)
+  const filtered = from !== first || to !== last
+
+  const input = filtered ? restrictToSeasons(full, from, to) : full
   const summary = leagueSummary(input)
   const wins = cumulativeWins(input)
-  const points = cumulativePoints(input)
+  const points = cumulativePointsVsAverage(input)
   const finish = finishBySeason(input)
   const { rows: money, coverage: titlesCoverage, moneyUnknownSeasons } = titlesAndMoney(input)
+
+  // Quick choices. A preset identical to another (or to the whole range) is dropped.
+  const weeklyFrom = Math.min(
+    ...full.seasons.filter((s) => s.dataTier === 'weekly').map((s) => s.season),
+  )
+  const presets: FilterPreset[] = [{ label: 'All years', from: first, to: last }]
+  if (seasons.length > 5) presets.push({ label: 'Last 5', from: last - 4, to: last })
+  if (Number.isFinite(weeklyFrom) && weeklyFrom > first && weeklyFrom <= last) {
+    presets.push({ label: `Since ${weeklyFrom}`, from: weeklyFrom, to: last })
+  }
+  const seen = new Set<string>()
+  const uniquePresets = presets.filter((p) => {
+    const k = `${p.from}-${p.to}`
+    if (seen.has(k)) return false
+    seen.add(k)
+    return true
+  })
 
   const member = new Map(input.members.map((m) => [m.managerId, m]))
   const toLines = (series: MemberSeries[]): LineSeries[] =>
@@ -43,15 +88,19 @@ export default async function ChartsPage() {
       }
     })
 
-  const standingsCoverage = summary.allTime
+  // "All-time" would be a lie for a window, so a filtered view says what it is.
+  const standingsCoverage = filtered
+    ? { ...summary.allTime, label: 'Selected years' }
+    : summary.allTime
   // The newest season is still being played if nobody has been crowned for it.
-  const newest = input.seasons[input.seasons.length - 1]
-  const inProgress = newest && newest.championManagerId === null ? newest.season : null
+  const newest = full.seasons[full.seasons.length - 1]
+  const inProgress =
+    newest && newest.championManagerId === null && to >= newest.season ? newest.season : null
 
   const ranked = (pick: (r: (typeof money)[number]) => number | null) =>
     [...money]
       .map((r) => ({ r, v: pick(r) }))
-      .sort((a, b) => (b.v ?? -Infinity) - (a.v ?? -Infinity))
+      .sort((x, y) => (y.v ?? -Infinity) - (x.v ?? -Infinity))
       .map(({ r, v }) => {
         const m = member.get(r.managerId)
         return {
@@ -62,10 +111,12 @@ export default async function ChartsPage() {
         }
       })
 
+  const startsNote = filtered ? ` Totals start from ${from}.` : ''
+
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="league-history" current="/history/charts" />
+        <SiteNav section="history" current="/history/charts" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Charts</h1>
         <div className="ml-auto">
           <HeaderControls />
@@ -73,9 +124,11 @@ export default async function ChartsPage() {
       </header>
 
       <div className="mx-auto max-w-4xl space-y-12 px-4 py-6">
+        <ChartFilter seasons={seasons} from={from} to={to} presets={uniquePresets} />
+
         <Section
           title="Wins, added up"
-          caption="Career regular-season wins, season by season."
+          caption={`Career regular-season wins, season by season.${startsNote}`}
           coverage={<EraBadge coverage={standingsCoverage} />}
           note={inProgress ? `${inProgress} in progress.` : undefined}
         >
@@ -88,8 +141,8 @@ export default async function ChartsPage() {
         </Section>
 
         <Section
-          title="Points, added up"
-          caption="Career points scored, season by season."
+          title="Points vs the league average"
+          caption={`Running points above or below the average team. The heavy line is average.${startsNote}`}
           coverage={<EraBadge coverage={standingsCoverage} />}
           note={
             points.missing.length
@@ -100,8 +153,8 @@ export default async function ChartsPage() {
           <LineChart
             series={toLines(points.series)}
             xFormat={{ shortYear: true }}
-            yFormat={{}}
-            ariaLabel="Cumulative points scored by season, per manager"
+            yFormat={{ signed: true }}
+            ariaLabel="Points scored above or below the league average, added up by season, per manager"
             height={360}
           />
         </Section>

@@ -19,13 +19,18 @@
  * Hand-written and idempotent (AGENTS.md: `drizzle-kit push` cannot tell a new table
  * from a rename). Safe to run twice.
  *
- * ⚠️ NEVER expose, by any view: player_queue, managers.pin_hash, week_issues, draft,
- * lots, budget_adjustments, oracle_log. The first two are private by non-negotiable;
- * the rest are draft-room state or the Oracle's own log. To let the Oracle answer
+ * ⚠️ NEVER expose, by any view: player_queue, managers.pin_hash, page_visits, week_issues,
+ * draft, lots, budget_adjustments, oracle_log. The first three are private by
+ * non-negotiable (page_visits is commissioner-only activity tracking); the rest are
+ * draft-room state or the Oracle's own log. To let the Oracle answer
  * something new, add a view HERE — never widen the role's grants, never hand it `public`.
  *
  * ⚠️ `npm run db:local:setup` drops and recreates `public`, which cascades away every
  * view below. Re-run this script after any local setup.
+ *
+ * ⚠️ Run `db:migrate-player-stats` before this on a database that has never had it:
+ * `oracle.player_week_stats` is a view over that table, and CREATE VIEW on a missing
+ * table fails the whole script.
  *
  * ⚠️ No backticks inside the SQL strings. Every statement is a plain string rather than
  * a tagged template so a stray `${` cannot interpolate either.
@@ -101,7 +106,7 @@ const VIEWS: OracleView[] = [
     select: `season, week, manager_id, player_id, player_name, position, nfl_team,
       is_starter, slot, points`,
     comment:
-      'Every rostered player score per week, 2020 on. A row exists only for a week the player was on a roster in this league. player_id is the Sleeper id.',
+      'Every rostered player score per week, 2020 on. A row exists only for a week the player was on a roster in this league. player_id is the Sleeper id. It has rows for every team in a playoff week, including teams that were not in the playoffs: for playoff games only, join games on season, week and manager_id and filter is_playoff.',
   },
   {
     name: 'player_seasons',
@@ -109,6 +114,20 @@ const VIEWS: OracleView[] = [
     select: `season, player_id, player_name, position, nfl_team, weeks_played,
       total_points, avg_points`,
     comment: 'A player season totals, league-wide. player_id is the Sleeper id.',
+  },
+  {
+    // Explicit columns, kept equal to STAT_KEYS by oracle-schema.test.ts.
+    // Needs db:migrate-player-stats FIRST: a view over a missing table fails.
+    name: 'player_week_stats',
+    from: 'public.player_week_stats',
+    select: `season, week, player_id, gp,
+      pass_att, pass_cmp, pass_yd, pass_td, pass_int, pass_sack, pass_2pt,
+      rush_att, rush_yd, rush_td, rush_2pt,
+      rec_tgt, rec, rec_yd, rec_td, rec_2pt,
+      fum, fum_lost,
+      sack, def_int, fum_rec, def_td, def_st_td, safe, pts_allow, yds_allow, blk_kick`,
+    comment:
+      'NFL stat lines for rostered players per week, 2020 on. NULL means did not play; 0 is a real zero. Not fantasy points: use player_weeks.points. Join to player_weeks on season, week, player_id.',
   },
   {
     name: 'auction_picks',
@@ -124,6 +143,15 @@ const VIEWS: OracleView[] = [
     from: 'public.trades',
     select: 'season, manager_a_id, manager_b_id, picks_a_to_b, picks_b_to_a, cash_a_to_b, created_at',
     comment: 'Draft-night trades only.',
+  },
+  {
+    name: 'transactions',
+    from: 'public.season_transactions',
+    select: `season, week, transaction_id, type, status, manager_id, counterparty_manager_id,
+      player_id_added, player_id_dropped, added_name, added_position, dropped_name,
+      dropped_position, faab_bid, faab_transferred, note, created_at`,
+    comment:
+      'Waiver claims (won and failed), free-agent moves, trades and FAAB inside trades, 2020 on. A failed claim bid was never spent.',
   },
   {
     name: 'legacy_champions',

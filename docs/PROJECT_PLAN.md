@@ -404,7 +404,7 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **41.** The tool loop — `askOracle()`
 - [x] **42.** `POST /api/ask` — session, daily cap, log
 - [x] **43.** `/history/oracle` and the nav entry
-- [ ] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
+- [x] **44.** Ship: key in Vercel, live migration, UAT, twenty real questions
 
 **B. Charts**
 - [x] **45.** The chart kit — line, bar, stacked bar, donut
@@ -432,13 +432,39 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **57.** `/history/ratings`
 
 **H. FAAB and waivers**
-- [ ] **58.** Pull Sleeper transactions
-- [ ] **59.** `season_transactions` and the importer
-- [ ] **60.** `faab.ts`
-- [ ] **61.** `/history/waivers`, and the Oracle learns about transactions
+- [x] **58.** Pull Sleeper transactions
+- [x] **59.** `season_transactions` and the importer
+- [x] **60.** `faab.ts`
+- [x] **61.** `/history/waivers`, and the Oracle learns about transactions
 
 **I. Commissioner tools** — added 2026-11-11, outside the analytics roadmap
 
 - [x] **62.** The admin panel: `/admin` from the account menu, replacing the ⚙ Commish drawer and `/setup`; edit any pick, record a sale, unlock a seat, rename, commissioner role, per-season prize money, start a new season
-- [x] **67.** Accounts: PIN reset by one-time link (member chooses the PIN), `/account` (change PIN, change name, linked accounts), sign-up for new members proved by a Sleeper team-name challenge and approved by the commissioner; empty seats no longer claimable from `/join`
-- [ ] **68.** Ship accounts: `npm run db:migrate-accounts` on live BEFORE deploying, check no seat lacks a PIN, UAT §N
+- [x] **63.** Site structure (`docs/SITE_STRUCTURE.md`): the top bar becomes The Gazette · History ▾ · Auction ▾; the Gazette and the Oracle move to `/gazette` and `/oracle` with permanent redirects; a global Ask the Oracle launcher, hidden on the draft pages; Glossary in the account menu
+
+**J. Activity** — added 2026-11-11, see `docs/ACTIVITY_ROADMAP.md`
+- [x] **63.** `page_visits` table and `npm run db:migrate-activity`; Oracle exclusion
+- [x] **64.** `src/lib/activity.ts` — path normalising, page groups, the visible-and-active clock, the summary
+- [x] **65.** `<ActivityBeacon>` and `POST /api/track`
+- [x] **66.** Admin panel → Activity, `GET /api/admin/activity`, and ship
+
+**K. Player stats** — added 2026-11-11. **Build instructions: `docs/PLAYER_STATS_ROADMAP.md`**
+- [x] **63.** Pull Sleeper's weekly stats, trimmed to rostered players and the whitelist, into `data/sleeper/{season}/stats-NN.json`
+- [x] **64.** `player_week_stats` and the importer
+- [x] **65.** The Oracle learns about stats
+- [x] **66.** Show the stat line
+
+**L. Weaving player stats into the site** — added 2026-11-11. **Build instructions: `docs/STATS_WEAVE_ROADMAP.md`**
+- [x] **67.** `player-stat-totals.ts` and "Stats by season" on the player page
+- [x] **68.** Player page: game log, and a points / headline-stat toggle on the timeline
+- [x] **69.** Players index: position and season filters, one stat column (stat sort only within one position)
+- [x] **70.** Records: stat records within a position
+- [x] **71.** Spend & Value / Past Auctions: what each pick returned
+- [x] **72.** Member page: biggest weeks, with stat lines
+- [x] **73.** Waivers: what a claim did since pickup
+- [x] **74.** Front page (season underway): the week's biggest starts
+- [x] **75.** Oracle suggested questions, glossary, UAT
+
+**M. Accounts** — added 2026-11-12, outside the roadmaps
+- [x] **76.** Accounts: PIN reset by one-time link (member chooses the PIN), `/account` (change PIN, change name, linked accounts), sign-up for new members proved by a Sleeper team-name challenge and approved by the commissioner; empty seats no longer claimable from `/join`
+- [ ] **77.** Ship accounts: `npm run db:migrate-accounts` on live BEFORE deploying, check no seat lacks a PIN, UAT §Q

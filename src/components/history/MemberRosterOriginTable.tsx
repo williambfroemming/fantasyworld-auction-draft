@@ -1,7 +1,7 @@
 import { EraBadge } from '@/components/history/EraBadge'
 import { GlossaryLink } from '@/components/GlossaryLink'
 import { ORIGIN_COLORS } from '@/components/history/RosterOriginChart'
-import { ORIGIN_LABELS, type MemberOriginSeason } from '@/lib/roster-origin'
+import { ORIGIN_LABELS, ORIGIN_PARTS, type MemberOriginSeason } from '@/lib/roster-origin'
 
 /**
  * One manager, season by season: what share of their started points came from players they
@@ -12,9 +12,7 @@ import { ORIGIN_LABELS, type MemberOriginSeason } from '@/lib/roster-origin'
 export function MemberRosterOriginTable({ seasons }: { seasons: MemberOriginSeason[] }) {
   const years = seasons.map((s) => s.season).sort((a, b) => a - b)
   const parts = seasons[0] ? [...new Set(seasons.flatMap((s) => s.parts))] : []
-  const order = (['drafted', 'tradedAtDraft', 'addedLater', 'unknown'] as const).filter((p) =>
-    parts.includes(p),
-  )
+  const order = ORIGIN_PARTS.filter((p) => parts.includes(p))
   const pct = (v: number, total: number) => (total > 0 ? `${Math.round((v / total) * 100)}%` : '—')
 
   return (
@@ -70,7 +68,7 @@ export function MemberRosterOriginTable({ seasons }: { seasons: MemberOriginSeas
                 </th>
                 {order.map((p) => (
                   <td key={p} className="px-2 py-1.5 text-right font-mono text-xs tabular-nums">
-                    {pct(s.row[p], s.row.total)}
+                    {s.parts.includes(p) ? pct(s.row[p], s.row.total) : '—'}
                   </td>
                 ))}
                 <td className="px-2 py-1.5 text-right font-mono text-xs tabular-nums text-slate-400">

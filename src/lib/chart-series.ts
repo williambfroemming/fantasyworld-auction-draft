@@ -80,6 +80,57 @@ export const cumulativeWins = (input: HistoryInput) => cumulative(input, (s) => 
 
 export const cumulativePoints = (input: HistoryInput) => cumulative(input, (s) => s.pointsFor)
 
+/**
+ * Points for, measured against the league average, added up.
+ *
+ * Raw cumulative points cannot tell managers apart: ten people who each score about the
+ * same every year draw ten lines on top of each other. What separates them is how far above
+ * or below the AVERAGE team each one has been. Each season, a manager's points for minus
+ * the mean points for of the managers with a figure that season is added to their running
+ * total, so zero is "an average team", climbing means out-scoring the field year after
+ * year, and falling means the opposite.
+ *
+ * A season with no points figure for a manager adds nothing and is reported in `missing`,
+ * exactly as `cumulativePoints` does. The mean is over the managers who have a figure, so a
+ * missing row cannot drag everyone else above or below zero.
+ */
+export function cumulativePointsVsAverage(input: HistoryInput): CumulativeReport {
+  const sums = new Map<number, { total: number; n: number }>()
+  for (const s of input.standings) {
+    if (s.pointsFor === null) continue
+    const cur = sums.get(s.season) ?? { total: 0, n: 0 }
+    cur.total += s.pointsFor
+    cur.n += 1
+    sums.set(s.season, cur)
+  }
+  return cumulative(input, (row) => {
+    if (row.pointsFor === null) return null
+    const m = sums.get(row.season)!
+    return row.pointsFor - m.total / m.n
+  })
+}
+
+/**
+ * Only the seasons from `from` to `to`, inclusive, so every chart above can be drawn for a
+ * window of years by passing it this instead of the whole history.
+ *
+ * Running totals therefore START at the first season shown: a window is its own
+ * accounting period, not a slice of an all-time total. Members stay whole (a manager with
+ * no rows in the window is simply omitted by the series functions). The trade log has no
+ * season on it and nothing here reads it, so it is left alone.
+ */
+export function restrictToSeasons(input: HistoryInput, from: number, to: number): HistoryInput {
+  const inRange = (season: number) => season >= from && season <= to
+  return {
+    ...input,
+    seasons: input.seasons.filter((s) => inRange(s.season)),
+    standings: input.standings.filter((s) => inRange(s.season)),
+    matchups: input.matchups.filter((m) => inRange(m.season)),
+    lineups: input.lineups.filter((l) => inRange(l.season)),
+    picks: input.picks?.filter((p) => inRange(p.season)),
+  }
+}
+
 export interface FinishReport {
   seasons: number[]
   /** The worst place anyone finished, for the size of the axis. */

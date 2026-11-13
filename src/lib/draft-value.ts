@@ -52,6 +52,11 @@ export interface ResultPick {
    * in the league on no evidence.
    */
   points: number | null
+  /**
+   * That season's NFL stat line for him (regular season, while rostered), for display only. It
+   * never enters a ranking: the verdict is the finish rank by fantasy points, as before.
+   */
+  statLine?: string | null
 }
 
 export interface ValuedResult {
@@ -67,6 +72,8 @@ export interface ValuedResult {
   finishRank: number
   /** priceRank − finishRank. Positive beat their price; negative missed it. */
   delta: number
+  /** Carried through from the pick. Display only. */
+  statLine: string | null
 }
 
 export interface ResultsReport {
@@ -117,6 +124,7 @@ export function valueVsResults(picks: ResultPick[], opts: { topN?: number } = {}
           priceRank: pr,
           finishRank: i + 1,
           delta: pr - (i + 1),
+          statLine: p.statLine ?? null,
         })
       })
   }

@@ -1,6 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { ORACLE_EXAMPLES } from '@/lib/oracle-examples'
 
 /**
  * The Oracle's question bar (docs/ANALYTICS_ROADMAP.md §A, step 43).
@@ -27,25 +28,40 @@ interface Turn {
   steps: Step[]
 }
 
-const EXAMPLES = [
-  'How many times has Josh Allen scored over 20 points?',
-  'Who has the most 150-point weeks?',
-  'What is the most anyone has paid for a running back?',
-  'Who has lost the most games by under five points?',
-  'Which player has been started the most weeks?',
-  'Who has the best playoff record?',
-]
 
 const KEEP_TURNS = 5
 const ROWS_SHOWN = 20
 
-export function OracleBar() {
+/**
+ * The two refusals a member can hit without doing anything wrong, said plainly.
+ * The 401 can come from `src/proxy.ts` ("Not signed in") as well as from the
+ * route, and a 503 can come from the platform with no JSON body at all, so the
+ * status decides the wording, not whatever text happens to be attached.
+ */
+export const SIGNED_OUT = 'Sign in to ask the Oracle.'
+export const SWITCHED_OFF = 'The Oracle is switched off right now.'
+
+export function refusalMessage(status: number, reason: string | undefined): string | null {
+  if (status === 401) return SIGNED_OUT
+  if (status === 503) return reason ?? SWITCHED_OFF
+  return null
+}
+
+export function OracleBar({ autoFocus = false }: { autoFocus?: boolean } = {}) {
   const [question, setQuestion] = useState('')
   const [working, setWorking] = useState<string | null>(null)
   const [turns, setTurns] = useState<Turn[]>([])
   const [remaining, setRemaining] = useState<number | null>(null)
   const nextId = useRef(1)
   const input = useRef<HTMLInputElement>(null)
+  // Unique per mount: the slide-over and the full page can both exist in one
+  // document's lifetime, and a duplicated id breaks the label.
+  const inputId = useId()
+
+  // In the slide-over, the dialog has already moved focus before this mounts.
+  useEffect(() => {
+    if (autoFocus) input.current?.focus()
+  }, [autoFocus])
 
   async function ask(q: string) {
     const text = q.trim()
@@ -70,7 +86,12 @@ export function OracleBar() {
       if (typeof body?.remaining === 'number') setRemaining(body.remaining)
       // 401 / 400 / 429 carry `reason`; an Oracle failure carries `error`. Either is
       // already a sentence. Never show a status code.
-      const message = body?.ok ? null : (body?.reason ?? body?.error ?? 'Something went wrong. Try again.')
+      const message = body?.ok
+        ? null
+        : (refusalMessage(res.status, body?.reason) ??
+          body?.reason ??
+          body?.error ??
+          'Something went wrong. Try again.')
       turn = {
         id: nextId.current++,
         question: text,
@@ -102,11 +123,11 @@ export function OracleBar() {
         }}
         className="flex flex-col gap-2 sm:flex-row"
       >
-        <label htmlFor="oracle-question" className="sr-only">
+        <label htmlFor={inputId} className="sr-only">
           Your question
         </label>
         <input
-          id="oracle-question"
+          id={inputId}
           ref={input}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
@@ -126,7 +147,7 @@ export function OracleBar() {
       </form>
 
       <div className="mt-3 flex flex-wrap gap-2" aria-label="Example questions">
-        {EXAMPLES.map((ex) => (
+        {ORACLE_EXAMPLES.map((ex) => (
           <button
             key={ex}
             type="button"

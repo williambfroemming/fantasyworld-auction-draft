@@ -5,7 +5,7 @@ import { SeasonReviewCard } from '@/components/history/SeasonReviewCard'
 import { SiteNav } from '@/components/SiteNav'
 import { HeaderControls } from '@/components/HeaderControls'
 import { managerColor } from '@/lib/colors'
-import { getBestPickups, getPlayerRecords, getRecordBook, getRosterOrigins, getSeasonReviews } from '@/server/history-service'
+import { getBestPickups, getPlayerRecords, getPlayerStatRecords, getRecordBook, getRosterOrigins, getSeasonReviews } from '@/server/history-service'
 
 /**
  * The record book, and a card for every season.
@@ -39,18 +39,19 @@ const FORMAT: Record<string, (n: number) => string> = {
 }
 
 export default async function RecordsPage() {
-  const [{ book, lists, members }, { reviews }, pickups, origins, playerBook] = await Promise.all([
+  const [{ book, lists, members }, { reviews }, pickups, origins, playerBook, statRecords] = await Promise.all([
     getRecordBook(),
     getSeasonReviews(),
     getBestPickups(3),
     getRosterOrigins(),
     getPlayerRecords(),
+    getPlayerStatRecords(),
   ])
 
   return (
     <main id="main" className="min-h-dvh bg-slate-950 text-slate-100">
       <header className="flex flex-wrap items-center gap-3 border-b border-rule px-4 py-2.5">
-        <SiteNav section="league-history" current="/history/records" />
+        <SiteNav section="history" current="/history/records" />
         <h1 className="font-display text-lg font-bold uppercase tracking-[0.08em]">Records</h1>
         <div className="ml-auto">
           <HeaderControls />
@@ -148,7 +149,7 @@ export default async function RecordsPage() {
           </section>
         </div>
 
-        <PlayerRecordsSection book={playerBook} members={members} />
+        <PlayerRecordsSection book={playerBook} members={members} statRecords={statRecords} />
 
         <section className="mt-10">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">

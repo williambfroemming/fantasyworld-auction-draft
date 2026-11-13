@@ -165,7 +165,7 @@ diff rather than written straight to the database.
 
 | ✓ | Check | Notes |
 |---|---|---|
-| ⬜ | `/history/gazette` renders the latest issue in full, with back issues grouped by season below | |
+| ⬜ | `/gazette` renders the latest issue in full, with back issues grouped by season below | |
 | ⬜ | Masthead reads as a newspaper — rules top and bottom, dateline between, serif headline | |
 | ⬜ | The column sets in justified columns with a drop cap; nothing splits awkwardly across a break | |
 | ⬜ | Readable in **both** themes, and on the smallest laptop in the room | |
@@ -180,7 +180,7 @@ diff rather than written straight to the database.
 | ⬜ | Nothing references a day of the week, a kickoff time, or "came down to the last game" — none of that is knowable | |
 | ⬜ | The Tuesday cron ran on `workflow_dispatch` and committed both the Sleeper snapshot and the issue | |
 
-## J. Ask the Oracle — `/history/oracle`
+## J. Ask the Oracle — `/oracle`
 
 Run against the live deploy, signed in as yourself, after the Oracle migration and the
 `ANTHROPIC_API_KEY` are in place. The SQL under every answer is the evidence: a wrong answer
@@ -189,7 +189,7 @@ problem. Either way read `oracle_log.steps` before fixing it.
 
 | ✓ | Check | Notes |
 |---|---|---|
-| ⬜ | Signed out, `/history/oracle` shows a link to `/join` and no input; `curl -X POST /api/ask` returns 401 | |
+| ⬜ | Signed out, `/oracle` lands on the sign-in page; `curl -X POST /api/ask` returns 401 | |
 | ⬜ | Signed in, a question whose answer you know ("Who has the most regular-season wins since 2020?") comes back right | |
 | ⬜ | "How this was worked out" shows the SQL and the rows, and they support the sentence above them | |
 | ⬜ | A player-scoring answer says it counts weeks **while rostered in this league, since 2020** | |
@@ -203,8 +203,8 @@ problem. Either way read `oracle_log.steps` before fixing it.
 
 | ✓ | Check | Notes |
 |---|---|---|
-| ⬜ | In a private window, `/`, `/history`, `/history/gazette` and `/glossary` all land on the sign-in page | |
-| ⬜ | Opening a deep link (`/history/gazette/2025/7`) signed out, then signing in, lands on that page, not the draft room | |
+| ⬜ | In a private window, `/`, `/history`, `/gazette` and `/glossary` all land on the sign-in page | |
+| ⬜ | Opening a deep link (`/gazette/2025/7`) signed out, then signing in, lands on that page, not the draft room | |
 | ⬜ | `curl https://…/api/state` and `curl -X POST https://…/api/ask` signed out both return 401 | |
 | ⬜ | Signing in from the front page goes to the front page (draft complete) and does not drop you in the draft room | |
 | ⬜ | Stay signed in across a few days; you are not asked again within a week | |
@@ -220,7 +220,7 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | While locked, even the correct PIN is refused | |
 | ⬜ | Admin panel → Members & access → Reset PIN, then using the link, unlocks the seat; the chosen PIN works at once | |
 | ⬜ | Admin panel → Ask the Oracle shows On/Off, the last 24 hours of questions and tokens, and who asked most | |
-| ⬜ | Turn it **Off**: the next question is refused in words, `/history/oracle` shows the switched-off notice, and no `oracle_log` row is added | |
+| ⬜ | Turn it **Off**: the next question is refused in words, `/oracle` and the Ask panel show the switched-off notice, and no `oracle_log` row is added | |
 | ⬜ | Turn it **On** again: questions work with no redeploy | |
 | ⬜ | A non-commissioner calling `/api/oracle-admin` gets 403 | |
 | ⬜ | Top right of every signed-in page shows your name with a green dot; the menu says "Signed in as …" (and "Commissioner" if you are) | |
@@ -245,7 +245,55 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | Seasons: pick a past year, set prize money, save, reload — the values stick; an emptied box comes back empty (unknown), not 0 | |
 | ⬜ | Seasons: Start the next season is disabled until the year is typed; do NOT run this against the live league until the season is really over | |
 
-## N. Accounts — reset links, your account, joining the league
+## N. Site nav and the Ask the Oracle launcher — `docs/SITE_STRUCTURE.md`
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | The top bar reads **FantasyWorld · The Gazette · History ▾ · Auction ▾**, with **✦ Ask** on the right | |
+| ⬜ | On a phone, History and Auction each open a full-width panel that fits the screen; Auction shows *This year* and *Past auctions* | |
+| ⬜ | Choosing a menu item closes the menu, and the page you are on is highlighted when you reopen it | |
+| ⬜ | **The Gazette** goes straight to `/gazette`; on an issue it stays highlighted | |
+| ⬜ | An old emailed link (`/history/gazette/2025/7`) opens the same issue at `/gazette/2025/7`; `/history/oracle` opens `/oracle` | |
+| ⬜ | **✦ Ask** opens a panel from the right; a question answers with its SQL; Esc, ×, or a tap outside closes it | |
+| ⬜ | **✦ Ask** is **not** on `/draft`, `/board` or `/trades` | |
+| ⬜ | Glossary is in the account menu | |
+## O. Activity — commissioner only
+
+Run `npm run db:migrate-activity` against live **before** deploying this.
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | Signed in as anyone, browse three pages for ~20 seconds each. Then, as the commissioner, Admin panel → **Activity** (with "Hide my own visits" off if it was you) shows those pages and roughly that time | |
+| ⬜ | "Hide my own visits" is ticked by default and removes your own rows; unticking it adds them back | |
+| ⬜ | 7 days / 30 days / All time each change the totals; a window with nothing in it says "No visits recorded …", not a table of zeros | |
+| ⬜ | Leave `/draft` open and untouched for 10 minutes: Activity adds at most ~5 minutes for it, not 10 | |
+| ⬜ | Switch to another tab for a few minutes and come back: the hidden time is not counted | |
+| ⬜ | A member gets a 404 on `/admin` and a 403 from `/api/admin/activity` | |
+| ⬜ | Glossary → **Active time** explains how it is counted | |
+| ⬜ | The league has been told (see `docs/ACTIVITY_ROADMAP.md` → Tell the league) | |
+
+## P. Player stats on the site — `docs/STATS_WEAVE_ROADMAP.md`
+
+Nothing here needs a migration; the stat lines are already on live.
+
+| ✓ | Check | Notes |
+|---|---|---|
+| ⬜ | **Player page**, a receiver you know (try CeeDee Lamb): a **Stats by season** table under the By season table, with a Regular season / Playoffs toggle. Lamb's 2023 regular season reads 13 games, 131 tgt, 96 rec, 1,253 yd, 8 TD | |
+| ⬜ | The same page on a **team defense** (try San Francisco 49ers): columns are sacks, INT, FR, TD and points allowed per game, and nothing about receiving | |
+| ⬜ | The timeline above has a **Fantasy points / Rec yd** switch; choosing Rec yd redraws the bars and leaves a gap for weeks he did not play | |
+| ⬜ | **Game log** under the stats table: one block per season, newest open; a bye week says "did not play"; no week with points ever does | |
+| ⬜ | **History → Players**: pick a season, then **QB**; a "Pass yd" column and a sort by it appear. Picking **All** removes the column and the sort | |
+| ⬜ | Players: QB, 2023, sorted by passing yards starts Tagovailoa 3,697, Purdy 3,553, Prescott 3,505 | |
+| ⬜ | **Records → Players → NFL stat records**: a block per position; every single-game list says "by a starter"; QB passing yards in a season starts with Mahomes 4,160 (2022) | |
+| ⬜ | **Spend & Value** for a past season: each steal and bust has a stat line under the player\u2019s name; a $42 bust reads as a bust for a reason | |
+| ⬜ | **Member page**: a **Biggest weeks** list under Favourite players, with the NFL line behind each; playoff weeks are labelled | |
+| ⬜ | **Waivers**: claims show a "since pickup" line; Joe Burrow\u2019s $46 claim (2025) reads 49/82, 545 yds, 6 TD, 2 INT \u00b7 2 g | |
+| ⬜ | **Front page, while a season is on**: a "Week N\u2019s biggest starts" panel with five players, who started them and their lines. It is not there between seasons | |
+| ⬜ | **Ask the Oracle**: the example chips include receiving yards, passing yards and FAAB questions; clicking one fills the box and does not ask | |
+| ⬜ | Ask "Which receiver had the most receiving yards in a season?": the answer is a receiver, not a team defense | |
+| ⬜ | Every stat panel says it covers weeks rostered in this league, from 2020, and none claims to be an NFL career | |
+
+## Q. Accounts — reset links, your account, joining the league
 
 | ✓ | Check | Notes |
 |---|---|---|

@@ -39,69 +39,137 @@
       "sha256": "29ad9e62ad34cfb0696559f7c12d45d645f55c6db5565874e68c3c9bac032550",
       "count": 10
     },
+    "stats-01": {
+      "sha256": "3f177f5b3e4b373a19cdc3b03ea9cb3d8455d0b0e9e6561211c11376a63d7151",
+      "count": 162
+    },
     "matchups-02": {
       "sha256": "6baf2ea99b8af66a8657924eb291baaeee14eaf99b38cf25aa702c4ac69342a8",
       "count": 10
+    },
+    "stats-02": {
+      "sha256": "5ca4decda1c41ef788cd66e33dc4631c0f48f7fa29d072ffe1f42d4c08004add",
+      "count": 165
     },
     "matchups-03": {
       "sha256": "147b43166b5efd0e4a29e1926872ec4614a5119dae8ee875f11bfcc370ef6b9f",
       "count": 10
     },
+    "stats-03": {
+      "sha256": "41d9c0d28e26673b732340f4cf76d57ccc1b575bb27a285d5ff03349a673e23b",
+      "count": 165
+    },
     "matchups-04": {
       "sha256": "d1a674f3d317e26fc6546f0baece42e17bcb87a4bc72196c24f716504c8115f1",
       "count": 10
+    },
+    "stats-04": {
+      "sha256": "a0ed579c6e29a0d44bf5e9cf47ec3de4585ce562e883c695df9f7116ada931cc",
+      "count": 166
     },
     "matchups-05": {
       "sha256": "f78bb72f632a4451bdbb45e5e559ec8eefdea0874e925f75b9c6608f9efb10d7",
       "count": 10
     },
+    "stats-05": {
+      "sha256": "7d1b591940fde92b7871403806640bc354cb5e371dbd09d9d09dd0e644dfb7a8",
+      "count": 166
+    },
     "matchups-06": {
       "sha256": "9cb27b4fb4f5bac3c400d66ddd9975912d0580eba3fecb14464078a2f6a1a812",
       "count": 10
+    },
+    "stats-06": {
+      "sha256": "8608ae12245e351d92fb97b01f4eb6e8a4bf417cd0562d88e43224e0041a5cbb",
+      "count": 151
     },
     "matchups-07": {
       "sha256": "651aee9f5942912f85f56d59fac69d4dc45b43c55a205782cac8d321addd3b71",
       "count": 10
     },
+    "stats-07": {
+      "sha256": "2b1b40910cd7731db0d7e48294e625dd03c9db4040390a6b775e79d0c2f8fdcf",
+      "count": 126
+    },
     "matchups-08": {
       "sha256": "259816f0784d0a696208e67f7a1fab14711f3d23dfaaab233b6fcf52f210ceaa",
       "count": 10
+    },
+    "stats-08": {
+      "sha256": "2110095a1844f9d89375ea295b830e5d74b85961b908503ac0d75ef1affe399d",
+      "count": 152
     },
     "matchups-09": {
       "sha256": "424c42f23ada00e183e2bdd00407a9679d14bad294df0f4f9f6b3369c295a89a",
       "count": 10
     },
+    "stats-09": {
+      "sha256": "2277af0700a54c9ae454a794b0911ae23015ffcbe38b6ac5e4e4181d4471f138",
+      "count": 140
+    },
     "matchups-10": {
       "sha256": "482818ef37d8098b6e48ef04a8c667e1772472c19e52e430728b2384264a5a09",
       "count": 10
+    },
+    "stats-10": {
+      "sha256": "84d8ef3b5b0a01136a28eb99afd4a047c48d004c61c7b887519429ef8c44024c",
+      "count": 143
     },
     "matchups-11": {
       "sha256": "7ae3f3ca980f73c19cf2c4505876b978d77b589ab10f4827c98d9a12c37f1a7a",
       "count": 10
     },
+    "stats-11": {
+      "sha256": "a6096a9d470dd3f77abc80b1eb4bb9fc370a448d10f16604c214c1f51a345a18",
+      "count": 144
+    },
     "matchups-12": {
       "sha256": "6e80c0d7311c7e9eeda96fd5971e391f988ace5c19b3fa69e614c685d36c71f7",
       "count": 10
+    },
+    "stats-12": {
+      "sha256": "9819c6910e221a0ca9587915b9d08dba06f02dc4aa6a6b0095e96ad7294a5910",
+      "count": 145
     },
     "matchups-13": {
       "sha256": "b8f9b6b553ee6f3a92e973298cb4aa15f6c72303bdfe6224e9b30304bf92c125",
       "count": 10
     },
+    "stats-13": {
+      "sha256": "dceb24d128cb8dbfbe1e2ddf647dbfe81ef39be0e517f5466a81efdb69c65684",
+      "count": 139
+    },
     "matchups-14": {
       "sha256": "9867b927d6570f5c5e7e3081cccd1086576f8c92797d48e84655ce006d51cd8d",
       "count": 10
+    },
+    "stats-14": {
+      "sha256": "105a28b2f0b9efce49d0e9302f0e2a614914a516c8fd53176255bdf794cb8f0c",
+      "count": 145
     },
     "matchups-15": {
       "sha256": "ca3021049dac70304c5f1604a4504a2e8d7d2527b9b26570b6b33ecdb1fff787",
       "count": 10
     },
+    "stats-15": {
+      "sha256": "78844cdaeaf0fd2b06477e5001dfcd103e790fa9cf429e859fd8d5c158849e37",
+      "count": 162
+    },
     "matchups-16": {
       "sha256": "75067cca355fbced07d372e9a6e52c6dfc277d65e99f4798f6151391c8599ab0",
       "count": 10
     },
+    "stats-16": {
+      "sha256": "b9cc0f1d7f2c18e66d70b5c4452995dbeddb802e97408c479f5758b15dae8f81",
+      "count": 152
+    },
     "matchups-17": {
       "sha256": "0f9f4c651874f9bd2e2fc63bb1dfea565f2acf503ab5baf835d8bbd5c4a1fb69",
       "count": 10
+    },
+    "stats-17": {
+      "sha256": "9550881704b0d743412be25339483fd1f77865924385d518878826ef8fe8724f",
+      "count": 154
     },
     "winners_bracket": {
       "sha256": "aeecaf5e931a8059db2247c68fafd93b64d5dd110b901d12285119d30bb1c36d",
@@ -118,6 +186,74 @@
     "draft_picks": {
       "sha256": "d65d53541d3563b2afdb18b5cca8e8b963dd5b332fa236985487a95483d313ec",
       "count": 160
+    },
+    "transactions-01": {
+      "sha256": "26aed19c019cd308cd49846c06ce3267a11dd90c43aa3eb9718e326de3d86c23",
+      "count": 61
+    },
+    "transactions-02": {
+      "sha256": "78312975d0009ab3340f4559c9d451d24b68a3de478cbfa895b48c061ed9117d",
+      "count": 35
+    },
+    "transactions-03": {
+      "sha256": "4696f18d57dcc625d4e95ee8c62adc57a0f2694ae99bbd14077acd74886da57c",
+      "count": 41
+    },
+    "transactions-04": {
+      "sha256": "fa8112b29a24173a4178eba67b4dc7b7f084516d7ab1ecb739ad1307a2571010",
+      "count": 44
+    },
+    "transactions-05": {
+      "sha256": "4dc4d3354c9a9b1c4fae07987d02182be22abef696e86ab1edead93de10385cd",
+      "count": 53
+    },
+    "transactions-06": {
+      "sha256": "6cb77cc60d21a92592ed3a73c57315a983e9e82f7ce8d2e763f13158289952b4",
+      "count": 44
+    },
+    "transactions-07": {
+      "sha256": "1037fedca7f66a6a4afe2b662deeea2c9a75768ee03d88838116bbdda39fdc10",
+      "count": 33
+    },
+    "transactions-08": {
+      "sha256": "a7566c7892d95c8abbb6c6b51a44a2358d8e37de1fae021c660c0999f057e47f",
+      "count": 56
+    },
+    "transactions-09": {
+      "sha256": "5bf6077fd782068bb890d377a68c625a0a0b0377d440f7e68163b8b9cdbee829",
+      "count": 46
+    },
+    "transactions-10": {
+      "sha256": "b79f0ba859c9b060a26b013c2e3d866fb3ecd87e1d31c44fcb409c05a77e9392",
+      "count": 39
+    },
+    "transactions-11": {
+      "sha256": "239b46eb055b9af07882f5dccf06482c7526b2eca49084199ff33c1f1cccf38e",
+      "count": 33
+    },
+    "transactions-12": {
+      "sha256": "9817ee3e4d4b68d2e447246b7c46f65a81fa6aa9a1cf6acb344920edbc13a9b7",
+      "count": 38
+    },
+    "transactions-13": {
+      "sha256": "2ac663e3a4f7f77b715d934662640226fc2281a5de8d5d5bf198ed10b7ddd49f",
+      "count": 31
+    },
+    "transactions-14": {
+      "sha256": "350162bdd85b92628f06e655791afa8ac7243de1bc9515f14001e517f383ef37",
+      "count": 41
+    },
+    "transactions-15": {
+      "sha256": "1925b1eb65fdfb650e2eacdb7a6070679d3cd746ae89ec555bc2c68240c9f593",
+      "count": 26
+    },
+    "transactions-16": {
+      "sha256": "dea5b3aaa4fd19d277c012ccf39cefd135ef5c212552b65f23ea9efd57fd987f",
+      "count": 35
+    },
+    "transactions-17": {
+      "sha256": "d19247617b1f59189b41b4cd210b8569d521dfb9360ac355d3f14b054c0e8b7d",
+      "count": 13
     }
   }
 }

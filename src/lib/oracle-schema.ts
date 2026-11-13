@@ -100,7 +100,7 @@ export const ORACLE_VIEWS: OracleViewNote[] = [
       'slot',
       'points',
     ],
-    note: 'One row per rostered player per week, 2020 on. A row exists ONLY for a week that player was on a roster in this league, so it is not the player NFL career. player_id is the Sleeper id. slot is null on the bench.',
+    note: 'One row per rostered player per week, 2020 on. A row exists ONLY for a week that player was on a roster in this league, so it is not the player NFL career. player_id is the Sleeper id. slot is null on the bench. It has rows for every team in a playoff week, including teams that were not in the playoffs: for playoff games only, join games on season, week and manager_id and filter is_playoff.',
   },
   {
     name: 'player_seasons',
@@ -115,6 +115,43 @@ export const ORACLE_VIEWS: OracleViewNote[] = [
       'avg_points',
     ],
     note: 'A player season totals, league-wide. player_id is the Sleeper id and joins to player_weeks and auction_picks.',
+  },
+  {
+    name: 'player_week_stats',
+    columns: [
+      'season',
+      'week',
+      'player_id',
+      'gp',
+      'pass_att',
+      'pass_cmp',
+      'pass_yd',
+      'pass_td',
+      'pass_int',
+      'pass_sack',
+      'pass_2pt',
+      'rush_att',
+      'rush_yd',
+      'rush_td',
+      'rush_2pt',
+      'rec_tgt',
+      'rec',
+      'rec_yd',
+      'rec_td',
+      'rec_2pt',
+      'fum',
+      'fum_lost',
+      'sack',
+      'def_int',
+      'fum_rec',
+      'def_td',
+      'def_st_td',
+      'safe',
+      'pts_allow',
+      'yds_allow',
+      'blk_kick',
+    ],
+    note: 'NFL stat lines (yards, touchdowns, targets, sacks) for rostered players, one row per player per week, 2020 on. A row exists ONLY for a week that player was on a roster in this league, so this is not an NFL-wide table and not career totals; a player on a bye or not with his NFL team that week has no row. A NULL stat means the player did not play that week (gp is NULL too); 0 is a real zero. Offensive columns are NULL for a team defense and defensive columns are NULL for a player, so filter on position before ranking. These are raw NFL stats and NOT this league fantasy points: for fantasy points use player_weeks.points. Join to player_weeks ON season, week AND player_id: player_name, position and manager_id (who rostered him) come from there. A player is on at most one roster per week, so that join never duplicates a stat line.pass_int is interceptions thrown by a quarterback; def_int is interceptions made by a team defense. pts_allow and yds_allow are points and yards a defense allowed. def_st_td is a defense special-teams touchdown. No kicking stats are stored.',
   },
   {
     name: 'auction_picks',
@@ -145,6 +182,29 @@ export const ORACLE_VIEWS: OracleViewNote[] = [
     note: 'Draft-night trades only. cash_a_to_b is signed: positive means A paid B.',
   },
   {
+    name: 'transactions',
+    columns: [
+      'season',
+      'week',
+      'transaction_id',
+      'type',
+      'status',
+      'manager_id',
+      'counterparty_manager_id',
+      'player_id_added',
+      'player_id_dropped',
+      'added_name',
+      'added_position',
+      'dropped_name',
+      'dropped_position',
+      'faab_bid',
+      'faab_transferred',
+      'note',
+      'created_at',
+    ],
+    note: 'Waiver claims, free-agent adds and drops, trades and commissioner moves, 2020 on, one row per player movement. type is waiver, free_agent, trade, commissioner or trade_faab. status is complete or failed: a FAILED waiver claim lost the bidding and its faab_bid was never spent. Each manager has a 100 dollar FAAB budget per season: dollars spent are the sum of faab_bid where type is waiver and status is complete. A trade_faab row is FAAB dollars moving in a trade: manager_id RECEIVED faab_transferred from counterparty_manager_id. On a trade row manager_id is the receiver and counterparty_manager_id the sender. A faab_bid of 0 is a real 0 dollar claim. week is the week Sleeper filed it under (pre-season moves are week 1). player ids are Sleeper ids and join to player_weeks.',
+  },
+  {
     name: 'legacy_champions',
     columns: ['season', 'champion_name', 'money_won'],
     note: 'Champions 2006 to 2010: a name and nothing else. Null money is unknown.',
@@ -165,7 +225,9 @@ Rules:
 9. Match player and manager names with ILIKE. If a name matches more than one player, say so and list them rather than adding them together.
 10. If the rows do not answer the question, say that plainly. Never use a figure that did not come back from a query. Use no NFL knowledge from memory.
 11. Compare players within a position, never across positions: this is a superflex league, so quarterbacks cost and score differently from everyone else.
-12. Answer in one to three sentences, lead with the number, plain text, no markdown tables.`
+12. FAAB spent means completed waiver claims only: type is waiver and status is complete. A failed claim is a lost bid, never money spent, and trade_faab rows move dollars between managers.
+13. Yards, touchdowns, targets and sacks are in player_week_stats and are NFL stats, not fantasy points. Fantasy points are player_weeks.points. A NULL stat means the player did not play, or the stat does not apply to that position (a team defense has no receiving yards); leave those out rather than counting them as zero. When ranking by a stat, add WHERE the stat IS NOT NULL (and filter to the position), because a descending sort puts NULL first and the top row would be a team defense with a blank.
+14. Answer in one to three sentences, lead with the number, plain text, no markdown tables.`
 
 /** One block per view, for the system prompt. */
 export function oracleSchemaText(): string {
