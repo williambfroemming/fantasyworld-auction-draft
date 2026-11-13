@@ -9,7 +9,7 @@
  * Uses node:crypto scrypt — no native dependency to fail an engines check, which
  * matters on this project (see PROGRESS_LOG.md, steps 3-4).
  */
-import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 
 const scryptAsync = promisify(scrypt) as (
@@ -39,6 +39,69 @@ export async function verifyPin(pin: string, stored: string | null): Promise<boo
 
 export function isValidPinFormat(pin: string): boolean {
   return /^\d{4}$/.test(pin)
+}
+
+// ---------------------------------------------------------------------------
+// One-time PIN reset links
+// ---------------------------------------------------------------------------
+
+/** How long a reset link works for. Long enough to survive "I'll do it tonight". */
+export const RESET_LINK_HOURS = 24
+
+/**
+ * The secret in a reset link: 32 random bytes, URL-safe. Unguessable, which is why
+ * redeeming one needs no attempt counter the way a 4-digit PIN does.
+ */
+export function newResetToken(): string {
+  return randomBytes(32).toString('base64url')
+}
+
+/**
+ * What is stored for a reset link. A plain SHA-256 is enough — the token is 256 bits of
+ * randomness, not a human-chosen secret — and it means a copy of the database cannot be
+ * used to take over a seat.
+ */
+export function hashResetToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex')
+}
+
+/** Shape check before touching the database: base64url of 32 bytes is 43 characters. */
+export function isResetTokenFormat(token: string): boolean {
+  return /^[A-Za-z0-9_-]{43}$/.test(token)
+}
+
+// ---------------------------------------------------------------------------
+// Signed, expiring payloads (the sign-up challenge)
+// ---------------------------------------------------------------------------
+
+/**
+ * `base64url(json).hmac`. Signed, not encrypted: nothing in it is secret, it only has to
+ * be unforgeable and expire. Used so the sign-up challenge needs no table row — one
+ * person asking for a code can never overwrite another's.
+ */
+export function signPayload(payload: object, secret: string): string {
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url')
+  return `${body}.${hmac(`payload:${body}`, secret)}`
+}
+
+export function verifyPayload<T extends { exp: number }>(
+  token: string,
+  secret: string,
+  now: number = Date.now(),
+): T | null {
+  const idx = token.lastIndexOf('.')
+  if (idx <= 0) return null
+  const body = token.slice(0, idx)
+  const a = Buffer.from(token.slice(idx + 1))
+  const b = Buffer.from(hmac(`payload:${body}`, secret))
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null
+  try {
+    const parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as T
+    if (typeof parsed?.exp !== 'number' || parsed.exp <= now) return null
+    return parsed
+  } catch {
+    return null
+  }
 }
 
 // ---------------------------------------------------------------------------

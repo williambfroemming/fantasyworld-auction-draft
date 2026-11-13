@@ -202,3 +202,32 @@ This file starts at **step 38** (`docs/ANALYTICS_ROADMAP.md`).
 **Learned:** on the six seasons on record the ratings stay in a narrow band, about 1404 to 1577, which is what 93 games per manager and K = 20 should give: it is a measure of "recent strength", and a league this evenly matched does not spread. The league total stays exactly 15000.00 (ten managers at 1500), so zero-sum holds end to end, not just in unit tests. Spot checks: Daniel peaks at 1577 in week 12 of 2021 and bottoms at 1478 in week 2 of 2020, and the page shows the same figures. **Two real chart bugs found by looking:** (1) the screen-reader-only data table was a bare `<table className="sr-only">`; a table ignores `width: 1px`, so with 93 game columns it was 8281px wide and gave the whole page a sideways scrollbar. Wrapping it in a clipped `sr-only` div fixed it, and it also explains the leftover sideways stretch noted at step 54. (2) With a fixed `yDomain`, `niceTicks` returned a tick (1300) below the plot that was drawn outside it, over the table beneath; ticks are now clipped to the domain.
 **Watch out for:** (1) The margin scale is the average over the games supplied, so adding a week shifts every rating by a hair and history is not frozen; it is a model recomputed on demand, not a stored series. (2) `tsc` does not catch a closure that reads a `const` declared later in the same function; it ran fine and failed at runtime ("Cannot access 'color' before initialization") on the member page, and only the browser showed it. (3) The Next dev overlay shows a React 19 "script tag" warning from `src/app/layout.tsx` (the theme bootstrap); it pre-dates this work and is dev-only. (4) A tie against a weaker team can lower a rating; "a win never lowers one" is the invariant, and a test pins it. (5) Uncommitted edits by another session (a "J. Player stats" section in `PROJECT_PLAN.md`, `AGENTS.md`, two new roadmap docs) were in the tree; only this step's own two ticks were staged.
 **Next:** section H (FAAB and waivers, steps 58-61; needs new Sleeper data and the user's go-ahead before anything touches Neon).
+
+## Step 67 — accounts: reset links, /account, and sign-up proved on Sleeper
+**Date:** 2026-11-12  **Status:** done (not deployed; step 68 ships it)
+**Built:** Three flows, outside the analytics roadmap.
+- **Reset by link:** Admin → Reset PIN now issues a one-time link, `/join?reset=<token>`: 32 random bytes, SHA-256 stored in `managers.pin_reset_hash`, valid for 24h, a newer link replaces an older one. Redeemed through the existing `POST /api/session` (`{resetToken, pin}`) by one `UPDATE … WHERE hash AND unexpired RETURNING`.
+- **`/account`** (menu → Your account, `/api/account`): change PIN, change name (`renameManager` on the session's own id), linked accounts.
+- **Sign-up** (`/join` → "Join with Sleeper", public `/api/onboard`): Sleeper username → membership check against this season's league → a code `FW-NNNN` bound to that account by a signed, expiring token → the person puts it in their team name → `submitJoinRequest` reads the league back and stores a `join_requests` row (chosen name, hashed PIN). The commissioner approves it under Members & access → Wants to join, in one CTE that creates the seat and the `member_identities` link together.
+- **Supporting code:** `src/lib/identity/` (provider interface plus Sleeper), `signPayload`/`verifyPayload` and the reset-token helpers in `auth.ts`, `scripts/migrate-accounts.ts` (additive and idempotent; backfills the ten seats' Sleeper accounts from `MEMBERS`, matched on `managers.name`).
+- **Tests:** 11 unit, `pin-reset.itest.ts` rewritten (11), `onboarding.itest.ts` (10), `access.itest.ts` updated (13). All 664 unit and 158 integration tests pass on local Postgres. Smoke-tested every flow over HTTP against `dev:local`, including the real Sleeper API.
+**Decisions:**
+- **Sleeper cannot log anyone in.** There is no OAuth, and usernames and ids are public, so a typed username proves nothing. The team-name challenge is the one real proof it offers.
+- **Empty seats are no longer claimable on `/join`** ("first to type four digits owns it", on a public page). An empty seat gets a PIN only from a reset link or an approved sign-up.
+- **The old PIN keeps working until a link is used,** so there is no unclaimed moment.
+- **The challenge is a signed token, not a row,** so two people asking for codes cannot overwrite each other.
+- **Approval needs the season in setup with no picks:** a new seat on a finished 2026 draft would make it incomplete and put the newcomer on the clock.
+- **The existing ten are linked by the migration and never challenged,** as the user asked.
+**Learned:**
+- **`MEMBERS` and `member_identities` are deliberately two things.** The history importer must throw on an unknown name, so its map stays a reviewed constant. Sign-up must accept a new person at runtime, so it needs a table. The migration copies one into the other once.
+- **Matching the backfill on `managers.name`, not id,** is what made it link correctly on the test database, which is seeded in a different order. 11 accounts link on the first run and 0 on the second.
+- **The test provider must use the real matching rule.** The first run's only failure was the fake provider doing a case-sensitive `includes` while the real one ignores case and spaces. It now calls `containsCode`.
+- **`react-hooks/set-state-in-effect` caught reading `?reset=` in an effect.** The client page now reads `searchParams` with `use()` and seeds its initial state from it.
+**Watch out for:**
+1. **Run `db:migrate-accounts` on live BEFORE deploying,** because sign-in reads `pin_reset_hash`. It prints how many seats have no PIN, and those members need a link, because they can no longer claim the seat themselves.
+2. **`/api/onboard` is a fourth public path** and the only public route that calls a third party. Keep it off the polling path.
+3. **Never give `join_requests` or `member_identities` an Oracle view;** `join_requests` holds PIN hashes.
+4. **There is no way to retire a seat,** so a newcomer replacing someone becomes an eleventh seat (BACKLOG §15).
+5. **The reset link is shown once and held only in the admin row's state.** Reloading the page loses it; issue another.
+6. **Sleeper's league endpoint might be cached briefly at their edge.** The error asks people to wait a few seconds and retry.
+**Next:** step 68, shipping it: migration on live, check for PIN-less seats, deploy, UAT §N.

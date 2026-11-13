@@ -25,6 +25,7 @@ here — **never renumbered and never deleted.**
 | §12 | What the front page leads with during the playoffs | Small |
 | §13 | Folding the record-by-week history into the playoff odds | Offseason, on evidence |
 | §14 | Analytics ideas not chosen for Phase 3 | Parked |
+| §15 | Yahoo and ESPN sign-up, removing a seat | When the league needs it |
 
 The analytics work that *was* chosen is not backlog — it is scheduled, in
 `docs/ANALYTICS_ROADMAP.md`.
@@ -193,3 +194,26 @@ which is a fair test of whether any deserves a page: build one when people keep 
   team-seasons. Must print its sample size and say that sixty is small.
 - **In-season trade ledger.** Each trade with points scored by each side afterwards. Needs
   the transactions pull from step 58, so it is cheap once that lands.
+
+---
+
+## 15. More ways to prove you are in the league, and leaving it
+
+Step 67 built sign-up behind `IdentityProvider` (`src/lib/identity/provider.ts`), with only
+Sleeper implemented. `member_identities` and `join_requests` are keyed on
+`(provider, external_user_id)`, so none of this needs a schema change.
+
+- **Yahoo.** Yahoo has real OAuth, so a Yahoo provider can prove membership with a login
+  instead of a challenge. That needs a Yahoo app registration and a callback route (which
+  would be a new public path in `src/lib/gate.ts`).
+- **ESPN.** No public auth at all. It would need a challenge of its own (a team-name code
+  probably works the same way) read through ESPN's unofficial league endpoints.
+- **Linking from /account.** An existing member adding a second account (Yahoo, say) is the
+  same challenge, run while signed in, inserting into `member_identities` directly.
+- **Removing or handing over a seat.** There is no way to retire a seat. A newcomer who
+  *replaces* someone becomes an eleventh seat until there is. Handing the old seat over is
+  wrong: history keys on `managers.id`, so the newcomer would inherit the leaver's record.
+  This needs a "retired" flag that every live-draft query honours. Specify it before 2027's
+  draft if anyone leaves.
+- **Self-service forgot-PIN.** The Sleeper challenge could also let an existing member reset
+  their own PIN without the commissioner. Not built: the user chose commissioner links.
