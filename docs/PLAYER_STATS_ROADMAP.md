@@ -3,7 +3,7 @@
 Store each player's **weekly stat line** (yards, TDs, targets, receptions, kicks, sacks …), so the
 league database can answer "how many yards did he have that week?" and the Oracle can too.
 
-Written 2026-11-11. Steps **63–66**. Progress: see `docs/PROGRESS_LOG.md`. The checklist lives in `PROJECT_PLAN.md` §13 (section J).
+Written 2026-11-11. Steps **63–66**. Progress: see `docs/PROGRESS_LOG.md`. The checklist lives in `PROJECT_PLAN.md` §13 (section K).
 Built to be handed to one agent in one worktree: **everything it needs is in this file.**
 
 ## Why this is needed

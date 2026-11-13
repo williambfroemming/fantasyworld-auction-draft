@@ -397,6 +397,14 @@ Eight features chosen 2026-11-10. **The build instructions for every step are in
 `docs/ANALYTICS_ROADMAP.md`** — one self-contained section per step. This is only the
 checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 
+> **Step numbers are not unique.** Sections I, J and K were built in parallel on 2026-11-11 and
+> each started from 63, so "step 63" names three different things and 64–66 name two. Cite a
+> step with its section letter (K-64) where it could be ambiguous. Commits, log entries and
+> roadmaps already use these numbers, so they are left as they are. **The next new step is 78,
+> and the next new section is N.** The unmerged `worktree-gazette-updates` branch numbers its
+> work section M, steps 67–74, which collides with sections L and M here: renumber it to
+> section N, steps 78 onward, before it merges.
+
 **A. Ask the Oracle** — a question bar over the database
 - [x] **38.** The database boundary: `oracle` schema of views, `oracle_reader` role, `oracle_log`
 - [x] **39.** The SQL guard and the read-only runner

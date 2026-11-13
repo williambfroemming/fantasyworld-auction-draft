@@ -28,8 +28,8 @@ here — **never renumbered and never deleted.**
 | §15 | Player stats — what Phase 4 left out | Parked |
 | §16 | Yahoo and ESPN sign-up, removing a seat | When the league needs it |
 
-The analytics work that *was* chosen is not backlog — it is scheduled, in
-`docs/ANALYTICS_ROADMAP.md`.
+The analytics work that *was* chosen is not backlog, and it is built: see
+`docs/ANALYTICS_ROADMAP.md` and `docs/PROJECT_PLAN.md` §13.
 
 ---
 
