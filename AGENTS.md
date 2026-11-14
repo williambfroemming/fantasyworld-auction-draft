@@ -27,6 +27,7 @@ Stack: Next.js 16.3 (App Router) · React 19.2 · TypeScript · Tailwind 4 · Ne
 | File | What it is |
 |---|---|
 | `docs/PROJECT_PLAN.md` | The durable spec — context, locked decisions, rules, architecture, data model. §13 is the build checklist; read its note on step numbers |
+| `docs/GAZETTE_ROADMAP.md` | **The current work.** Section N, steps 78–85: the Gazette's editorial room (Story Desk → Editor → three Writers → blind Judge), behind `--pipeline` until the league's blind vote. Its "Locked decisions" table is settled |
 | `docs/PROGRESS_LOG.md` | Append-only learnings, one entry per completed step, from step 77. **Read before starting work** |
 | `docs/UAT.md` | Acceptance checklist the user runs against the live deploy |
 | `docs/DRAFT_NIGHT.md` | One-page runbook for the commissioner on the night |
@@ -180,6 +181,11 @@ npm run gazette -- --seed                 # load the committed issues, no API ke
 npm run gazette -- --audit                # re-check every committed issue's grounding
 npm run gazette -- --preview 2026         # the SEASON PREVIEW, written from the auction
 npm run gazette -- --preview 2026 --facts # its pack, call nothing
+# The editorial room (docs/GAZETTE_ROADMAP.md) -- dry runs until it wins the league's vote
+npm run local -- npm run gazette -- 2025 7 --desk        # Story Desk: storylines only
+npm run local -- npm run gazette -- 2025 7 --plans       # + the Editor's three plans
+npm run local -- npm run gazette -- 2025 7 --drafts      # + three Writers in parallel
+npm run local -- npm run gazette -- --sample 2025 6 3 --pipeline   # + Judge and game notes, notebooks threaded
 npm run gazette:art -- 2025 14            # art for one issue, from the issue itself
 npm run gazette:art -- --latest           # just the newest issue -- what the cron runs
 npm run gazette:art -- --all              # backfill every issue that has none

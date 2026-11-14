@@ -401,10 +401,10 @@ features the league chose on 2026-11-10 (`docs/archive/ANALYTICS_ROADMAP.md`).
 > **Step numbers are not unique.** Sections I, J and K were built in parallel on 2026-11-11 and
 > each started from 63, so "step 63" names three different things and 64–66 name two. Cite a
 > step with its section letter (K-64) where it could be ambiguous. Commits, log entries and
-> roadmaps already use these numbers, so they are left as they are. **The next new step is 78,
-> and the next new section is N.** The unmerged `worktree-gazette-updates` branch numbers its
-> work section M, steps 67–74, which collides with sections L and M here: renumber it to
-> section N, steps 78 onward, before it merges.
+> roadmaps already use these numbers, so they are left as they are. The Gazette was built on a
+> branch as M-67 to M-74 and renumbered to N-78 to N-85 when it merged; its commits and first
+> five log entries keep the old numbers. **The next new step is 86, and the next new section
+> is O.**
 
 **A. Ask the Oracle** — a question bar over the database
 - [x] **38.** The database boundary: `oracle` schema of views, `oracle_reader` role, `oracle_log`
@@ -477,3 +477,13 @@ features the league chose on 2026-11-10 (`docs/archive/ANALYTICS_ROADMAP.md`).
 **M. Accounts** — added 2026-11-12, outside the roadmaps
 - [x] **76.** Accounts: PIN reset by one-time link (member chooses the PIN), `/account` (change PIN, change name, linked accounts), sign-up for new members proved by a Sleeper team-name challenge and approved by the commissioner; empty seats no longer claimable from `/join`
 - [ ] **77.** Ship accounts: `npm run db:migrate-accounts` on live BEFORE deploying, check no seat lacks a PIN, UAT §Q
+
+**N. The Gazette's editorial room** — added 2026-11-11. **Build instructions: `docs/GAZETTE_ROADMAP.md`**. Everything behind `--pipeline` until step 85. Built on a branch as section M, steps 67–74, and renumbered when it merged
+- [x] **78.** Pack paths: `resolvePackPath`, `sliceFacts`, `pathIndex`
+- [x] **79.** The Story Desk (`scripts/history/gazette-room/desk-prompt.ts`, `--desk`)
+- [x] **80.** The Editor: three plans, distinct leads, lead rotation (`--plans`)
+- [x] **81.** The voice bible and three parallel Writers (EXEMPLARS left for the commissioner)
+- [x] **82.** The blind Judge, game notes as their own call, `--pipeline`
+- [ ] **83.** Storage: `week_issues.pipeline`, the mirror, `--replay --from plans`
+- [ ] **84.** The bake-off page (`--bakeoff`); stop for the league vote
+- [ ] **85.** Switch over (only if the pipeline wins the vote)

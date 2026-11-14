@@ -16,6 +16,13 @@
  *   npm run gazette -- --seed              # load committed issues, no API key
  *   npm run gazette -- --audit             # re-check every committed issue
  *
+ * The editorial room (docs/GAZETTE_ROADMAP.md) -- dry runs, nothing stored:
+ *   npm run gazette -- 2025 7 --desk       # the Story Desk only: storylines
+ *   npm run gazette -- 2025 7 --plans      # Desk + Editor: storylines and three plans
+ *   npm run gazette -- 2025 7 --drafts     # ... + three Writers in parallel
+ *   npm run gazette -- 2025 7 --pipeline   # the whole room: ... + Judge + game notes
+ *   npm run gazette -- --sample 2025 6 3 --pipeline   # three weeks, winners' notebooks threaded
+ *
  * ## The season preview is week zero
  *
  * One edition a year has no games behind it: the one filed after the auction and
@@ -61,6 +68,19 @@ import {
   type Thread,
 } from '../../src/lib/gazette'
 import { PROMPT, PROMPT_VERSION } from './gazette-prompt'
+import { MODEL, callJson, ledger, printLedger } from './gazette-model'
+import {
+  runDesk,
+  runEditor,
+  runPipeline,
+  runWriters,
+  showDesk,
+  showDraft,
+  showPlans,
+  showVerdict,
+  type RecentLead,
+} from './gazette-pipeline'
+import { stripMarkup } from '../../src/lib/gazette-room'
 import { PREVIEW_PROMPT, PREVIEW_PROMPT_VERSION } from './gazette-preview-prompt'
 
 /**
@@ -71,7 +91,6 @@ type Pack = GazetteFacts | PreviewFacts
 
 const ROOT = join(import.meta.dirname, '..', '..')
 const DATA_DIR = join(ROOT, 'data', 'history', 'gazette')
-const MODEL = 'claude-opus-5'
 const PAUSE_MS = 1000
 
 const args = process.argv.slice(2).filter((a) => a !== '--')
@@ -84,7 +103,7 @@ const factsOnly = has('--facts')
 // A sample is always a dry run. Its whole purpose is to read three editions
 // before committing to a voice, and storing them would seed the archive with the
 // draft you were still deciding about.
-const dryRun = has('--dry-run') || has('--sample')
+const dryRun = has('--dry-run') || has('--sample') || has('--desk') || has('--plans') || has('--drafts') || has('--pipeline')
 const regenerate = has('--regenerate')
 const forward = has('--forward')
 const replay = has('--replay')
@@ -110,6 +129,20 @@ const preview = has('--preview')
  * until somebody notices in November.
  */
 const check = has('--check')
+/**
+ * The editorial room (docs/GAZETTE_ROADMAP.md), stage by stage. Each flag runs
+ * the room up to that stage, prints it, and stores nothing. None of them is on
+ * the weekly job's path until step 85.
+ */
+const deskOnly = has('--desk')
+const plansOnly = has('--plans')
+const draftsOnly = has('--drafts')
+/**
+ * The whole room: Desk, Editor, three Writers, Judge, game notes. A dry run
+ * until step 83 gives it somewhere to store the run. With --drafts it also
+ * prints the losing drafts.
+ */
+const pipeline = has('--pipeline')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -158,74 +191,20 @@ const SCHEMA = {
   additionalProperties: false,
 }
 
-function requireKey(): string {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) {
-    console.error(
-      '\n✗ ANTHROPIC_API_KEY is not set, so no issue can be written.\n' +
-        '  The fact pack is what the model would receive — print it with --facts.\n',
-    )
-    process.exit(1)
-  }
-  return key
-}
-
 /**
- * One call. Structured output rather than a prefill: an assistant prefill returns
- * a 400 on this model, and "please reply with JSON" is a request rather than a
- * guarantee.
- *
- * `max_tokens` caps thinking AND response text together, and adaptive thinking is
- * on by default here — hence the generous ceiling. This is the bug that sat
- * unnoticed in `draft-recap.ts`, which asked for 400.
+ * One single-pass edition. The transport is shared with the editorial room
+ * (gazette-model.ts); what this sends is exactly what it always sent.
  */
 async function callModel(system: string, facts: Pack, repair?: string): Promise<Issue> {
-  const key = requireKey()
-  const messages: Array<{ role: string; content: string }> = [
-    { role: 'user', content: JSON.stringify(facts, null, 2) },
-  ]
-  if (repair) messages.push({ role: 'user', content: repair })
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      // Caps thinking AND response text together. An edition is five fields and
-      // a notebook, and a long one under a demanding frame has run past 8000 —
-      // which arrives as a truncated JSON body rather than an error, so give it
-      // room it will not normally use.
-      max_tokens: 16000,
-      system,
-      output_config: { effort: 'high', format: { type: 'json_schema', schema: SCHEMA } },
-      messages,
-    }),
+  const issue = await callJson<Issue>({
+    stage: repair ? 'single-pass repair' : 'single-pass',
+    system,
+    user: facts,
+    followUps: repair ? [repair] : [],
+    schema: SCHEMA,
+    effort: 'high',
   })
-  if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${await res.text()}`)
-  const body = (await res.json()) as {
-    stop_reason?: string
-    content: Array<{ type: string; text?: string }>
-  }
-  if (body.stop_reason === 'refusal') throw new Error('the model declined to write this issue')
-  const text = body.content.find((c) => c.type === 'text')?.text?.trim()
-  if (!text) throw new Error('no text in the model response')
-
-  try {
-    return clean(JSON.parse(text) as Issue)
-  } catch {
-    // A truncated body is the likely cause and does not announce itself: the
-    // JSON simply stops mid-string, and the parse error names a column number
-    // rather than the actual problem. Say which it was.
-    throw new Error(
-      body.stop_reason === 'max_tokens'
-        ? 'the edition ran past max_tokens and came back truncated'
-        : `the model returned something that is not valid JSON (${text.length} chars)`,
-    )
-  }
+  return clean(issue)
 }
 
 /**
@@ -243,10 +222,10 @@ async function callModel(system: string, facts: Pack, repair?: string): Promise<
  * instruction is a request where a strip is a guarantee. A conservative tag list
  * rather than a general tag-stripper, so prose that legitimately contains an
  * angle bracket survives.
+ *
+ * The function itself is `stripMarkup` in src/lib/gazette-room.ts, shared with
+ * the editorial room's Writers and game notes.
  */
-const stripMarkup = (s: string) =>
-  s.replace(/<\/?(?:em|i|b|strong|p|br|span|h[1-6])\s*\/?>/gi, '').trim()
-
 const clean = (i: Issue): Issue => ({
   ...i,
   issueTitle: stripMarkup(i.issueTitle),
@@ -442,7 +421,7 @@ function show(season: number, week: number, issue: Issue, facts: Pack) {
   console.log('')
   for (const note of issue.gameNotes) console.log(`  • ${note}`)
   if (issue.threads.length) {
-    console.log("\n  Applewhite's notebook:")
+    console.log('\n  Notebook:')
     for (const t of issue.threads) {
       console.log(`    [${(t.kind ?? 'bit').padEnd(8)}] ${t.id}: ${t.note}`)
     }
@@ -463,9 +442,30 @@ function show(season: number, week: number, issue: Issue, facts: Pack) {
  * exists to show.
  */
 interface Carried {
+  week: number
   headline: string
+  lead?: RecentLead['lead']
   column: string
   threads: Thread[]
+}
+
+/**
+ * What the last three issues before this week led with, oldest first.
+ *
+ * Issues carried in memory (a --sample run) win over stored ones for the same
+ * week, because a sample is writing an alternative history of exactly those
+ * weeks. Stored issues written before the pipeline know only their headline.
+ */
+async function recentLeads(season: number, week: number, carried?: Carried[]): Promise<RecentLead[]> {
+  const sql = getSql()
+  const rows = await sql`
+    SELECT week, headline FROM week_issues
+     WHERE season = ${season} AND week < ${week} AND week > 0
+     ORDER BY week DESC LIMIT 3`
+  const byWeek = new Map<number, RecentLead>()
+  for (const r of rows) byWeek.set(Number(r.week), { week: Number(r.week), headline: String(r.headline) })
+  for (const c of carried ?? []) byWeek.set(c.week, { week: c.week, headline: c.headline, lead: c.lead })
+  return [...byWeek.values()].sort((a, b) => a.week - b.week).slice(-3)
 }
 
 async function one(
@@ -520,10 +520,53 @@ async function one(
     facts.priorHeadlines = carried.slice(-4).map((c) => c.headline)
   }
 
+  if (pipeline) {
+    const mark = ledger.length
+    try {
+      const recent = await recentLeads(season, week, carried)
+      console.log(`\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season} · the editorial room`)
+      const { issue, run } = await runPipeline(facts, recent, { desk: true, plans: true, drafts: draftsOnly })
+      showVerdict(run)
+      show(season, week, { ...issue }, facts)
+      // Only the winner's notebook carries forward: one notebook, and it is his.
+      carried?.push({ week, headline: issue.headline, column: issue.column, threads: issue.threads, lead: run.lead })
+      return 'skipped'
+    } catch (err) {
+      console.error(`  ✗ ${season} wk ${week}: ${err instanceof Error ? err.message : err}`)
+      return 'failed'
+    } finally {
+      printLedger(mark, `${season} wk ${week} tokens`)
+    }
+  }
+
+  if (deskOnly || plansOnly || draftsOnly) {
+    const mark = ledger.length
+    try {
+      const recent = await recentLeads(season, week, carried)
+      const desk = await runDesk(facts, facts.priorThreads, recent)
+      console.log(`\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season}`)
+      showDesk(desk)
+      if (plansOnly || draftsOnly) {
+        const editor = await runEditor(facts, desk, facts.priorThreads, recent)
+        showPlans(editor)
+        if (draftsOnly) {
+          const { drafts } = await runWriters(facts, desk, editor, facts.priorThreads, facts.priorColumns)
+          for (const d of drafts) showDraft(d)
+        }
+      }
+      return 'skipped'
+    } catch (err) {
+      console.error(`  ✗ ${season} wk ${week}: ${err instanceof Error ? err.message : err}`)
+      return 'failed'
+    } finally {
+      printLedger(mark, `${season} wk ${week} tokens`)
+    }
+  }
+
   try {
     const issue = await write(PROMPT, facts)
     show(season, week, issue, facts)
-    carried?.push({ headline: issue.headline, column: issue.column, threads: issue.threads })
+    carried?.push({ week, headline: issue.headline, column: issue.column, threads: issue.threads })
     if (dryRun) return 'skipped'
     await store(season, week, issue, facts, PROMPT_VERSION)
     console.log(`  ✓ ${season} wk ${week} stored`)
