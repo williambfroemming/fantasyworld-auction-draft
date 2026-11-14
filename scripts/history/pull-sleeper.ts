@@ -28,7 +28,7 @@
  *
  * What is left is a few KB a week. The values themselves are untouched, and an
  * entry trimmed to `{}` is kept, because "Sleeper had a line and he did not
- * play" is a different fact from "no line at all". See `docs/PLAYER_STATS_ROADMAP.md`.
+ * play" is a different fact from "no line at all". See `docs/archive/PLAYER_STATS_ROADMAP.md`.
  *
  * ## Why the responses are committed rather than fetched at import time
  *

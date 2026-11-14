@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   },
 
   // The Gazette and the Oracle moved out of /history to short URLs
-  // (docs/SITE_STRUCTURE.md). Permanent, because every "new issue" email
+  // (docs/archive/SITE_STRUCTURE.md). Permanent, because every "new issue" email
   // already sent links to the old path and must keep working forever.
   //
   // These run BEFORE src/proxy.ts (config redirects precede the proxy in

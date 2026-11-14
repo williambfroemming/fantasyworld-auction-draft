@@ -6,7 +6,7 @@ import { OracleBar } from './OracleBar'
 
 /**
  * "Ask the Oracle" from any page: a button in the header that opens the Oracle
- * in a slide-over panel (docs/SITE_STRUCTURE.md §2). The full page at `/oracle`
+ * in a slide-over panel (docs/archive/SITE_STRUCTURE.md §2). The full page at `/oracle`
  * is still there, one link from the panel's footer.
  *
  * ## Rules this component exists to keep

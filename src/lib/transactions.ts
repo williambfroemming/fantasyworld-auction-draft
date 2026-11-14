@@ -1,6 +1,6 @@
 /**
  * Sleeper transactions, flattened to one row per player movement
- * (docs/ANALYTICS_ROADMAP.md step 59). Pure: the importer feeds it the committed
+ * (docs/archive/ANALYTICS_ROADMAP.md step 59). Pure: the importer feeds it the committed
  * `transactions-NN.json` files and writes whatever comes back.
  *
  * ## Shape of the source

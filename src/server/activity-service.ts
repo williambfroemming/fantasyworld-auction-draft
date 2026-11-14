@@ -2,7 +2,7 @@ import { MAX_SECONDS, type VisitRow } from '@/lib/activity'
 import { getSql } from './sql'
 
 /**
- * First-party activity tracking: the database half (docs/ACTIVITY_ROADMAP.md).
+ * First-party activity tracking: the database half (docs/archive/ACTIVITY_ROADMAP.md).
  *
  * ⚠️ Nothing here is on the polling path. `page_visits` is not read by
  * `getState()`, not part of the fingerprint in src/lib/version.ts, and has no

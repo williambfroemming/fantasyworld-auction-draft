@@ -6,7 +6,7 @@ import { currentManagerId } from '@/server/session'
 import { oracleEnabled } from '@/server/settings-service'
 
 /**
- * Ask the Oracle (docs/ANALYTICS_ROADMAP.md §A).
+ * Ask the Oracle (docs/archive/ANALYTICS_ROADMAP.md §A).
  *
  * Reads the session cookie, so it is dynamic by nature: signed-out visitors get a link to
  * /join instead of the input, and the route behind it refuses them again regardless.

@@ -437,7 +437,7 @@ export const playerQueue = pgTable(
 
 /**
  * Which pages league members use, by whom, and for how long: first-party
- * activity tracking (docs/ACTIVITY_ROADMAP.md).
+ * activity tracking (docs/archive/ACTIVITY_ROADMAP.md).
  *
  * One row per *segment*: a stretch of visible, recently-interacted-with time
  * on one path. A segment ends on navigation, on the tab hiding, on page exit,
@@ -1020,7 +1020,7 @@ export const weekIssues = pgTable(
 )
 
 /**
- * One row per question put to the Oracle (docs/ANALYTICS_ROADMAP.md §A).
+ * One row per question put to the Oracle (docs/archive/ANALYTICS_ROADMAP.md §A).
  *
  * Exists for the daily cap, for debugging a wrong answer, and for the bill. It is
  * created by `scripts/migrate-oracle.ts` on Neon and by the local bootstrap from

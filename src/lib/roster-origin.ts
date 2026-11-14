@@ -3,7 +3,7 @@ import { draftersByPick, type StatsTrade } from '@/lib/stats'
 /**
  * How the roster was built: for one season, where each manager's STARTED points came from.
  *
- * (docs/ANALYTICS_ROADMAP.md step 52)
+ * (docs/archive/ANALYTICS_ROADMAP.md step 52)
  *
  * - `drafted`       the manager bought the player at that season's auction (and still has them)
  * - `tradedAtDraft` the player was bought by someone else and reached this manager in a trade

@@ -3,7 +3,7 @@ import type { PlayerRecordEntry, PlayerRecordList } from '@/lib/player-records'
 import type { StatMap } from '@/lib/player-stat-totals'
 
 /**
- * NFL stat records for rostered players (docs/STATS_WEAVE_ROADMAP.md step 70): the best seasons
+ * NFL stat records for rostered players (docs/archive/STATS_WEAVE_ROADMAP.md step 70): the best seasons
  * and single games by a position's own stats. Pure.
  *
  * ## Rules this file keeps

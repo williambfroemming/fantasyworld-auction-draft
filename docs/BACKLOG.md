@@ -29,7 +29,7 @@ here — **never renumbered and never deleted.**
 | §16 | Yahoo and ESPN sign-up, removing a seat | When the league needs it |
 
 The analytics work that *was* chosen is not backlog, and it is built: see
-`docs/ANALYTICS_ROADMAP.md` and `docs/PROJECT_PLAN.md` §13.
+`docs/archive/ANALYTICS_ROADMAP.md` and `docs/PROJECT_PLAN.md` §13.
 
 ---
 
@@ -166,7 +166,7 @@ keep it only if the backtest says so. Do not tune `PRIOR_WEEKS` by eye.
 
 A review on 2026-11-10 produced eighteen analytics ideas. Six were chosen, the league added
 two of its own (Ask the Oracle and charts), and those eight are scheduled in
-`docs/ANALYTICS_ROADMAP.md` (steps 38–61). These twelve were not. All are computable from
+`docs/archive/ANALYTICS_ROADMAP.md` (steps 38–61). These twelve were not. All are computable from
 tables that already exist unless noted, and **Ask the Oracle answers most of them ad hoc** —
 which is a fair test of whether any deserves a page: build one when people keep asking.
 
@@ -200,7 +200,7 @@ which is a fair test of whether any deserves a page: build one when people keep 
 
 ## 15. Player stats — what Phase 4 left out
 
-`player_week_stats` (steps 63–66, `docs/PLAYER_STATS_ROADMAP.md`) holds the NFL stat line of
+`player_week_stats` (steps 63–66, `docs/archive/PLAYER_STATS_ROADMAP.md`) holds the NFL stat line of
 every **rostered** player-week from 2020. These were ruled out of that work on purpose:
 
 - **Stat lines in the Gazette.** The grounding check compares every digit in the prose

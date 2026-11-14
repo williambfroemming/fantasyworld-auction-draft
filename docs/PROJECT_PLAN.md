@@ -3,7 +3,7 @@
 > **Read this first if you are a new session/agent.** This is the durable spec.
 > Then read `PROGRESS_LOG.md` for what's been learned so far, and `UAT.md` for acceptance.
 
-**Deadline: the live draft is Friday 2026-08-14.** Ten managers, in a room, bidding for real.
+**The 2026 draft was held Friday 2026-08-14 and is complete.** The next one is August 2027. Ten managers, in a room, bidding for real.
 
 ---
 
@@ -391,11 +391,12 @@ year, and that payload is fetched every 400ms by ten clients all night.
 
 ---
 
-## 13. Analytics (Phase 3)
+## 13. Build checklist, from step 38
 
-Eight features chosen 2026-11-10. **The build instructions for every step are in
-`docs/ANALYTICS_ROADMAP.md`** — one self-contained section per step. This is only the
-checklist. `[ ]` todo · `[~]` in progress · `[x]` done
+The checklist for everything built since 2026-11-10. Each section names the file that holds its
+build instructions; the finished ones are in `docs/archive/`. Sections A–H are the eight analytics
+features the league chose on 2026-11-10 (`docs/archive/ANALYTICS_ROADMAP.md`).
+`[ ]` todo · `[~]` in progress · `[x]` done
 
 > **Step numbers are not unique.** Sections I, J and K were built in parallel on 2026-11-11 and
 > each started from 63, so "step 63" names three different things and 64–66 name two. Cite a
@@ -448,21 +449,21 @@ checklist. `[ ]` todo · `[~]` in progress · `[x]` done
 **I. Commissioner tools** — added 2026-11-11, outside the analytics roadmap
 
 - [x] **62.** The admin panel: `/admin` from the account menu, replacing the ⚙ Commish drawer and `/setup`; edit any pick, record a sale, unlock a seat, rename, commissioner role, per-season prize money, start a new season
-- [x] **63.** Site structure (`docs/SITE_STRUCTURE.md`): the top bar becomes The Gazette · History ▾ · Auction ▾; the Gazette and the Oracle move to `/gazette` and `/oracle` with permanent redirects; a global Ask the Oracle launcher, hidden on the draft pages; Glossary in the account menu
+- [x] **63.** Site structure (`docs/archive/SITE_STRUCTURE.md`): the top bar becomes The Gazette · History ▾ · Auction ▾; the Gazette and the Oracle move to `/gazette` and `/oracle` with permanent redirects; a global Ask the Oracle launcher, hidden on the draft pages; Glossary in the account menu
 
-**J. Activity** — added 2026-11-11, see `docs/ACTIVITY_ROADMAP.md`
+**J. Activity** — added 2026-11-11, see `docs/archive/ACTIVITY_ROADMAP.md`
 - [x] **63.** `page_visits` table and `npm run db:migrate-activity`; Oracle exclusion
 - [x] **64.** `src/lib/activity.ts` — path normalising, page groups, the visible-and-active clock, the summary
 - [x] **65.** `<ActivityBeacon>` and `POST /api/track`
 - [x] **66.** Admin panel → Activity, `GET /api/admin/activity`, and ship
 
-**K. Player stats** — added 2026-11-11. **Build instructions: `docs/PLAYER_STATS_ROADMAP.md`**
+**K. Player stats** — added 2026-11-11. **Build instructions: `docs/archive/PLAYER_STATS_ROADMAP.md`**
 - [x] **63.** Pull Sleeper's weekly stats, trimmed to rostered players and the whitelist, into `data/sleeper/{season}/stats-NN.json`
 - [x] **64.** `player_week_stats` and the importer
 - [x] **65.** The Oracle learns about stats
 - [x] **66.** Show the stat line
 
-**L. Weaving player stats into the site** — added 2026-11-11. **Build instructions: `docs/STATS_WEAVE_ROADMAP.md`**
+**L. Weaving player stats into the site** — added 2026-11-11. **Build instructions: `docs/archive/STATS_WEAVE_ROADMAP.md`**
 - [x] **67.** `player-stat-totals.ts` and "Stats by season" on the player page
 - [x] **68.** Player page: game log, and a points / headline-stat toggle on the timeline
 - [x] **69.** Players index: position and season filters, one stat column (stat sort only within one position)

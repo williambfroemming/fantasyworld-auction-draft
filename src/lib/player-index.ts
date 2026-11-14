@@ -1,7 +1,7 @@
 import { headlineStat } from '@/lib/player-stat-totals'
 
 /**
- * Filtering and ranking for the players index (docs/STATS_WEAVE_ROADMAP.md step 69). Pure.
+ * Filtering and ranking for the players index (docs/archive/STATS_WEAVE_ROADMAP.md step 69). Pure.
  *
  * ## The rule this file exists to keep
  *

@@ -4,7 +4,7 @@ import { activityMembers, getActivity } from '@/server/activity-service'
 import { checkCommish } from '@/server/require-commish'
 
 /**
- * Who uses which pages, for how long (docs/ACTIVITY_ROADMAP.md).
+ * Who uses which pages, for how long (docs/archive/ACTIVITY_ROADMAP.md).
  *
  *   GET /api/admin/activity?days=7|30|all&mine=0|1
  *

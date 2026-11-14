@@ -1,6 +1,6 @@
 /**
  * The player record book: single weeks and seasons by individual players, from
- * `player_weeks` (docs/ANALYTICS_ROADMAP.md step 55).
+ * `player_weeks` (docs/archive/ANALYTICS_ROADMAP.md step 55).
  *
  * Rostered players only, weekly era (2020 on), regular season only, complete weeks only
  * (the caller passes the week keys, so this agrees with every other page about which weeks

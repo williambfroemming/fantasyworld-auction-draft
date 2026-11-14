@@ -68,7 +68,7 @@ Sleeper's, which reintroduces the name-matching problem `sleeper_id` exists to a
 
 ## How to work a step
 
-Identical to `docs/ANALYTICS_ROADMAP.md` "How to work a step" — read `AGENTS.md` first, check
+Identical to `docs/archive/ANALYTICS_ROADMAP.md` "How to work a step" — read `AGENTS.md` first, check
 names against the code (the code wins over this file), read the relevant guide in
 `node_modules/next/dist/docs/` before writing any route or page, work on local Postgres only
 (`npm run db:local:up` → `db:local:setup` → `npm run local -- <cmd>`; **never** `npm run dev`),

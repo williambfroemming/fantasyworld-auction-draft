@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 /**
  * The top bar: the wordmark, then three items, each answering one question a
- * member actually has (docs/SITE_STRUCTURE.md).
+ * member actually has (docs/archive/SITE_STRUCTURE.md).
  *
  *   The Gazette — "what happened this week?"  A direct link: one destination.
  *   History ▾   — "what happened in past seasons?"  Records, careers, matchups.

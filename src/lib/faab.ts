@@ -1,6 +1,6 @@
 /**
  * FAAB: what each manager spent, what they got for it, and who lost the bidding
- * (docs/ANALYTICS_ROADMAP.md step 60). Pure; the loader feeds it `season_transactions` and
+ * (docs/archive/ANALYTICS_ROADMAP.md step 60). Pure; the loader feeds it `season_transactions` and
  * `player_weeks`.
  *
  * ## Money

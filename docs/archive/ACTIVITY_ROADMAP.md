@@ -7,7 +7,7 @@ Admin panel → Activity, members never see it, and the Oracle never gets a view
 
 **Status: built, all four steps, 2026-11-11.** This file is now the record of the decisions.
 Read it before changing anything that records or shows activity. To work a step, follow
-`docs/ANALYTICS_ROADMAP.md` → "How to work a step" and "Rules that apply to every step".
+`docs/archive/ANALYTICS_ROADMAP.md` → "How to work a step" and "Rules that apply to every step".
 
 ## Decisions (do not reopen without the commissioner)
 
