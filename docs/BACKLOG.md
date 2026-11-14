@@ -22,7 +22,6 @@ here — **never renumbered and never deleted.**
 |---|---|---|
 | §8 | Accessibility — the rest of it | A session |
 | §8 | Push rosters to Sleeper | Unspecified |
-| §12 | What the front page leads with during the playoffs | Small |
 | §13 | Folding the record-by-week history into the playoff odds | Offseason, on evidence |
 | §14 | Analytics ideas not chosen for Phase 3 | Parked |
 | §15 | Player stats — what Phase 4 left out | Parked |
@@ -47,6 +46,7 @@ One line per section so every `§N` cited in the source still resolves.
 - **§9.** From draft night 2026 (the stall, complete-vs-stuck, the cursor bug) — all three fixed, steps 18 and 21.
 - **§10.** Chalk Talk, the visual direction not taken — not open work; the palette is kept on file in the archive.
 - **§11.** Landing page — shipped, step 31.
+- **§12.** What the front page leads with during the playoffs — shipped as the bracket lead, steps 86–91 (`docs/archive/PLAYOFF_MODE_ROADMAP.md`).
 
 ---
 
@@ -102,45 +102,6 @@ another step:
 **Removed from this table:** the draft recap page. `/stats` (§7) plus the `/board`
 year picker (§2) are that feature — every past season is browsable and scored,
 and `lots` / `picks` / `trades` are all read after the draft now.
-
----
-
-## 12. What the front page leads with during the playoffs
-
-**Raised 2026-09-07, deliberately parked.** Not for this season unless it grates
-in December.
-
-From the first completed week until a champion is crowned, `/` leads with the
-season table (`PROGRESS_LOG.md`, "The front page stops leading with last year's
-champion in November"). That is right for weeks one to fourteen and goes quiet
-for three:
-
-**`seasonSoFar()` counts regular-season games only, so during weeks 15–17 the
-lead freezes at "Through week 14."** That is correct rather than broken. All-play,
-versus-median, strength of schedule and efficiency are whole-field measures, and
-a bracket week has four to six teams in it — an "all-play record against the
-field" computed from a semi-final is not the same unit as one computed from a
-full week, which is the rule `allPlay()` has enforced since it was written.
-
-So for three weeks the largest thing on the page is a table that has stopped
-moving, while the actual news is the bracket.
-
-**What it is not:** an argument for putting playoff games into those columns.
-That would silently change what every one of them means, and the resulting
-numbers would be wrong in a way nobody could see.
-
-Shape of the options, cheapest first:
-
-| Option | Note |
-|---|---|
-| A line under the heading | "Playoffs under way — the bracket is in the Gazette." Honest, one line, keeps the table as the record of the regular season it is. |
-| A bracket lead | Replace the table with the bracket for weeks 15–17. The data is there (`season_matchups.playoff_round`, `playoff_placement`, and `winners_bracket.json` is committed). A third lead state to build and maintain. |
-| Leave it | The Gazette teaser sits directly below and covers the bracket weekly. The table simply says what it means: the regular season, finished. |
-
-⚠️ Whatever is chosen, the swap back is already automatic and must stay that way:
-the monument returns the moment `champion_manager_id` is set by the import that
-reads the completed bracket. Nothing here should introduce a fourth state that
-has to be turned off by hand in January.
 
 ---
 

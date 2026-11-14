@@ -24,6 +24,7 @@ import { TopStartsPanel } from '@/components/season/TopStartsPanel'
 import { FaabLeftPanel } from '@/components/season/FaabLeftPanel'
 import { SeasonSoFarPanel } from '@/components/season/SeasonSoFarPanel'
 import { PlayoffOddsPanel } from '@/components/season/PlayoffOddsPanel'
+import { PlayoffBracketPanel } from '@/components/season/PlayoffBracketPanel'
 import { PositionalGrid } from '@/components/season/PositionalGrid'
 import { currentManagerId } from '@/server/session'
 
@@ -228,11 +229,32 @@ export default async function FrontPage({
       {seasonUnderway && soFar.report ? (
         <section className="px-4 pt-10 pb-8">
           <div className="mx-auto max-w-6xl">
-            <SeasonSoFarPanel
-              report={soFar.report}
-              members={soFar.members}
-              lead
-            />
+            {/*
+              Playoff mode. From the Tuesday after the last regular-season week
+              the table stops moving and the bracket is the news, so the bracket
+              takes the lead and the table is demoted beneath it as the final
+              regular-season table.
+
+              ⚠️ Derived, never switched: `soFar.playoffs` is non-null exactly
+              when the regular season is complete and the stored results agree
+              with the derived bracket. Nothing turns this on in December and
+              nothing has to turn it off in January -- the champion being set
+              ends `seasonUnderway`, and the monument returns on its own.
+            */}
+            {soFar.playoffs ? (
+              <>
+                <PlayoffBracketPanel picture={soFar.playoffs} members={soFar.members} />
+                <div className="mt-12">
+                  <SeasonSoFarPanel report={soFar.report} members={soFar.members} final />
+                </div>
+              </>
+            ) : (
+              <SeasonSoFarPanel
+                report={soFar.report}
+                members={soFar.members}
+                lead
+              />
+            )}
             {/*
               Directly under the table rather than further down the page: the
               table says how each team has played, and this is the same rows
@@ -244,7 +266,8 @@ export default async function FrontPage({
                 <PositionalGrid scorecard={positional} members={soFar.members} />
               </div>
             )}
-            {topStarts.length > 0 && soFar.report && (
+            {/* Frozen at the last regular-season week, so not drawn in playoff mode. */}
+            {!soFar.playoffs && topStarts.length > 0 && soFar.report && (
               <div className="mt-12">
                 <TopStartsPanel
                   season={soFar.season}
@@ -259,7 +282,8 @@ export default async function FrontPage({
                 <FaabLeftPanel faab={faab} members={soFar.members} />
               </div>
             )}
-            {soFar.odds && (
+            {/* The field is set: nothing left for these odds to say. */}
+            {!soFar.playoffs && soFar.odds && (
               <div className="mt-12">
                 <PlayoffOddsPanel
                   odds={soFar.odds}

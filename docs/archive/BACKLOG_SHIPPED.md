@@ -451,3 +451,44 @@ overlap.
 
 **Nothing open.** The mobile nav overflow noticed while building this is §8's,
 not this one's — `/history` has it identically.
+
+---
+
+## 12. ✅ What the front page leads with during the playoffs
+
+**SHIPPED 2026-11-14** — the bracket lead, steps 86–91; build plan in `docs/archive/PLAYOFF_MODE_ROADMAP.md`. The text below is the note as parked.
+
+**Raised 2026-09-07, deliberately parked.** Not for this season unless it grates
+in December.
+
+From the first completed week until a champion is crowned, `/` leads with the
+season table (`PROGRESS_LOG.md`, "The front page stops leading with last year's
+champion in November"). That is right for weeks one to fourteen and goes quiet
+for three:
+
+**`seasonSoFar()` counts regular-season games only, so during weeks 15–17 the
+lead freezes at "Through week 14."** That is correct rather than broken. All-play,
+versus-median, strength of schedule and efficiency are whole-field measures, and
+a bracket week has four to six teams in it — an "all-play record against the
+field" computed from a semi-final is not the same unit as one computed from a
+full week, which is the rule `allPlay()` has enforced since it was written.
+
+So for three weeks the largest thing on the page is a table that has stopped
+moving, while the actual news is the bracket.
+
+**What it is not:** an argument for putting playoff games into those columns.
+That would silently change what every one of them means, and the resulting
+numbers would be wrong in a way nobody could see.
+
+Shape of the options, cheapest first:
+
+| Option | Note |
+|---|---|
+| A line under the heading | "Playoffs under way — the bracket is in the Gazette." Honest, one line, keeps the table as the record of the regular season it is. |
+| A bracket lead | Replace the table with the bracket for weeks 15–17. The data is there (`season_matchups.playoff_round`, `playoff_placement`, and `winners_bracket.json` is committed). A third lead state to build and maintain. |
+| Leave it | The Gazette teaser sits directly below and covers the bracket weekly. The table simply says what it means: the regular season, finished. |
+
+⚠️ Whatever is chosen, the swap back is already automatic and must stay that way:
+the monument returns the moment `champion_manager_id` is set by the import that
+reads the completed bracket. Nothing here should introduce a fourth state that
+has to be turned off by hand in January.

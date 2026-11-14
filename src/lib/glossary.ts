@@ -356,6 +356,15 @@ export const GLOSSARY: GlossaryEntry[] = [
     source: 'playoffOdds() — src/lib/playoff-odds.ts',
   },
   {
+    id: 'bracket-odds',
+    term: 'Win probability and title odds (playoffs)',
+    group: 'league',
+    where: 'Front page · The playoffs',
+    formula: 'the bracket as it stands, played out 10,000 times with finished games fixed; each game is two scores drawn around each team’s rating',
+    note: 'Ratings come from the regular season only, so a bye team and a team that has played two playoff games are judged on the same games. An eliminated team has no number. Moves only when results arrive on Tuesday. Never 100% or 0% while a game remains.',
+    source: 'bracketOdds() — src/lib/playoff-bracket-odds.ts',
+  },
+  {
     id: 'odds-leverage',
     term: 'If win / lose',
     group: 'league',
