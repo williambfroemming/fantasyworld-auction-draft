@@ -29,6 +29,7 @@ import type {
   HistoryMember,
   HistorySeason,
 } from './history'
+import { pipelineGroundingProblems, type StoredPipeline } from './gazette-room'
 import { PROMPT_VERSION } from '../../scripts/history/gazette-prompt'
 import { PREVIEW_PROMPT_VERSION } from '../../scripts/history/gazette-preview-prompt'
 
@@ -962,6 +963,25 @@ describe('the committed archive is grounded', () => {
         ...((entry.gameNotes as unknown as string[]) ?? []),
       ].join('\n')
       for (const flag of ungroundedNumbers(prose, entry.facts as unknown as GazetteFacts)) {
+        bad.push(`${file} wk ${entry.week}: ${flag}`)
+      }
+    }
+    expect(bad).toEqual([])
+  })
+
+  it.each(files)('%s: every pipeline run on record is grounded in its own pack', (file) => {
+    // Step 83 commits the whole editorial-room run beside a pipeline issue. The
+    // Desk and the Editor were gated on their text when the run was made ("plans
+    // are grounded too"), and so was every judged draft; this proves the
+    // committed copy still says what was checked. Single-pass issues have none.
+    const parsed = JSON.parse(readFileSync(resolve(dir, file), 'utf8')) as {
+      issues: Record<string, Record<string, never>>
+    }
+    const bad: string[] = []
+    for (const entry of Object.values(parsed.issues)) {
+      const run = entry.pipeline as unknown as StoredPipeline | undefined
+      if (!run) continue
+      for (const flag of pipelineGroundingProblems(run, entry.facts as unknown as GazetteFacts)) {
         bad.push(`${file} wk ${entry.week}: ${flag}`)
       }
     }

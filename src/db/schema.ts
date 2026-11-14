@@ -1012,8 +1012,19 @@ export const weekIssues = pgTable(
     /** The pack the model was given, as of press time. See the note above. */
     facts: jsonb('facts').notNull(),
     model: text('model').notNull(),
-    /** Bumped on every prompt edit, so `which voice wrote this` is answerable. */
+    /**
+     * Bumped on every prompt edit, so `which voice wrote this` is answerable.
+     * 17 means the editorial room wrote it; `pipeline.versions` says which stages.
+     */
     promptVersion: integer('prompt_version').notNull(),
+    /**
+     * The editorial room's whole run, for an issue it wrote: storylines, plans,
+     * every judged draft, the verdict and the lead (docs/GAZETTE_ROADMAP.md step
+     * 83, `StoredPipeline` in src/lib/gazette-room.ts). **Null on every
+     * single-pass issue.** Next week's lead rotation reads `pipeline.lead`;
+     * `--replay --from plans` reads the plans. No page reads it.
+     */
+    pipeline: jsonb('pipeline'),
     generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.season, t.week] })],

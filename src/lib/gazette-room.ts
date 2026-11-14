@@ -407,3 +407,80 @@ export function validateGameNotes(notes: string[], gameCount: number): string[] 
   })
   return problems
 }
+
+// ---------------------------------------------------------------------------
+// Storage (step 83)
+// ---------------------------------------------------------------------------
+
+/**
+ * The whole run behind one pipeline issue, as stored on `week_issues.pipeline`
+ * and in the committed mirror. Null on every issue written single-pass.
+ *
+ * Kept whole rather than trimmed to the winner because each part answers a
+ * question the published prose cannot: the storylines are what the Desk thought
+ * mattered, the plans are what `--replay --from plans` re-writes from, the losing
+ * drafts and the verdict are what the bake-off and any later argument about the
+ * Judge are settled with, and `lead` is what next week's rotation reads.
+ */
+export interface StoredPipeline {
+  versions: Record<string, number>
+  storylines: Storyline[]
+  stale: StaleStory[]
+  plans: Plan[]
+  drafts: Array<{
+    label: string
+    planIndex: number
+    issue: Draft
+    flagged: { misattributed: string[]; banned: string[] }
+    repaired: boolean
+  }>
+  /** Plans whose Writer failed the gate twice: the plan index and the error, no prose. */
+  dropped: Array<{ planIndex: number; error: string }>
+  verdict: Verdict
+  lead: { storylineId: string; managers: string[] }
+}
+
+/**
+ * Every figure in a stored run that its own pack cannot account for.
+ *
+ * The same fields the stages were gated on when the run was made: the Desk's
+ * prose (`validateDesk`), the plans' prose (`validatePlans`) and each judged
+ * draft's headline, deck and column. Dropped drafts carry no prose, only the
+ * error that dropped them, and are not read. So for a run that came out of the
+ * room this is empty by construction, and the audit and the archive test use it
+ * to prove the committed copy still says what was checked.
+ */
+export function pipelineGroundingProblems(p: StoredPipeline, facts: GazetteFacts): string[] {
+  const problems: string[] = []
+  for (const s of p.storylines) {
+    problems.push(...groundingProblems(`storyline "${s.id}"`, [s.whyTheChatCares, ...s.possibleTakes].join('\n'), facts))
+  }
+  p.stale.forEach((st, i) => problems.push(...groundingProblems(`stale[${i}]`, st.description, facts)))
+  p.plans.forEach((plan, i) => {
+    const where = `plan ${i + 1}`
+    plan.beats.forEach((b, j) => {
+      problems.push(...groundingProblems(`${where} beat ${j + 1}`, [b.take, b.jokePremise].join('\n'), facts))
+    })
+    problems.push(
+      ...groundingProblems(where, [plan.headlineAngle, plan.coldOpenPremise, plan.close, plan.dalesStance].join('\n'), facts),
+    )
+  })
+  for (const d of p.drafts) problems.push(...groundingProblems(`draft ${d.label}`, draftProse(d.issue), facts))
+  return problems
+}
+
+/**
+ * The lead a stored issue recorded, for next week's rotation.
+ *
+ * `undefined` for anything that is not a well-formed lead: an issue written
+ * single-pass has a null `pipeline`, and a malformed one must not bar a manager
+ * from leading. It contributes nobody, which is what `recentlyLed` expects.
+ */
+export function storedLead(pipeline: unknown): RecentLead['lead'] {
+  const lead = (pipeline as { lead?: unknown } | null | undefined)?.lead as
+    | { storylineId?: unknown; managers?: unknown }
+    | undefined
+  if (!lead || typeof lead.storylineId !== 'string' || !Array.isArray(lead.managers)) return undefined
+  if (!lead.managers.every((m): m is string => typeof m === 'string')) return undefined
+  return { storylineId: lead.storylineId, managers: lead.managers }
+}

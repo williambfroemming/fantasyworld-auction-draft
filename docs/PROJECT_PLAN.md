@@ -484,6 +484,6 @@ features the league chose on 2026-11-10 (`docs/archive/ANALYTICS_ROADMAP.md`).
 - [x] **80.** The Editor: three plans, distinct leads, lead rotation (`--plans`)
 - [x] **81.** The voice bible and three parallel Writers (EXEMPLARS left for the commissioner)
 - [x] **82.** The blind Judge, game notes as their own call, `--pipeline`
-- [ ] **83.** Storage: `week_issues.pipeline`, the mirror, `--replay --from plans`
+- [x] **83.** Storage: `week_issues.pipeline`, the mirror, `--replay --from plans`
 - [ ] **84.** The bake-off page (`--bakeoff`); stop for the league vote
 - [ ] **85.** Switch over (only if the pipeline wins the vote)

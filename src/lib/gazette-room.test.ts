@@ -7,7 +7,9 @@ import {
   blindLabels,
   judgeSeed,
   onlySurvivor,
+  pipelineGroundingProblems,
   seededRandom,
+  storedLead,
   validateGameNotes,
   validateVerdict,
   bannedPhrases,
@@ -22,6 +24,7 @@ import {
   type Plan,
   type RecentLead,
   type Storyline,
+  type StoredPipeline,
 } from './gazette-room'
 import { PROMPT } from '../../scripts/history/gazette-prompt'
 import { EXEMPLARS, VOICE } from '../../scripts/history/gazette-room/voice'
@@ -358,5 +361,75 @@ describe('validateGameNotes', () => {
     expect(validateGameNotes(['a', 'b'], 2)).toEqual([])
     expect(validateGameNotes(['a'], 2).join()).toContain('exactly 2')
     expect(validateGameNotes(['a', ' '], 2).join()).toContain('note 2 is empty')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Storage (step 83)
+// ---------------------------------------------------------------------------
+
+function storedRun(over: Partial<StoredPipeline> = {}): StoredPipeline {
+  const d = deskOf()
+  const draft = {
+    issueTitle: 'The Fraud Report',
+    lens: 'Courtroom drama',
+    headline: `${g0.winner} wins with ${g0.winnerPoints}`,
+    deck: 'Nobody believes it.',
+    column: `${g0.winner} put up ${g0.winnerPoints}. Dale has questions.`,
+    threads: [],
+  }
+  return {
+    versions: { desk: 1, editor: 1, voice: 1, writer: 1, judge: 1, gameNotes: 1 },
+    storylines: d.storylines,
+    stale: [],
+    plans: three().plans,
+    drafts: [
+      { label: 'A', planIndex: 0, issue: draft, flagged: { misattributed: [], banned: [] }, repaired: false },
+      { label: 'B', planIndex: 1, issue: draft, flagged: { misattributed: [], banned: [] }, repaired: true },
+    ],
+    dropped: [],
+    verdict: { ranking: ['A', 'B'], winner: 'A', reasons: 'Funnier.', flaggedLines: [] },
+    lead: { storylineId: 'about-mario', managers: ['Mario', 'Bryan'] },
+    ...over,
+  }
+}
+
+describe('pipelineGroundingProblems', () => {
+  it('passes a run whose every stage is grounded', () => {
+    expect(pipelineGroundingProblems(storedRun(), pack)).toEqual([])
+  })
+
+  it('finds an invented figure in a storyline, a plan, a beat or a judged draft', () => {
+    const run = storedRun()
+    const inStory = { ...run, storylines: [{ ...run.storylines[0], whyTheChatCares: 'He paid 9876 for it.' }] }
+    expect(pipelineGroundingProblems(inStory, pack).join()).toContain('9876')
+
+    const inPlan = { ...run, plans: [{ ...run.plans[0], close: 'Down 5432 on the year.' }] }
+    expect(pipelineGroundingProblems(inPlan, pack).join()).toContain('plan 1')
+
+    const inBeat = { ...run, plans: [{ ...run.plans[0], beats: [beat('about-mario', { take: 'Owed 7777.' })] }] }
+    expect(pipelineGroundingProblems(inBeat, pack).join()).toContain('beat 1')
+
+    const inDraft = { ...run, drafts: [{ ...run.drafts[0], issue: { ...run.drafts[0].issue, column: 'A 999.99 week.' } }] }
+    expect(pipelineGroundingProblems(inDraft, pack).join()).toContain('draft A')
+  })
+
+  it('does not read a dropped draft: it carries an error, not prose', () => {
+    const run = storedRun({ dropped: [{ planIndex: 2, error: 'still ungrounded after a rewrite: 123.45' }] })
+    expect(pipelineGroundingProblems(run, pack)).toEqual([])
+  })
+})
+
+describe('storedLead', () => {
+  it('reads the lead off a stored run', () => {
+    expect(storedLead(storedRun())).toEqual({ storylineId: 'about-mario', managers: ['Mario', 'Bryan'] })
+  })
+
+  it('a single-pass issue, or anything malformed, contributes no lead', () => {
+    expect(storedLead(null)).toBeUndefined()
+    expect(storedLead(undefined)).toBeUndefined()
+    expect(storedLead({})).toBeUndefined()
+    expect(storedLead({ lead: { storylineId: 'x' } })).toBeUndefined()
+    expect(storedLead({ lead: { storylineId: 'x', managers: ['Mario', 7] } })).toBeUndefined()
   })
 })

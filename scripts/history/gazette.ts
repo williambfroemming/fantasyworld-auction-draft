@@ -16,12 +16,17 @@
  *   npm run gazette -- --seed              # load committed issues, no API key
  *   npm run gazette -- --audit             # re-check every committed issue
  *
- * The editorial room (docs/GAZETTE_ROADMAP.md) -- dry runs, nothing stored:
+ * The editorial room (docs/GAZETTE_ROADMAP.md). The first three are dry runs:
  *   npm run gazette -- 2025 7 --desk       # the Story Desk only: storylines
  *   npm run gazette -- 2025 7 --plans      # Desk + Editor: storylines and three plans
  *   npm run gazette -- 2025 7 --drafts     # ... + three Writers in parallel
- *   npm run gazette -- 2025 7 --pipeline   # the whole room: ... + Judge + game notes
+ *   npm run gazette -- 2025 7 --pipeline   # the whole room, STORED with its run (add --dry-run not to)
+ *   npm run gazette -- 2025 7 --pipeline --drafts --dry-run   # ... and print the losing drafts
+ *   npm run gazette -- 2025 7 --replay --from plans   # Writers + Judge again, from the stored plans
  *   npm run gazette -- --sample 2025 6 3 --pipeline   # three weeks, winners' notebooks threaded
+ *
+ * Storing a pipeline issue needs `week_issues.pipeline`: `npm run db:migrate-gazette` first.
+ * The weekly job does not use the room until step 85, and never needs the column.
  *
  * ## The season preview is week zero
  *
@@ -78,9 +83,15 @@ import {
   showDraft,
   showPlans,
   showVerdict,
+  PIPELINE_PROMPT_VERSION,
   type RecentLead,
 } from './gazette-pipeline'
-import { stripMarkup } from '../../src/lib/gazette-room'
+import {
+  pipelineGroundingProblems,
+  storedLead,
+  stripMarkup,
+  type StoredPipeline,
+} from '../../src/lib/gazette-room'
 import { PREVIEW_PROMPT, PREVIEW_PROMPT_VERSION } from './gazette-preview-prompt'
 
 /**
@@ -103,7 +114,16 @@ const factsOnly = has('--facts')
 // A sample is always a dry run. Its whole purpose is to read three editions
 // before committing to a voice, and storing them would seed the archive with the
 // draft you were still deciding about.
-const dryRun = has('--dry-run') || has('--sample') || has('--desk') || has('--plans') || has('--drafts') || has('--pipeline')
+//
+// --pipeline stores, like a single-pass run, since step 83 gave it somewhere to
+// put the run. --drafts on its own is a dry run (it stops before the Judge); with
+// --pipeline it only means "print the losing drafts too".
+const dryRun =
+  has('--dry-run') ||
+  has('--sample') ||
+  has('--desk') ||
+  has('--plans') ||
+  (has('--drafts') && !has('--pipeline'))
 const regenerate = has('--regenerate')
 const forward = has('--forward')
 const replay = has('--replay')
@@ -138,11 +158,17 @@ const deskOnly = has('--desk')
 const plansOnly = has('--plans')
 const draftsOnly = has('--drafts')
 /**
- * The whole room: Desk, Editor, three Writers, Judge, game notes. A dry run
- * until step 83 gives it somewhere to store the run. With --drafts it also
- * prints the losing drafts.
+ * `--replay --from plans`: the Writers and the Judge again, from the storylines,
+ * plans and game notes stored with a pipeline issue. A diff of the result is a
+ * diff of the prose, which is the only way to tell a voice change from a
+ * selection change.
  */
-const pipeline = has('--pipeline')
+const fromPlans = args[args.indexOf('--from') + 1] === 'plans' && has('--from')
+/**
+ * The whole room: Desk, Editor, three Writers, Judge, game notes, stored with
+ * the run that produced it. With --drafts it also prints the losing drafts.
+ */
+const pipeline = has('--pipeline') || fromPlans
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -316,6 +342,10 @@ function readMirror(season: number): MirrorFile {
       '  npm run gazette -- 2025 7 --facts   print the pack, call nothing',
       '  npm run gazette -- 2025 7 --replay  re-prompt from the stored pack',
       '  npm run gazette -- --seed           load this file into Postgres, no API key',
+      '',
+      'An issue the editorial room wrote also carries `pipeline`: the storylines, the',
+      'three plans, every judged draft, the verdict and the lead. Single-pass issues',
+      'have none.',
     ],
     season,
     issues: {},
@@ -328,6 +358,7 @@ function writeMirror(
   issue: Issue,
   facts: Pack,
   promptVersion: number,
+  run: StoredPipeline | null,
 ) {
   mkdirSync(DATA_DIR, { recursive: true })
   const file = readMirror(season)
@@ -344,6 +375,9 @@ function writeMirror(
     model: MODEL,
     generatedAt: new Date().toISOString(),
     facts,
+    // Absent, not null, on a single-pass issue, so the entries already committed
+    // do not all change shape in the next diff.
+    ...(run ? { pipeline: run } : {}),
   }
   const ordered = Object.fromEntries(Object.entries(file.issues).sort(([a], [b]) => a.localeCompare(b)))
   writeFileSync(mirrorPath(season), `${JSON.stringify({ ...file, issues: ordered }, null, 2)}\n`)
@@ -388,28 +422,77 @@ async function alreadyWritten(season: number, week: number): Promise<boolean> {
 // Store
 // ---------------------------------------------------------------------------
 
+/**
+ * Does `week_issues` have the `pipeline` column yet?
+ *
+ * ⚠️ The weekly job runs single-pass against the live database, and this branch
+ * may deploy before anyone runs `npm run db:migrate-gazette` there. So the
+ * single-pass path must keep working without the column: it writes the same
+ * statement it always did, and only clears a stale `pipeline` when the column
+ * exists. Storing a pipeline run without the column is the one thing that
+ * refuses, by name. Asked once per process.
+ */
+let pipelineColumn: Promise<boolean> | null = null
+function hasPipelineColumn(): Promise<boolean> {
+  pipelineColumn ??= (async () => {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'week_issues' AND column_name = 'pipeline'`
+    return rows.length > 0
+  })()
+  return pipelineColumn
+}
+
+const NO_PIPELINE_COLUMN =
+  'week_issues has no pipeline column on this database. Run `npm run db:migrate-gazette` first ' +
+  '(or `npm run local -- npm run db:migrate-gazette` locally).'
+
 async function store(
   season: number,
   week: number,
   issue: Issue,
   facts: Pack,
   promptVersion: number,
+  run: StoredPipeline | null = null,
 ) {
   const sql = getSql()
-  await sql`
-    INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
-                             threads, facts, model, prompt_version, generated_at)
-    VALUES (${season}, ${week}, ${issue.headline}, ${issue.issueTitle}, ${issue.lens}, ${issue.deck}, ${issue.column},
-            ${JSON.stringify(issue.gameNotes)}::jsonb, ${JSON.stringify(issue.threads)}::jsonb,
-            ${JSON.stringify(facts)}::jsonb, ${MODEL}, ${promptVersion}, now())
-    ON CONFLICT (season, week) DO UPDATE
-      SET headline = excluded.headline, issue_title = excluded.issue_title,
-          lens = excluded.lens, deck = excluded.deck,
-          column_text = excluded.column_text, game_notes = excluded.game_notes,
-          threads = excluded.threads, facts = excluded.facts,
-          model = excluded.model, prompt_version = excluded.prompt_version,
-          generated_at = now()`
-  writeMirror(season, week, issue, facts, promptVersion)
+  const withColumn = await hasPipelineColumn()
+  if (run && !withColumn) throw new Error(NO_PIPELINE_COLUMN)
+
+  if (withColumn) {
+    // A single-pass regenerate of a week the room once wrote must not leave the
+    // old run beside the new prose, so null is written, not skipped.
+    await sql`
+      INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
+                               threads, facts, model, prompt_version, generated_at, pipeline)
+      VALUES (${season}, ${week}, ${issue.headline}, ${issue.issueTitle}, ${issue.lens}, ${issue.deck}, ${issue.column},
+              ${JSON.stringify(issue.gameNotes)}::jsonb, ${JSON.stringify(issue.threads)}::jsonb,
+              ${JSON.stringify(facts)}::jsonb, ${MODEL}, ${promptVersion}, now(),
+              ${run ? JSON.stringify(run) : null}::jsonb)
+      ON CONFLICT (season, week) DO UPDATE
+        SET headline = excluded.headline, issue_title = excluded.issue_title,
+            lens = excluded.lens, deck = excluded.deck,
+            column_text = excluded.column_text, game_notes = excluded.game_notes,
+            threads = excluded.threads, facts = excluded.facts,
+            model = excluded.model, prompt_version = excluded.prompt_version,
+            generated_at = now(), pipeline = excluded.pipeline`
+  } else {
+    await sql`
+      INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
+                               threads, facts, model, prompt_version, generated_at)
+      VALUES (${season}, ${week}, ${issue.headline}, ${issue.issueTitle}, ${issue.lens}, ${issue.deck}, ${issue.column},
+              ${JSON.stringify(issue.gameNotes)}::jsonb, ${JSON.stringify(issue.threads)}::jsonb,
+              ${JSON.stringify(facts)}::jsonb, ${MODEL}, ${promptVersion}, now())
+      ON CONFLICT (season, week) DO UPDATE
+        SET headline = excluded.headline, issue_title = excluded.issue_title,
+            lens = excluded.lens, deck = excluded.deck,
+            column_text = excluded.column_text, game_notes = excluded.game_notes,
+            threads = excluded.threads, facts = excluded.facts,
+            model = excluded.model, prompt_version = excluded.prompt_version,
+            generated_at = now()`
+  }
+  writeMirror(season, week, issue, facts, promptVersion, run)
 }
 
 function show(season: number, week: number, issue: Issue, facts: Pack) {
@@ -458,12 +541,22 @@ interface Carried {
  */
 async function recentLeads(season: number, week: number, carried?: Carried[]): Promise<RecentLead[]> {
   const sql = getSql()
-  const rows = await sql`
-    SELECT week, headline FROM week_issues
-     WHERE season = ${season} AND week < ${week} AND week > 0
-     ORDER BY week DESC LIMIT 3`
+  // The stored lead is what makes the rotation hold across separate runs, not
+  // only inside one --sample: a pipeline issue stored last Tuesday bars its lead
+  // manager this Tuesday.
+  const rows = (await hasPipelineColumn())
+    ? await sql`
+        SELECT week, headline, pipeline FROM week_issues
+         WHERE season = ${season} AND week < ${week} AND week > 0
+         ORDER BY week DESC LIMIT 3`
+    : await sql`
+        SELECT week, headline, NULL::jsonb AS pipeline FROM week_issues
+         WHERE season = ${season} AND week < ${week} AND week > 0
+         ORDER BY week DESC LIMIT 3`
   const byWeek = new Map<number, RecentLead>()
-  for (const r of rows) byWeek.set(Number(r.week), { week: Number(r.week), headline: String(r.headline) })
+  for (const r of rows) {
+    byWeek.set(Number(r.week), { week: Number(r.week), headline: String(r.headline), lead: storedLead(r.pipeline) })
+  }
   for (const c of carried ?? []) byWeek.set(c.week, { week: c.week, headline: c.headline, lead: c.lead })
   return [...byWeek.values()].sort((a, b) => a.week - b.week).slice(-3)
 }
@@ -484,6 +577,7 @@ async function one(
   }
 
   let facts: GazetteFacts | null
+  let stored: { run: StoredPipeline; gameNotes: string[] } | null = null
   if (replay) {
     const sql = getSql()
     const rows = await sql`SELECT facts FROM week_issues WHERE season = ${season} AND week = ${week}`
@@ -491,6 +585,15 @@ async function one(
     if (!facts) {
       console.log(`  · ${season} wk ${week} has no stored pack to replay`)
       return 'skipped'
+    }
+    if (fromPlans) {
+      if (!(await hasPipelineColumn())) throw new Error(NO_PIPELINE_COLUMN)
+      const [row] = await sql`SELECT pipeline, game_notes FROM week_issues WHERE season = ${season} AND week = ${week}`
+      if (!row?.pipeline) {
+        console.log(`  · ${season} wk ${week} was written single-pass: there are no stored plans to replay`)
+        return 'skipped'
+      }
+      stored = { run: row.pipeline as StoredPipeline, gameNotes: row.game_notes as string[] }
     }
   } else {
     facts = await getWeekFacts(season, week)
@@ -524,13 +627,26 @@ async function one(
     const mark = ledger.length
     try {
       const recent = await recentLeads(season, week, carried)
-      console.log(`\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season} · the editorial room`)
-      const { issue, run } = await runPipeline(facts, recent, { desk: true, plans: true, drafts: draftsOnly })
+      console.log(
+        `\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season} · the editorial room` +
+          (stored ? ' · replayed from the stored plans' : ''),
+      )
+      const reuse = stored
+        ? {
+            desk: { storylines: stored.run.storylines, stale: stored.run.stale },
+            editor: { plans: stored.run.plans },
+            gameNotes: stored.gameNotes,
+          }
+        : undefined
+      const { issue, run } = await runPipeline(facts, recent, { desk: !stored, plans: !stored, drafts: draftsOnly }, reuse)
       showVerdict(run)
       show(season, week, { ...issue }, facts)
       // Only the winner's notebook carries forward: one notebook, and it is his.
       carried?.push({ week, headline: issue.headline, column: issue.column, threads: issue.threads, lead: run.lead })
-      return 'skipped'
+      if (dryRun) return 'skipped'
+      await store(season, week, issue, facts, PIPELINE_PROMPT_VERSION, run)
+      console.log(`  ✓ ${season} wk ${week} stored, with its run`)
+      return 'written'
     } catch (err) {
       console.error(`  ✗ ${season} wk ${week}: ${err instanceof Error ? err.message : err}`)
       return 'failed'
@@ -668,11 +784,30 @@ async function runSeed() {
     return
   }
   const sql = getSql()
+  const withColumn = await hasPipelineColumn()
   let n = 0
   for (const file of readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')).sort()) {
     const parsed = JSON.parse(readFileSync(join(DATA_DIR, file), 'utf8')) as MirrorFile
     for (const entry of Object.values(parsed.issues)) {
       const e = entry as Record<string, never>
+      const run = (e.pipeline as unknown as StoredPipeline | undefined) ?? null
+      if (run && !withColumn) throw new Error(`${parsed.season} wk ${e.week} carries a pipeline run. ${NO_PIPELINE_COLUMN}`)
+      if (withColumn) {
+        await sql`
+          INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
+                                   threads, facts, model, prompt_version, generated_at, pipeline)
+          VALUES (${parsed.season}, ${e.week}, ${e.headline}, ${e.issueTitle}, ${e.lens}, ${e.deck}, ${e.column},
+                  ${JSON.stringify(e.gameNotes)}::jsonb, ${JSON.stringify(e.threads)}::jsonb,
+                  ${JSON.stringify(e.facts)}::jsonb, ${e.model}, ${e.promptVersion},
+                  ${e.generatedAt}, ${run ? JSON.stringify(run) : null}::jsonb)
+          ON CONFLICT (season, week) DO UPDATE
+            SET headline = excluded.headline, issue_title = excluded.issue_title,
+                lens = excluded.lens, deck = excluded.deck,
+                column_text = excluded.column_text, game_notes = excluded.game_notes,
+                threads = excluded.threads, facts = excluded.facts, pipeline = excluded.pipeline`
+        n++
+        continue
+      }
       await sql`
         INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
                                  threads, facts, model, prompt_version, generated_at)
@@ -705,6 +840,9 @@ function runAudit() {
       const e = entry as Record<string, never>
       const prose = [e.headline, e.deck, e.column, ...(e.gameNotes as unknown as string[])].join('\n')
       const flags = ungroundedNumbers(prose, e.facts as unknown as GazetteFacts)
+      // A pipeline issue also carries its run, and the plans are grounded too.
+      const run = e.pipeline as unknown as StoredPipeline | undefined
+      if (run) flags.push(...pipelineGroundingProblems(run, e.facts as unknown as GazetteFacts))
       checked++
       if (flags.length) {
         bad++
@@ -751,6 +889,10 @@ async function main() {
 
   if (seed) return runSeed()
   if (audit) return runAudit()
+  if (has('--from') && !(fromPlans && replay)) {
+    console.error('--from takes one value, plans, and only with --replay: npm run gazette -- 2025 7 --replay --from plans')
+    process.exit(1)
+  }
 
   // --- the season preview, week zero ---------------------------------------
   if (preview) {

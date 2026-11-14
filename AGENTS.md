@@ -166,7 +166,7 @@ npm run season:info -- 2026 --champion 2100 --runner-up 600 --third 300
 npm run season:info -- 2025 --side-bet 10          # low scorer pays high scorer
 
 ### The FantasyWorld Gazette — the weekly newsletter
-npm run db:migrate-gazette                # the week_issues table + seasons.side_bet
+npm run db:migrate-gazette                # week_issues, seasons.side_bet, week_issues.pipeline (step 83)
 npm run db:migrate-schedule               # season_schedule, for playoff odds. Then history:refresh
 npm run db:migrate-transactions           # season_transactions: waivers, FAAB, trades. RUN BEFORE DEPLOYING the code that reads it. Then history:import-sleeper
 npm run history:pull -- --transactions-only   # add transaction files to seasons already on disk
@@ -181,11 +181,13 @@ npm run gazette -- --seed                 # load the committed issues, no API ke
 npm run gazette -- --audit                # re-check every committed issue's grounding
 npm run gazette -- --preview 2026         # the SEASON PREVIEW, written from the auction
 npm run gazette -- --preview 2026 --facts # its pack, call nothing
-# The editorial room (docs/GAZETTE_ROADMAP.md) -- dry runs until it wins the league's vote
-npm run local -- npm run gazette -- 2025 7 --desk        # Story Desk: storylines only
-npm run local -- npm run gazette -- 2025 7 --plans       # + the Editor's three plans
-npm run local -- npm run gazette -- 2025 7 --drafts      # + three Writers in parallel
-npm run local -- npm run gazette -- --sample 2025 6 3 --pipeline   # + Judge and game notes, notebooks threaded
+# The editorial room (docs/GAZETTE_ROADMAP.md) -- not on the weekly job until it wins the league's vote
+npm run local -- npm run gazette -- 2025 7 --desk        # Story Desk: storylines only (dry)
+npm run local -- npm run gazette -- 2025 7 --plans       # + the Editor's three plans (dry)
+npm run local -- npm run gazette -- 2025 7 --drafts      # + three Writers in parallel (dry)
+npm run local -- npm run gazette -- --sample 2025 6 3 --pipeline   # + Judge and game notes, notebooks threaded (dry)
+npm run local -- npm run gazette -- 2025 7 --pipeline --regenerate # the whole room, STORED with its run
+npm run local -- npm run gazette -- 2025 7 --replay --from plans   # Writers + Judge again from the stored plans
 npm run gazette:art -- 2025 14            # art for one issue, from the issue itself
 npm run gazette:art -- --latest           # just the newest issue -- what the cron runs
 npm run gazette:art -- --all              # backfill every issue that has none

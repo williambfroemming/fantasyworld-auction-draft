@@ -598,18 +598,25 @@ export async function runPipeline(
   facts: GazetteFacts,
   recentLeads: RecentLead[],
   log: { desk?: boolean; plans?: boolean; drafts?: boolean } = {},
+  /**
+   * `--replay --from plans` (step 83): skip the Desk and the Editor and write from
+   * the storylines and plans already on record, and keep the game notes that were
+   * published. Only the Writers and the Judge run again, so a diff of the result
+   * is a diff of the prose and nothing else: voice, isolated from selection.
+   */
+  reuse?: { desk: DeskOutput; editor: EditorOutput; gameNotes: string[] },
 ): Promise<{ issue: PipelineIssue; run: PipelineRun }> {
   const priorThreads = facts.priorThreads
-  const desk = await runDesk(facts, priorThreads, recentLeads)
+  const desk = reuse?.desk ?? (await runDesk(facts, priorThreads, recentLeads))
   if (log.desk) showDesk(desk)
-  const editor = await runEditor(facts, desk, priorThreads, recentLeads)
+  const editor = reuse?.editor ?? (await runEditor(facts, desk, priorThreads, recentLeads))
   if (log.plans) showPlans(editor)
 
   // The game notes do not depend on any of the room's choices, so they run
   // beside the Writers rather than after the Judge.
   const [{ drafts, failed }, gameNotes] = await Promise.all([
     runWriters(facts, desk, editor, priorThreads, facts.priorColumns),
-    runGameNotes(facts),
+    reuse ? Promise.resolve(reuse.gameNotes) : runGameNotes(facts),
   ])
   const { labelled, verdict } = await runJudge(facts, drafts)
   if (log.drafts) for (const d of labelled) showDraft(d, `DRAFT ${d.label} (plan ${d.planIndex + 1})`)
@@ -651,6 +658,13 @@ export function showVerdict(run: PipelineRun) {
   for (const f of v.flaggedLines) console.log(`    flag [${f.label}] "${f.line}" — ${f.why}`)
   for (const d of run.dropped) console.log(`    dropped: plan ${d.planIndex + 1} (${d.error.split('\n')[0]})`)
 }
+
+/**
+ * `week_issues.prompt_version` for an issue the editorial room wrote. The
+ * single-pass prompt is 16 and keeps its own number; 17 means "the pipeline",
+ * and which version of each stage wrote it is in `pipeline.versions` (below).
+ */
+export const PIPELINE_PROMPT_VERSION = 17
 
 export const PIPELINE_VERSIONS = {
   desk: DESK_VERSION,
