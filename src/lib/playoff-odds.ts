@@ -170,6 +170,75 @@ function playBracket(
   return slots[0]
 }
 
+export interface TeamRating {
+  managerId: number
+  /** Games behind the rating. */
+  games: number
+  /** Per-week score the simulation expects: the mean, shrunk toward the league's. */
+  rating: number
+  /** Uncertainty in `rating` itself. Shrinks as weeks accumulate. */
+  ratingSd: number
+}
+
+export interface TeamRatings {
+  leagueMean: number
+  /** Week-to-week spread of one team around its own level. Shared by every team. */
+  sigma: number
+  /** One row per manager in `played`, ascending manager id. */
+  teams: TeamRating[]
+}
+
+/**
+ * The rating model on its own: league mean, the pooled spread, each team's shrunk
+ * rating and how uncertain that rating is. Null with nothing played.
+ *
+ * ⚠️ Draws no random numbers and takes no generator. `playoffOdds()` calls it before
+ * its first draw, and the bracket odds read the same ratings, so a draw added here
+ * would move every published figure (see the baseline fixture in the test).
+ *
+ * Unrounded. `PlayoffOddsRow.rating` is this `rating` to one decimal place.
+ */
+export function teamRatings(played: HistoryMatchup[]): TeamRatings | null {
+  if (played.length === 0) return null
+  const ids = [...new Set(played.map((m) => m.managerId))].sort((a, b) => a - b)
+  const index = new Map(ids.map((id, i) => [id, i]))
+  const scores: number[][] = ids.map(() => [])
+  for (const m of played) scores[index.get(m.managerId)!].push(m.points)
+
+  const all = scores.flat()
+  const leagueMean = all.reduce((s, x) => s + x, 0) / all.length
+  // Pooled within-team spread: how much a team varies around its own level,
+  // not how much the league varies — the second is mostly differences between
+  // teams, which the ratings already carry.
+  let ss = 0
+  let dof = 0
+  for (const list of scores) {
+    if (list.length < 2) continue
+    const mean = list.reduce((s, x) => s + x, 0) / list.length
+    for (const x of list) ss += (x - mean) ** 2
+    dof += list.length - 1
+  }
+  const leagueSd = Math.sqrt(all.reduce((s, x) => s + (x - leagueMean) ** 2, 0) / all.length)
+  // Week one has no within-team spread to measure; the league's is the best
+  // available stand-in. A floor stops a freakishly even fortnight from
+  // producing a league where nobody's score ever moves.
+  const sigma = Math.max(dof > 0 ? Math.sqrt(ss / dof) : leagueSd, 15)
+
+  const games = scores.map((l) => l.length)
+  const rating = scores.map((list, i) => {
+    const sum = list.reduce((s, x) => s + x, 0)
+    return (sum + PRIOR_WEEKS * leagueMean) / (games[i] + PRIOR_WEEKS)
+  })
+  // The uncertainty in the rating itself, which shrinks as weeks accumulate.
+  const ratingSd = games.map((g) => sigma / Math.sqrt(g + PRIOR_WEEKS))
+
+  return {
+    leagueMean,
+    sigma,
+    teams: ids.map((managerId, i) => ({ managerId, games: games[i], rating: rating[i], ratingSd: ratingSd[i] })),
+  }
+}
+
 /**
  * Odds from the games played so far and the games still on the schedule.
  *
@@ -207,41 +276,19 @@ export function playoffOdds(input: {
   const n = ids.length
   const wins = new Float64Array(n)
   const pf = new Float64Array(n)
-  const scores: number[][] = ids.map(() => [])
   for (const m of played) {
     const i = index.get(m.managerId)!
     wins[i] += m.result === 'W' ? 1 : m.result === 'T' ? 0.5 : 0
     pf[i] += m.points
-    scores[i].push(m.points)
   }
 
   // --- ratings ---------------------------------------------------------------
-  const all = scores.flat()
-  const leagueMean = all.reduce((s, x) => s + x, 0) / all.length
-  // Pooled within-team spread: how much a team varies around its own level,
-  // not how much the league varies — the second is mostly differences between
-  // teams, which the ratings already carry.
-  let ss = 0
-  let dof = 0
-  for (const list of scores) {
-    if (list.length < 2) continue
-    const mean = list.reduce((s, x) => s + x, 0) / list.length
-    for (const x of list) ss += (x - mean) ** 2
-    dof += list.length - 1
-  }
-  const leagueSd = Math.sqrt(all.reduce((s, x) => s + (x - leagueMean) ** 2, 0) / all.length)
-  // Week one has no within-team spread to measure; the league's is the best
-  // available stand-in. A floor stops a freakishly even fortnight from
-  // producing a league where nobody's score ever moves.
-  const sigma = Math.max(dof > 0 ? Math.sqrt(ss / dof) : leagueSd, 15)
-
-  const games = scores.map((l) => l.length)
-  const rating = scores.map((list, i) => {
-    const sum = list.reduce((s, x) => s + x, 0)
-    return (sum + PRIOR_WEEKS * leagueMean) / (games[i] + PRIOR_WEEKS)
-  })
-  // The uncertainty in the rating itself, which shrinks as weeks accumulate.
-  const ratingSd = games.map((g) => sigma / Math.sqrt(g + PRIOR_WEEKS))
+  // `played` is not empty here, so this is never null. Rows come back in the same
+  // ascending-id order as `ids`.
+  const rated = teamRatings(played)!
+  const sigma = rated.sigma
+  const rating = rated.teams.map((t) => t.rating)
+  const ratingSd = rated.teams.map((t) => t.ratingSd)
 
   // --- the games left, as index pairs, each played once -----------------------
   const fixtures: Array<[number, number]> = []
