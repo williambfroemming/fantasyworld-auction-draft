@@ -1,6 +1,6 @@
 # Playoff Mode Roadmap — the front page in weeks 15–17 (section O, steps 86–91)
 
-**Status: planned 2026-11-13, nothing built.** Supersedes the parked note in
+**Status: planned 2026-11-13. Step 86 done 2026-11-14 (contract committed, checks answered in section 4).** Supersedes the parked note in
 `docs/BACKLOG.md` §12.
 
 **Deadline.** The 2026 regular season ends with week 14 and the bracket starts in week 15
@@ -70,12 +70,30 @@ import on Monday night. Park those in `docs/BACKLOG.md` if they come up.
 | Preview: `/?preview=2025&through=N` | `src/app/page.tsx` — already feeds `throughWeek`, so 14, 15 and 16 preview each stage with no new parameter |
 | Ground truth for tests | `data/sleeper/2025/winners_bracket.json` and the 2025 matchup files. Jack was the top seed; Gabes won it |
 
-**Check before building (not yet verified):**
+**Checked before building (step 86, 2026-11-14, local database):**
 
-1. `seasons.regular_season_weeks` is 14 for 2025 and 2026 in the local database.
-2. With `through=14` on 2025, the truncated matchup list contains no playoff rows; with `through=15` it contains round one only.
-3. Seeding by wins then points for reproduces the 2025 seeds in `winners_bracket.json`. If it does not, stop and report: the seeding rule is wrong, and the fix is not a special case.
-4. Whether `HistorySeason` carries the runner-up. `SeasonListing` does not, so "last final" is out of scope unless it is already there.
+1. **Yes.** `seasons.regular_season_weeks` is 14 and `playoff_teams` is 6 for 2024, 2025 and
+   2026. Local 2026 holds weeks 1–9, no champion.
+2. **Yes.** 2025 weeks 1–14 are `is_playoff = false`, ten rows each. Week 15 is round one only
+   (4 rows, placement null). Week 16 is round two: 4 championship-path rows **and 2 rows with
+   placement 5** (the fifth-place game is played in round two, not the last round). Week 17 is
+   round three: 2 rows placement null (the final; the bracket file's `p: 1` is stored as null)
+   and 2 rows placement 3.
+3. **Yes.** Wins then points for gives Jack 1 (9-5, 1820.38), Gabes 2 (9-5, 1795.42), Mario 3
+   (8-6, 1976.78), Justin 4 (8-6, 1799.42), Bill 5 (7-7, 1826.74), Bryan 6 (7-7, 1785.66), and
+   the same order as the win and points columns in `rosters.json`. `winners_bracket.json`
+   (roster ids mapped through `managerIdForSleeperOwner`) agrees game for game: Justin v Bill
+   (4 v 5) and Mario v Bryan (3 v 6) in round one; Jack v the 4-5 winner (Bill) and Gabes v the
+   3-6 winner (Bryan) in round two; Gabes beat Jack in the final; Bill beat Bryan for third.
+   Both ties on wins inside the field (1 v 2, 3 v 4, 5 v 6) were broken by points for, so the
+   tiebreak is exercised, not just the win column.
+4. **Yes, it is there.** `HistorySeason` carries `runnerUpManagerId` and `thirdManagerId`, and
+   also the three prize columns, so step 91 does not need to extend the `seasons` SELECT. The
+   runner-up is on record from 2011 (2006–2010 have a champion's name only). The contract
+   gained `TeamContext.lastFinal` for it: null means "none on record", never "never played in one".
+
+Also found: the local `seasons` rows for 2025 and 2026 have no prize money (2024 does), so the
+stakes line prints no dollars in any 2025 preview. That is the null-prize rule working, not a bug.
 
 ## 5. The contract
 
@@ -138,6 +156,8 @@ export interface TeamContext {
   managerId: number
   titles: number                 // counted by display name, as page.tsx does
   playoffAppearances: number
+  /** Most recent championship game in a completed earlier season. Null = none on record (runner-up known from 2011). */
+  lastFinal: { season: number; won: boolean } | null
 }
 
 export interface PairContext {

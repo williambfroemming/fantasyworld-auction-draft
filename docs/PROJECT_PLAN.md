@@ -487,3 +487,11 @@ features the league chose on 2026-11-10 (`docs/archive/ANALYTICS_ROADMAP.md`).
 - [x] **83.** Storage: `week_issues.pipeline`, the mirror, `--replay --from plans`
 - [~] **84.** The bake-off page (`--bakeoff`); stop for the league vote. **Built; not yet run.** Running it is about 24 Opus calls, then the league votes
 - [ ] **85.** Switch over (only if the pipeline wins the vote)
+
+**O. Playoff mode** — added 2026-11-13. **Build instructions: `docs/PLAYOFF_MODE_ROADMAP.md`**. The front page in weeks 15–17; must be live before the Tuesday import after week 14
+- [x] **86.** Contract (`src/lib/playoff-types.ts`) and the four checks against the local database
+- [ ] **87.** Bracket derivation: `playoffBracket()`, seeds from wins then points for, null on a contradiction
+- [ ] **88.** Bracket odds: `teamRatings()` lifted out of `playoffOdds()` with no draw moved, `bracketOdds()` on its own generator
+- [ ] **89.** Context for the cards: titles, playoff appearances, last final, this season's and all-time playoff meetings
+- [ ] **90.** Components: `PlayoffBracketPanel`, and `SeasonSoFarPanel`'s `final` variant
+- [ ] **91.** Integrate into `getSeasonSoFar()` and the front page, verify, docs
