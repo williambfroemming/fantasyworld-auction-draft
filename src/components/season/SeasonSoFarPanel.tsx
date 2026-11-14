@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { HistoryMember } from '@/lib/history'
-import type { SeasonSoFar } from '@/lib/season-so-far'
+import type { SeasonSoFar, SeasonSoFarRow } from '@/lib/season-so-far'
 import { managerColor } from '@/lib/colors'
 import { ColumnKey } from '../ColumnKey'
 
@@ -32,6 +32,7 @@ export function SeasonSoFarPanel({
   report,
   members,
   lead,
+  final,
 }: {
   report: SeasonSoFar
   members: HistoryMember[]
@@ -49,8 +50,39 @@ export function SeasonSoFarPanel({
    * new season has a champion of its own.
    */
   lead?: boolean
+  /**
+   * The regular season is over and the bracket has the lead (playoff mode).
+   *
+   * The panel heading becomes "Final regular-season table" and an honours row
+   * is drawn above the table. Nothing in the table changes: playoff games stay
+   * out of every column, because all-play, the median game and schedule
+   * strength are whole-field measures and a bracket week has six teams in it.
+   *
+   * Without the prop the output is exactly what it was before the prop existed.
+   */
+  final?: boolean
 }) {
   const byId = new Map(members.map((m) => [m.managerId, m]))
+  /**
+   * The honours, from the same rows the table draws.
+   *
+   * "Top seed" is wins, then points for: the rule the bracket seeds by, so the
+   * name here is the name at the top of the bracket above it. It is not the top
+   * row of this table, which is sorted by all-play.
+   */
+  const best = (better: (a: SeasonSoFarRow, b: SeasonSoFarRow) => number) =>
+    report.rows.reduce<SeasonSoFarRow | null>((top, r) => (top === null || better(r, top) > 0 ? r : top), null)
+  const topSeed = best((a, b) => a.wins - b.wins || a.pointsFor - b.pointsFor)
+  const mostPoints = best((a, b) => a.pointsFor - b.pointsFor)
+  const bestAllPlay = best((a, b) => a.allPlayPct - b.allPlayPct)
+  const honours: Array<[label: string, row: SeasonSoFarRow, figure: string]> =
+    final && topSeed && mostPoints && bestAllPlay
+      ? [
+          ['Top seed', topSeed, `${topSeed.wins}-${topSeed.losses}${topSeed.ties ? `-${topSeed.ties}` : ''}`],
+          ['Most points', mostPoints, mostPoints.pointsFor.toFixed(2)],
+          ['Best all-play', bestAllPlay, `${bestAllPlay.allPlayWins}-${bestAllPlay.allPlayLosses}`],
+        ]
+      : []
   const pct = (n: number) => n.toFixed(3).replace(/^0/, '')
   /** Signed, because the sign is the entire content of a luck column. */
   const signed = (n: number) => (n > 0 ? `+${n.toFixed(1)}` : n.toFixed(1))
@@ -92,14 +124,42 @@ export function SeasonSoFarPanel({
       ) : (
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
           <h2 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
-            {report.season} · through week {report.throughWeek}
+            {final ? (
+              'Final regular-season table'
+            ) : (
+              <>
+                {report.season} · through week {report.throughWeek}
+              </>
+            )}
           </h2>
           <p className="text-xs text-slate-400">
+            {final && `${report.season} · through week ${report.throughWeek} · `}
             Sorted by all-play
             {report.incompleteWeeks > 0 &&
               ` · ${report.incompleteWeeks} week${report.incompleteWeeks === 1 ? '' : 's'} not counted`}
           </p>
         </div>
+      )}
+
+      {honours.length > 0 && (
+        <dl className="mb-3 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
+          {honours.map(([label, r, figure]) => (
+            <div key={label} className="flex items-baseline gap-2">
+              <dt className="font-display text-[0.62rem] uppercase tracking-[0.06em] text-slate-400">
+                {label}
+              </dt>
+              <dd className="flex items-baseline gap-2 font-semibold">
+                <span
+                  aria-hidden
+                  className="h-3 w-1 shrink-0"
+                  style={{ backgroundColor: managerColor(byId.get(r.managerId)?.color ?? '#888') }}
+                />
+                {byId.get(r.managerId)?.displayName ?? `#${r.managerId}`}
+                <span className="font-mono text-xs font-normal tabular-nums text-slate-400">{figure}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
       )}
 
       <div className="overflow-x-auto">
