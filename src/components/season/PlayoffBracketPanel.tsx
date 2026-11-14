@@ -10,6 +10,7 @@ import type {
   PlayoffPicture,
 } from '@/lib/playoff-types'
 import { managerColor } from '@/lib/colors'
+import { GlossaryLink } from '../GlossaryLink'
 
 /**
  * The front page's lead in weeks 15 to 17: the bracket, then a card for each
@@ -17,7 +18,7 @@ import { managerColor } from '@/lib/colors'
  *
  * It draws what it is handed and derives nothing about who plays whom. The
  * pairings, the byes and the current round all come from `picture.bracket`
- * (docs/PLAYOFF_MODE_ROADMAP.md, section 5), so this file cannot disagree with
+ * (docs/archive/PLAYOFF_MODE_ROADMAP.md, section 5), so this file cannot disagree with
  * the bracket derivation about the shape of the playoffs.
  *
  * ## Pending means pending
@@ -51,6 +52,10 @@ export function PlayoffBracketPanel({
   // No odds once the bracket is decided, whatever was passed in.
   const odds = decided ? null : picture.odds
   const pct = (p: number) => (odds ? formatOdds(p, odds.gamesRemaining) : null)
+  const byeTitle = (id: number) => {
+    const row = bracket.alive.includes(id) ? odds?.title.find((t) => t.managerId === id) : undefined
+    return row ? pct(row.titlePct) : null
+  }
 
   const current =
     bracket.currentRound === null
@@ -188,7 +193,16 @@ export function PlayoffBracketPanel({
                           </span>
                           {chip(managerId)}
                           <span className="flex min-w-0 flex-1 font-semibold">{teamLink(managerId)}</span>
-                          <span className="text-xs text-slate-400">Bye</span>
+                          {/*
+                            A bye team has no game this week and so no card, which
+                            would leave the two favourites as the only teams alive
+                            with no title figure anywhere on the page.
+                          */}
+                          <span className="text-xs text-slate-400">
+                            {bracket.currentRound === 1 && byeTitle(managerId)
+                              ? `Bye · title ${byeTitle(managerId)}`
+                              : 'Bye'}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -203,8 +217,9 @@ export function PlayoffBracketPanel({
       {current.length > 0 && (
         <div className="mt-12">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2 border-b border-rule-strong pb-2">
-            <h3 className="font-display text-sm font-bold uppercase tracking-[0.1em]">
+            <h3 className="flex items-baseline gap-2 font-display text-sm font-bold uppercase tracking-[0.1em]">
               This week’s games
+              <GlossaryLink anchor="bracket-odds" label="win probability and title odds" />
             </h3>
             <p className="text-xs text-slate-400">
               Week {current[0].week} · no scores until Tuesday’s update
@@ -329,7 +344,11 @@ export function PlayoffBracketPanel({
                       )}
                       {pair && (
                         <li>
-                          <span className="font-semibold text-slate-300">Playoff meetings:</span>{' '}
+                          <span className="font-semibold text-slate-300">
+                            {picture.playoffMeetingsSince === null
+                              ? 'Playoff meetings:'
+                              : `Playoff meetings since ${picture.playoffMeetingsSince}:`}
+                          </span>{' '}
                           {pair.playoffMeetings.aWins + pair.playoffMeetings.bWins === 0
                             ? 'none on record.'
                             : `${name(a)} ${pair.playoffMeetings.aWins}, ${name(b)} ${pair.playoffMeetings.bWins}.`}

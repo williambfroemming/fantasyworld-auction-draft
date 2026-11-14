@@ -1,6 +1,6 @@
 /**
  * The playoff bracket, derived from the games on record
- * (docs/PLAYOFF_MODE_ROADMAP.md, step 87).
+ * (docs/archive/PLAYOFF_MODE_ROADMAP.md, step 87).
  *
  * The import writes a playoff game only once it has been played, so a round in
  * progress has no stored row. The bracket is therefore DERIVED: seeds from the

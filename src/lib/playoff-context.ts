@@ -1,5 +1,5 @@
 /**
- * Context for the playoff cards (docs/PLAYOFF_MODE_ROADMAP.md, step 89).
+ * Context for the playoff cards (docs/archive/PLAYOFF_MODE_ROADMAP.md, step 89).
  *
  * What a matchup card says beside the seed and the score: how many titles a
  * team has, how often it has been here, how its last final went, and what the

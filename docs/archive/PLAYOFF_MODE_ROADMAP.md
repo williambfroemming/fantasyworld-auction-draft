@@ -1,7 +1,9 @@
 # Playoff Mode Roadmap — the front page in weeks 15–17 (section O, steps 86–91)
 
-**Status: planned 2026-11-13. Step 86 done 2026-11-14 (contract committed, checks answered in section 4).** Supersedes the parked note in
-`docs/BACKLOG.md` §12.
+**Status: built 2026-11-14, steps 86–91, on the `playoff-mode` branch. Archived; not yet deployed.** Section 7 item 5 (watching the live page flip on the Tuesday after week 14, and back after the final) is still to do.
+
+**Two contract changes after this was written:** `TeamContext.lastFinal` (step 86) and `PlayoffPicture.playoffMeetingsSince` (step 91). `src/lib/playoff-types.ts` is the contract now; section 5 below is the plan as written.
+`docs/archive/BACKLOG_SHIPPED.md` §12.
 
 **Deadline.** The 2026 regular season ends with week 14 and the bracket starts in week 15
 (`playoff_week_start: 15`, six teams, two byes). Playoff mode has to be live before the Tuesday

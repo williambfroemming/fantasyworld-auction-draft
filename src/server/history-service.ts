@@ -41,7 +41,11 @@ import {
   type LeagueSummaryReport,
 } from '@/lib/history'
 import { completeWeeks, seasonSoFar } from '@/lib/season-so-far'
-import { playoffOdds, type ScheduledGame } from '@/lib/playoff-odds'
+import { playoffOdds, teamRatings, type ScheduledGame } from '@/lib/playoff-odds'
+import { playoffBracket } from '@/lib/playoff-bracket'
+import { bracketOdds } from '@/lib/playoff-bracket-odds'
+import { pairContext, playoffMeetingsSince, teamContext } from '@/lib/playoff-context'
+import type { PlayoffPicture } from '@/lib/playoff-types'
 import { recordPaths } from '@/lib/record-paths'
 import {
   positionalScorecard,
@@ -1451,7 +1455,46 @@ export async function getSeasonSoFar(opts: { season?: number; throughWeek?: numb
     currentSeason: season,
   })
 
-  return { report, odds, paths, members: input.members, season }
+  // Playoff mode. Derived, never switched: there is a bracket exactly when
+  // every regular-season week is complete, and `playoffBracket()` returns null
+  // before that and whenever a stored result contradicts the derived pairing --
+  // in which case the page keeps the table lead it has today.
+  //
+  // The champion listing is only read once there is a bracket to draw, so for
+  // fourteen weeks of the season this costs the front page nothing.
+  const bracket =
+    report && playoffTeams && regularSeasonWeeks
+      ? playoffBracket({ season, matchups, playoffTeams, regularSeasonWeeks })
+      : null
+  let playoffs: PlayoffPicture | null = null
+  if (bracket) {
+    // ⚠️ Regular season only: `completeWeeks` drops playoff rows, so a bye team
+    // and a team with two playoff games behind it are rated on the same games.
+    // Its own seeded generator -- nothing here touches the frozen stream above.
+    const ratings = teamRatings(completeWeeks(matchups, season).complete.flatMap(([, rows]) => rows))
+    const shown = input.seasons.find((s) => s.season === season)
+    const inField = new Set(bracket.teams.map((t) => t.managerId))
+    playoffs = {
+      bracket,
+      odds: ratings ? bracketOdds(bracket, ratings, season) : null,
+      teams: teamContext({
+        season,
+        members: input.members,
+        champions: await listHistorySeasons(),
+        seasons: input.seasons,
+        standings: input.standings,
+      }).filter((t) => inField.has(t.managerId)),
+      pairs: pairContext({ bracket, matchups }),
+      prizes: {
+        champion: shown?.championPrize ?? null,
+        runnerUp: shown?.runnerUpPrize ?? null,
+        third: shown?.thirdPrize ?? null,
+      },
+      playoffMeetingsSince: playoffMeetingsSince(matchups, season),
+    }
+  }
+
+  return { report, odds, paths, playoffs, members: input.members, season }
 }
 
 /**

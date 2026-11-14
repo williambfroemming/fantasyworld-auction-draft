@@ -17,7 +17,7 @@
  * ## Ratings are the regular season's
  *
  * `ratings` is `teamRatings()` over the complete regular-season weeks and is not
- * re-rated from playoff games (docs/PLAYOFF_MODE_ROADMAP.md, section 3): it is the
+ * re-rated from playoff games (docs/archive/PLAYOFF_MODE_ROADMAP.md, section 3): it is the
  * rating shown everywhere else, and one or two playoff games, zero for a bye
  * team, would add noise unevenly.
  *

@@ -308,3 +308,21 @@ Nothing here needs a migration; the stat lines are already on live.
 | ⬜ | A real newcomer: code shown → put it in their Sleeper team name → Verify & request → "Request sent"; it appears under **Wants to join** in Admin → Members | |
 | ⬜ | Approve is disabled (and refused by the server) unless the season is in setup with no picks | |
 | ⬜ | After approval in setup: the newcomer signs in with the PIN they chose, and appears in the draft order | |
+
+## R. Playoff mode — `docs/archive/PLAYOFF_MODE_ROADMAP.md`
+
+Before week 15, look at it with a finished season standing in: `/?preview=2025&through=N`.
+
+| | Check | Notes |
+|---|---|---|
+| ⬜ | `/` today is unchanged: the season table leads, with playoff odds and the week's biggest starts below | |
+| ⬜ | `/?preview=2025&through=13` is the table lead, no bracket | |
+| ⬜ | `/?preview=2025&through=14`: **The playoffs** leads; Jack and Gabes on a bye with title odds; Justin v Bill and Mario v Bryan pending with no scores; a card per game | |
+| ⬜ | `/?preview=2025&through=15`: round-one scores, losers dimmed, semi-finals pending | |
+| ⬜ | `/?preview=2025&through=16`: Jack v Gabes pending in the final, Bill v Bryan in the third-place game | |
+| ⬜ | `/?preview=2025&through=17`: every game played, Gabes champion, no percentages anywhere | |
+| ⬜ | In every bracket view the table below is headed **Final regular-season table**; the playoff odds panel and the biggest starts are gone | |
+| ⬜ | On a phone the rounds stack and the page does not scroll sideways | |
+| ⬜ | The **?** beside "This week's games" opens the glossary at win probability and title odds | |
+| ⬜ | **Tuesday after week 14 (live):** `/` leads with the bracket without anyone doing anything | |
+| ⬜ | **Tuesday after the final (live):** `/` leads with the champion again without anyone doing anything | |

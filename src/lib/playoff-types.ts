@@ -1,5 +1,5 @@
 /**
- * The contract for playoff mode (docs/PLAYOFF_MODE_ROADMAP.md, section 5).
+ * The contract for playoff mode (docs/archive/PLAYOFF_MODE_ROADMAP.md, section 5).
  *
  * Types only, no logic. The bracket derivation, the bracket odds, the card
  * context and the components were built in parallel against this file, so it
@@ -80,5 +80,11 @@ export interface PlayoffPicture {
   odds: BracketOdds | null
   teams: TeamContext[]
   pairs: PairContext[]           // current-round games with both teams known
+  /**
+   * The first season `PairContext.playoffMeetings` can see. There are no game
+   * rows before the weekly era, so a 0-0 means "none since this season", never
+   * "these two have never met". Null when no playoff game is on record at all.
+   */
+  playoffMeetingsSince: number | null
   prizes: { champion: number | null; runnerUp: number | null; third: number | null }
 }
