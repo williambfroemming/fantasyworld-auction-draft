@@ -245,7 +245,7 @@ problem. Either way read `oracle_log.steps` before fixing it.
 | ⬜ | Seasons: pick a past year, set prize money, save, reload — the values stick; an emptied box comes back empty (unknown), not 0 | |
 | ⬜ | Seasons: Start the next season is disabled until the year is typed; do NOT run this against the live league until the season is really over | |
 
-## N. Site nav and the Ask the Oracle launcher — `docs/SITE_STRUCTURE.md`
+## N. Site nav and the Ask the Oracle launcher — `docs/archive/SITE_STRUCTURE.md`
 
 | ✓ | Check | Notes |
 |---|---|---|
@@ -270,9 +270,9 @@ Run `npm run db:migrate-activity` against live **before** deploying this.
 | ⬜ | Switch to another tab for a few minutes and come back: the hidden time is not counted | |
 | ⬜ | A member gets a 404 on `/admin` and a 403 from `/api/admin/activity` | |
 | ⬜ | Glossary → **Active time** explains how it is counted | |
-| ⬜ | The league has been told (see `docs/ACTIVITY_ROADMAP.md` → Tell the league) | |
+| ⬜ | The league has been told (see `docs/archive/ACTIVITY_ROADMAP.md` → Tell the league) | |
 
-## P. Player stats on the site — `docs/STATS_WEAVE_ROADMAP.md`
+## P. Player stats on the site — `docs/archive/STATS_WEAVE_ROADMAP.md`
 
 Nothing here needs a migration; the stat lines are already on live.
 

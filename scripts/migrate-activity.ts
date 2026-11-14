@@ -1,5 +1,5 @@
 /**
- * Migration: first-party activity tracking (docs/ACTIVITY_ROADMAP.md, step 63).
+ * Migration: first-party activity tracking (docs/archive/ACTIVITY_ROADMAP.md, step 63).
  *
  *   npm run db:migrate-activity              # against DATABASE_URL
  *   npm run db:migrate-activity -- --test    # against TEST_DATABASE_URL

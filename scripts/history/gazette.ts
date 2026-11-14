@@ -16,6 +16,19 @@
  *   npm run gazette -- --seed              # load committed issues, no API key
  *   npm run gazette -- --audit             # re-check every committed issue
  *
+ * The editorial room (docs/GAZETTE_ROADMAP.md). The first three are dry runs:
+ *   npm run gazette -- 2025 7 --desk       # the Story Desk only: storylines
+ *   npm run gazette -- 2025 7 --plans      # Desk + Editor: storylines and three plans
+ *   npm run gazette -- 2025 7 --drafts     # ... + three Writers in parallel
+ *   npm run gazette -- 2025 7 --pipeline   # the whole room, STORED with its run (add --dry-run not to)
+ *   npm run gazette -- 2025 7 --pipeline --drafts --dry-run   # ... and print the losing drafts
+ *   npm run gazette -- 2025 7 --replay --from plans   # Writers + Judge again, from the stored plans
+ *   npm run gazette -- --sample 2025 6 3 --pipeline   # three weeks, winners' notebooks threaded
+ *   npm run gazette -- --bakeoff 2025 6 3  # both arms, three weeks, a blind page in backups/
+ *
+ * Storing a pipeline issue needs `week_issues.pipeline`: `npm run db:migrate-gazette` first.
+ * The weekly job does not use the room until step 85, and never needs the column.
+ *
  * ## The season preview is week zero
  *
  * One edition a year has no games behind it: the one filed after the auction and
@@ -61,6 +74,27 @@ import {
   type Thread,
 } from '../../src/lib/gazette'
 import { PROMPT, PROMPT_VERSION } from './gazette-prompt'
+import { MODEL, callJson, ledger, printLedger } from './gazette-model'
+import {
+  runDesk,
+  runEditor,
+  runPipeline,
+  runWriters,
+  showDesk,
+  showDraft,
+  showPlans,
+  showVerdict,
+  PIPELINE_PROMPT_VERSION,
+  PIPELINE_VERSIONS,
+  type RecentLead,
+} from './gazette-pipeline'
+import { assignLabels, renderBakeoffPage, type BakeoffEdition, type BakeoffWeek } from '../../src/lib/gazette-bakeoff'
+import {
+  pipelineGroundingProblems,
+  storedLead,
+  stripMarkup,
+  type StoredPipeline,
+} from '../../src/lib/gazette-room'
 import { PREVIEW_PROMPT, PREVIEW_PROMPT_VERSION } from './gazette-preview-prompt'
 
 /**
@@ -71,7 +105,8 @@ type Pack = GazetteFacts | PreviewFacts
 
 const ROOT = join(import.meta.dirname, '..', '..')
 const DATA_DIR = join(ROOT, 'data', 'history', 'gazette')
-const MODEL = 'claude-opus-5'
+/** Git-ignored. The bake-off page and its answer key go here, never in public/. */
+const BACKUPS_DIR = join(ROOT, 'backups')
 const PAUSE_MS = 1000
 
 const args = process.argv.slice(2).filter((a) => a !== '--')
@@ -84,7 +119,17 @@ const factsOnly = has('--facts')
 // A sample is always a dry run. Its whole purpose is to read three editions
 // before committing to a voice, and storing them would seed the archive with the
 // draft you were still deciding about.
-const dryRun = has('--dry-run') || has('--sample')
+//
+// --pipeline stores, like a single-pass run, since step 83 gave it somewhere to
+// put the run. --drafts on its own is a dry run (it stops before the Judge); with
+// --pipeline it only means "print the losing drafts too".
+const dryRun =
+  has('--dry-run') ||
+  has('--sample') ||
+  has('--bakeoff') ||
+  has('--desk') ||
+  has('--plans') ||
+  (has('--drafts') && !has('--pipeline'))
 const regenerate = has('--regenerate')
 const forward = has('--forward')
 const replay = has('--replay')
@@ -110,6 +155,31 @@ const preview = has('--preview')
  * until somebody notices in November.
  */
 const check = has('--check')
+/**
+ * The editorial room (docs/GAZETTE_ROADMAP.md), stage by stage. Each flag runs
+ * the room up to that stage, prints it, and stores nothing. None of them is on
+ * the weekly job's path until step 85.
+ */
+const deskOnly = has('--desk')
+const plansOnly = has('--plans')
+const draftsOnly = has('--drafts')
+/**
+ * `--replay --from plans`: the Writers and the Judge again, from the storylines,
+ * plans and game notes stored with a pipeline issue. A diff of the result is a
+ * diff of the prose, which is the only way to tell a voice change from a
+ * selection change.
+ */
+const fromPlans = args[args.indexOf('--from') + 1] === 'plans' && has('--from')
+/**
+ * The whole room: Desk, Editor, three Writers, Judge, game notes, stored with
+ * the run that produced it. With --drafts it also prints the losing drafts.
+ */
+const pipeline = has('--pipeline') || fromPlans
+/**
+ * The bake-off (step 84): both arms write the same weeks, each threading its own
+ * notebook, and the result is a blind page for the league. Stores nothing.
+ */
+const bakeoff = has('--bakeoff')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -158,74 +228,20 @@ const SCHEMA = {
   additionalProperties: false,
 }
 
-function requireKey(): string {
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) {
-    console.error(
-      '\n✗ ANTHROPIC_API_KEY is not set, so no issue can be written.\n' +
-        '  The fact pack is what the model would receive — print it with --facts.\n',
-    )
-    process.exit(1)
-  }
-  return key
-}
-
 /**
- * One call. Structured output rather than a prefill: an assistant prefill returns
- * a 400 on this model, and "please reply with JSON" is a request rather than a
- * guarantee.
- *
- * `max_tokens` caps thinking AND response text together, and adaptive thinking is
- * on by default here — hence the generous ceiling. This is the bug that sat
- * unnoticed in `draft-recap.ts`, which asked for 400.
+ * One single-pass edition. The transport is shared with the editorial room
+ * (gazette-model.ts); what this sends is exactly what it always sent.
  */
 async function callModel(system: string, facts: Pack, repair?: string): Promise<Issue> {
-  const key = requireKey()
-  const messages: Array<{ role: string; content: string }> = [
-    { role: 'user', content: JSON.stringify(facts, null, 2) },
-  ]
-  if (repair) messages.push({ role: 'user', content: repair })
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      // Caps thinking AND response text together. An edition is five fields and
-      // a notebook, and a long one under a demanding frame has run past 8000 —
-      // which arrives as a truncated JSON body rather than an error, so give it
-      // room it will not normally use.
-      max_tokens: 16000,
-      system,
-      output_config: { effort: 'high', format: { type: 'json_schema', schema: SCHEMA } },
-      messages,
-    }),
+  const issue = await callJson<Issue>({
+    stage: repair ? 'single-pass repair' : 'single-pass',
+    system,
+    user: facts,
+    followUps: repair ? [repair] : [],
+    schema: SCHEMA,
+    effort: 'high',
   })
-  if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${await res.text()}`)
-  const body = (await res.json()) as {
-    stop_reason?: string
-    content: Array<{ type: string; text?: string }>
-  }
-  if (body.stop_reason === 'refusal') throw new Error('the model declined to write this issue')
-  const text = body.content.find((c) => c.type === 'text')?.text?.trim()
-  if (!text) throw new Error('no text in the model response')
-
-  try {
-    return clean(JSON.parse(text) as Issue)
-  } catch {
-    // A truncated body is the likely cause and does not announce itself: the
-    // JSON simply stops mid-string, and the parse error names a column number
-    // rather than the actual problem. Say which it was.
-    throw new Error(
-      body.stop_reason === 'max_tokens'
-        ? 'the edition ran past max_tokens and came back truncated'
-        : `the model returned something that is not valid JSON (${text.length} chars)`,
-    )
-  }
+  return clean(issue)
 }
 
 /**
@@ -243,10 +259,10 @@ async function callModel(system: string, facts: Pack, repair?: string): Promise<
  * instruction is a request where a strip is a guarantee. A conservative tag list
  * rather than a general tag-stripper, so prose that legitimately contains an
  * angle bracket survives.
+ *
+ * The function itself is `stripMarkup` in src/lib/gazette-room.ts, shared with
+ * the editorial room's Writers and game notes.
  */
-const stripMarkup = (s: string) =>
-  s.replace(/<\/?(?:em|i|b|strong|p|br|span|h[1-6])\s*\/?>/gi, '').trim()
-
 const clean = (i: Issue): Issue => ({
   ...i,
   issueTitle: stripMarkup(i.issueTitle),
@@ -337,6 +353,10 @@ function readMirror(season: number): MirrorFile {
       '  npm run gazette -- 2025 7 --facts   print the pack, call nothing',
       '  npm run gazette -- 2025 7 --replay  re-prompt from the stored pack',
       '  npm run gazette -- --seed           load this file into Postgres, no API key',
+      '',
+      'An issue the editorial room wrote also carries `pipeline`: the storylines, the',
+      'three plans, every judged draft, the verdict and the lead. Single-pass issues',
+      'have none.',
     ],
     season,
     issues: {},
@@ -349,6 +369,7 @@ function writeMirror(
   issue: Issue,
   facts: Pack,
   promptVersion: number,
+  run: StoredPipeline | null,
 ) {
   mkdirSync(DATA_DIR, { recursive: true })
   const file = readMirror(season)
@@ -365,6 +386,9 @@ function writeMirror(
     model: MODEL,
     generatedAt: new Date().toISOString(),
     facts,
+    // Absent, not null, on a single-pass issue, so the entries already committed
+    // do not all change shape in the next diff.
+    ...(run ? { pipeline: run } : {}),
   }
   const ordered = Object.fromEntries(Object.entries(file.issues).sort(([a], [b]) => a.localeCompare(b)))
   writeFileSync(mirrorPath(season), `${JSON.stringify({ ...file, issues: ordered }, null, 2)}\n`)
@@ -409,28 +433,77 @@ async function alreadyWritten(season: number, week: number): Promise<boolean> {
 // Store
 // ---------------------------------------------------------------------------
 
+/**
+ * Does `week_issues` have the `pipeline` column yet?
+ *
+ * ⚠️ The weekly job runs single-pass against the live database, and this branch
+ * may deploy before anyone runs `npm run db:migrate-gazette` there. So the
+ * single-pass path must keep working without the column: it writes the same
+ * statement it always did, and only clears a stale `pipeline` when the column
+ * exists. Storing a pipeline run without the column is the one thing that
+ * refuses, by name. Asked once per process.
+ */
+let pipelineColumn: Promise<boolean> | null = null
+function hasPipelineColumn(): Promise<boolean> {
+  pipelineColumn ??= (async () => {
+    const sql = getSql()
+    const rows = await sql`
+      SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'week_issues' AND column_name = 'pipeline'`
+    return rows.length > 0
+  })()
+  return pipelineColumn
+}
+
+const NO_PIPELINE_COLUMN =
+  'week_issues has no pipeline column on this database. Run `npm run db:migrate-gazette` first ' +
+  '(or `npm run local -- npm run db:migrate-gazette` locally).'
+
 async function store(
   season: number,
   week: number,
   issue: Issue,
   facts: Pack,
   promptVersion: number,
+  run: StoredPipeline | null = null,
 ) {
   const sql = getSql()
-  await sql`
-    INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
-                             threads, facts, model, prompt_version, generated_at)
-    VALUES (${season}, ${week}, ${issue.headline}, ${issue.issueTitle}, ${issue.lens}, ${issue.deck}, ${issue.column},
-            ${JSON.stringify(issue.gameNotes)}::jsonb, ${JSON.stringify(issue.threads)}::jsonb,
-            ${JSON.stringify(facts)}::jsonb, ${MODEL}, ${promptVersion}, now())
-    ON CONFLICT (season, week) DO UPDATE
-      SET headline = excluded.headline, issue_title = excluded.issue_title,
-          lens = excluded.lens, deck = excluded.deck,
-          column_text = excluded.column_text, game_notes = excluded.game_notes,
-          threads = excluded.threads, facts = excluded.facts,
-          model = excluded.model, prompt_version = excluded.prompt_version,
-          generated_at = now()`
-  writeMirror(season, week, issue, facts, promptVersion)
+  const withColumn = await hasPipelineColumn()
+  if (run && !withColumn) throw new Error(NO_PIPELINE_COLUMN)
+
+  if (withColumn) {
+    // A single-pass regenerate of a week the room once wrote must not leave the
+    // old run beside the new prose, so null is written, not skipped.
+    await sql`
+      INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
+                               threads, facts, model, prompt_version, generated_at, pipeline)
+      VALUES (${season}, ${week}, ${issue.headline}, ${issue.issueTitle}, ${issue.lens}, ${issue.deck}, ${issue.column},
+              ${JSON.stringify(issue.gameNotes)}::jsonb, ${JSON.stringify(issue.threads)}::jsonb,
+              ${JSON.stringify(facts)}::jsonb, ${MODEL}, ${promptVersion}, now(),
+              ${run ? JSON.stringify(run) : null}::jsonb)
+      ON CONFLICT (season, week) DO UPDATE
+        SET headline = excluded.headline, issue_title = excluded.issue_title,
+            lens = excluded.lens, deck = excluded.deck,
+            column_text = excluded.column_text, game_notes = excluded.game_notes,
+            threads = excluded.threads, facts = excluded.facts,
+            model = excluded.model, prompt_version = excluded.prompt_version,
+            generated_at = now(), pipeline = excluded.pipeline`
+  } else {
+    await sql`
+      INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
+                               threads, facts, model, prompt_version, generated_at)
+      VALUES (${season}, ${week}, ${issue.headline}, ${issue.issueTitle}, ${issue.lens}, ${issue.deck}, ${issue.column},
+              ${JSON.stringify(issue.gameNotes)}::jsonb, ${JSON.stringify(issue.threads)}::jsonb,
+              ${JSON.stringify(facts)}::jsonb, ${MODEL}, ${promptVersion}, now())
+      ON CONFLICT (season, week) DO UPDATE
+        SET headline = excluded.headline, issue_title = excluded.issue_title,
+            lens = excluded.lens, deck = excluded.deck,
+            column_text = excluded.column_text, game_notes = excluded.game_notes,
+            threads = excluded.threads, facts = excluded.facts,
+            model = excluded.model, prompt_version = excluded.prompt_version,
+            generated_at = now()`
+  }
+  writeMirror(season, week, issue, facts, promptVersion, run)
 }
 
 function show(season: number, week: number, issue: Issue, facts: Pack) {
@@ -442,7 +515,7 @@ function show(season: number, week: number, issue: Issue, facts: Pack) {
   console.log('')
   for (const note of issue.gameNotes) console.log(`  • ${note}`)
   if (issue.threads.length) {
-    console.log("\n  Applewhite's notebook:")
+    console.log('\n  Notebook:')
     for (const t of issue.threads) {
       console.log(`    [${(t.kind ?? 'bit').padEnd(8)}] ${t.id}: ${t.note}`)
     }
@@ -463,9 +536,54 @@ function show(season: number, week: number, issue: Issue, facts: Pack) {
  * exists to show.
  */
 interface Carried {
+  week: number
   headline: string
+  lead?: RecentLead['lead']
   column: string
   threads: Thread[]
+}
+
+/**
+ * What the last three issues before this week led with, oldest first.
+ *
+ * Issues carried in memory (a --sample run) win over stored ones for the same
+ * week, because a sample is writing an alternative history of exactly those
+ * weeks. Stored issues written before the pipeline know only their headline.
+ */
+async function recentLeads(season: number, week: number, carried?: Carried[]): Promise<RecentLead[]> {
+  const sql = getSql()
+  // The stored lead is what makes the rotation hold across separate runs, not
+  // only inside one --sample: a pipeline issue stored last Tuesday bars its lead
+  // manager this Tuesday.
+  const rows = (await hasPipelineColumn())
+    ? await sql`
+        SELECT week, headline, pipeline FROM week_issues
+         WHERE season = ${season} AND week < ${week} AND week > 0
+         ORDER BY week DESC LIMIT 3`
+    : await sql`
+        SELECT week, headline, NULL::jsonb AS pipeline FROM week_issues
+         WHERE season = ${season} AND week < ${week} AND week > 0
+         ORDER BY week DESC LIMIT 3`
+  const byWeek = new Map<number, RecentLead>()
+  for (const r of rows) {
+    byWeek.set(Number(r.week), { week: Number(r.week), headline: String(r.headline), lead: storedLead(r.pipeline) })
+  }
+  for (const c of carried ?? []) byWeek.set(c.week, { week: c.week, headline: c.headline, lead: c.lead })
+  return [...byWeek.values()].sort((a, b) => a.week - b.week).slice(-3)
+}
+
+/**
+ * Continuity from issues written earlier in this run rather than read from the
+ * database: the last notebook, the last two columns, the last four headlines.
+ * With nothing carried yet the pack keeps what the database gave it.
+ */
+function applyCarried(facts: GazetteFacts, carried: Carried[]): GazetteFacts {
+  if (carried.length) {
+    facts.priorThreads = carried[carried.length - 1].threads
+    facts.priorColumns = carried.slice(-2).map((c) => c.column)
+    facts.priorHeadlines = carried.slice(-4).map((c) => c.headline)
+  }
+  return facts
 }
 
 async function one(
@@ -484,6 +602,7 @@ async function one(
   }
 
   let facts: GazetteFacts | null
+  let stored: { run: StoredPipeline; gameNotes: string[] } | null = null
   if (replay) {
     const sql = getSql()
     const rows = await sql`SELECT facts FROM week_issues WHERE season = ${season} AND week = ${week}`
@@ -491,6 +610,15 @@ async function one(
     if (!facts) {
       console.log(`  · ${season} wk ${week} has no stored pack to replay`)
       return 'skipped'
+    }
+    if (fromPlans) {
+      if (!(await hasPipelineColumn())) throw new Error(NO_PIPELINE_COLUMN)
+      const [row] = await sql`SELECT pipeline, game_notes FROM week_issues WHERE season = ${season} AND week = ${week}`
+      if (!row?.pipeline) {
+        console.log(`  · ${season} wk ${week} was written single-pass: there are no stored plans to replay`)
+        return 'skipped'
+      }
+      stored = { run: row.pipeline as StoredPipeline, gameNotes: row.game_notes as string[] }
     }
   } else {
     facts = await getWeekFacts(season, week)
@@ -514,16 +642,68 @@ async function one(
     console.log(`  ⚠ ${season} wk ${week} looks unfinished, writing anyway`)
   }
 
-  if (carried?.length) {
-    facts.priorThreads = carried[carried.length - 1].threads
-    facts.priorColumns = carried.slice(-2).map((c) => c.column)
-    facts.priorHeadlines = carried.slice(-4).map((c) => c.headline)
+  if (carried) applyCarried(facts, carried)
+
+  if (pipeline) {
+    const mark = ledger.length
+    try {
+      const recent = await recentLeads(season, week, carried)
+      console.log(
+        `\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season} · the editorial room` +
+          (stored ? ' · replayed from the stored plans' : ''),
+      )
+      const reuse = stored
+        ? {
+            desk: { storylines: stored.run.storylines, stale: stored.run.stale },
+            editor: { plans: stored.run.plans },
+            gameNotes: stored.gameNotes,
+          }
+        : undefined
+      const { issue, run } = await runPipeline(facts, recent, { desk: !stored, plans: !stored, drafts: draftsOnly }, reuse)
+      showVerdict(run)
+      show(season, week, { ...issue }, facts)
+      // Only the winner's notebook carries forward: one notebook, and it is his.
+      carried?.push({ week, headline: issue.headline, column: issue.column, threads: issue.threads, lead: run.lead })
+      if (dryRun) return 'skipped'
+      await store(season, week, issue, facts, PIPELINE_PROMPT_VERSION, run)
+      console.log(`  ✓ ${season} wk ${week} stored, with its run`)
+      return 'written'
+    } catch (err) {
+      console.error(`  ✗ ${season} wk ${week}: ${err instanceof Error ? err.message : err}`)
+      return 'failed'
+    } finally {
+      printLedger(mark, `${season} wk ${week} tokens`)
+    }
+  }
+
+  if (deskOnly || plansOnly || draftsOnly) {
+    const mark = ledger.length
+    try {
+      const recent = await recentLeads(season, week, carried)
+      const desk = await runDesk(facts, facts.priorThreads, recent)
+      console.log(`\n${'─'.repeat(72)}\n${facts.weekLabel} · ${season}`)
+      showDesk(desk)
+      if (plansOnly || draftsOnly) {
+        const editor = await runEditor(facts, desk, facts.priorThreads, recent)
+        showPlans(editor)
+        if (draftsOnly) {
+          const { drafts } = await runWriters(facts, desk, editor, facts.priorThreads, facts.priorColumns)
+          for (const d of drafts) showDraft(d)
+        }
+      }
+      return 'skipped'
+    } catch (err) {
+      console.error(`  ✗ ${season} wk ${week}: ${err instanceof Error ? err.message : err}`)
+      return 'failed'
+    } finally {
+      printLedger(mark, `${season} wk ${week} tokens`)
+    }
   }
 
   try {
     const issue = await write(PROMPT, facts)
     show(season, week, issue, facts)
-    carried?.push({ headline: issue.headline, column: issue.column, threads: issue.threads })
+    carried?.push({ week, headline: issue.headline, column: issue.column, threads: issue.threads })
     if (dryRun) return 'skipped'
     await store(season, week, issue, facts, PROMPT_VERSION)
     console.log(`  ✓ ${season} wk ${week} stored`)
@@ -615,6 +795,94 @@ async function onePreview(season: number): Promise<'written' | 'skipped' | 'fail
 }
 
 // ---------------------------------------------------------------------------
+// The bake-off (docs/GAZETTE_ROADMAP.md step 84)
+// ---------------------------------------------------------------------------
+
+const readerSees = (i: Issue): BakeoffEdition => ({
+  issueTitle: i.issueTitle,
+  headline: i.headline,
+  deck: i.deck,
+  column: i.column,
+  gameNotes: i.gameNotes,
+})
+
+/**
+ * Both arms, the same weeks, from the same pack, each threading its own
+ * notebook: the single-pass edition reads the single-pass edition before it, and
+ * the room reads the room's (and its own leads for the rotation). Week one of the
+ * run starts both arms from what the database holds, so they begin level.
+ *
+ * Stores nothing. Writes a blind page and a separate answer key to backups/, and
+ * stops: step 85 waits for the league's vote.
+ */
+async function runBakeoff(season: number, from: number, count: number) {
+  console.log(
+    `Bake-off: ${count} consecutive weeks of ${season} from week ${from}, both arms. Nothing is stored.\n` +
+      `  Expect about ${count * 8} model calls.\n`,
+  )
+  const singleArm: Carried[] = []
+  const roomArm: Carried[] = []
+  const weeks: BakeoffWeek[] = []
+  const mark = ledger.length
+
+  try {
+    for (let w = from; w < from + count; w++) {
+      const base = await getWeekFacts(season, w)
+      if (!base) throw new Error(`${season} wk ${w} has no games`)
+      if (!(await weekIsComplete(season, w))) throw new Error(`${season} wk ${w} is not finished yet`)
+
+      console.log(`\n${'═'.repeat(72)}\n${base.weekLabel} · ${season} · single-pass`)
+      const single = await write(PROMPT, applyCarried(structuredClone(base), singleArm))
+      show(season, w, single, base)
+      singleArm.push({ week: w, headline: single.headline, column: single.column, threads: single.threads })
+
+      console.log(`\n${base.weekLabel} · ${season} · the editorial room`)
+      const roomFacts = applyCarried(structuredClone(base), roomArm)
+      const { issue: room, run } = await runPipeline(roomFacts, await recentLeads(season, w, roomArm))
+      showVerdict(run)
+      show(season, w, { ...room }, roomFacts)
+      roomArm.push({ week: w, headline: room.headline, column: room.column, threads: room.threads, lead: run.lead })
+
+      weeks.push({
+        season,
+        week: w,
+        weekLabel: base.weekLabel,
+        editions: { 'single-pass': readerSees(single), pipeline: readerSees(room) },
+      })
+      await sleep(PAUSE_MS)
+    }
+  } finally {
+    printLedger(mark, 'bake-off tokens')
+  }
+
+  // Random, not seeded: see src/lib/gazette-bakeoff.ts. The key is the only record.
+  const key = assignLabels(weeks)
+  const stem = `gazette-bakeoff-${season}-wk${String(from).padStart(2, '0')}-${String(from + count - 1).padStart(2, '0')}`
+  mkdirSync(BACKUPS_DIR, { recursive: true })
+  const page = join(BACKUPS_DIR, `${stem}.html`)
+  const keyFile = join(BACKUPS_DIR, `${stem}-KEY.json`)
+  writeFileSync(page, renderBakeoffPage(weeks, key))
+  writeFileSync(
+    keyFile,
+    `${JSON.stringify(
+      {
+        _comment: 'The answer key for the bake-off page beside this file. Do not share it with the league.',
+        generatedAt: new Date().toISOString(),
+        singlePassPromptVersion: PROMPT_VERSION,
+        pipelineVersions: PIPELINE_VERSIONS,
+        model: MODEL,
+        key,
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  console.log(`\n✓ The page:       ${page}`)
+  console.log(`  The answer key: ${keyFile}  (keep this one to yourself)`)
+  console.log('\nShare the page with the league and collect one letter per week. Step 85 waits for the vote.\n')
+}
+
+// ---------------------------------------------------------------------------
 // Modes
 // ---------------------------------------------------------------------------
 
@@ -625,11 +893,30 @@ async function runSeed() {
     return
   }
   const sql = getSql()
+  const withColumn = await hasPipelineColumn()
   let n = 0
   for (const file of readdirSync(DATA_DIR).filter((f) => f.endsWith('.json')).sort()) {
     const parsed = JSON.parse(readFileSync(join(DATA_DIR, file), 'utf8')) as MirrorFile
     for (const entry of Object.values(parsed.issues)) {
       const e = entry as Record<string, never>
+      const run = (e.pipeline as unknown as StoredPipeline | undefined) ?? null
+      if (run && !withColumn) throw new Error(`${parsed.season} wk ${e.week} carries a pipeline run. ${NO_PIPELINE_COLUMN}`)
+      if (withColumn) {
+        await sql`
+          INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
+                                   threads, facts, model, prompt_version, generated_at, pipeline)
+          VALUES (${parsed.season}, ${e.week}, ${e.headline}, ${e.issueTitle}, ${e.lens}, ${e.deck}, ${e.column},
+                  ${JSON.stringify(e.gameNotes)}::jsonb, ${JSON.stringify(e.threads)}::jsonb,
+                  ${JSON.stringify(e.facts)}::jsonb, ${e.model}, ${e.promptVersion},
+                  ${e.generatedAt}, ${run ? JSON.stringify(run) : null}::jsonb)
+          ON CONFLICT (season, week) DO UPDATE
+            SET headline = excluded.headline, issue_title = excluded.issue_title,
+                lens = excluded.lens, deck = excluded.deck,
+                column_text = excluded.column_text, game_notes = excluded.game_notes,
+                threads = excluded.threads, facts = excluded.facts, pipeline = excluded.pipeline`
+        n++
+        continue
+      }
       await sql`
         INSERT INTO week_issues (season, week, headline, issue_title, lens, deck, column_text, game_notes,
                                  threads, facts, model, prompt_version, generated_at)
@@ -662,6 +949,9 @@ function runAudit() {
       const e = entry as Record<string, never>
       const prose = [e.headline, e.deck, e.column, ...(e.gameNotes as unknown as string[])].join('\n')
       const flags = ungroundedNumbers(prose, e.facts as unknown as GazetteFacts)
+      // A pipeline issue also carries its run, and the plans are grounded too.
+      const run = e.pipeline as unknown as StoredPipeline | undefined
+      if (run) flags.push(...pipelineGroundingProblems(run, e.facts as unknown as GazetteFacts))
       checked++
       if (flags.length) {
         bad++
@@ -708,6 +998,10 @@ async function main() {
 
   if (seed) return runSeed()
   if (audit) return runAudit()
+  if (has('--from') && !(fromPlans && replay)) {
+    console.error('--from takes one value, plans, and only with --replay: npm run gazette -- 2025 7 --replay --from plans')
+    process.exit(1)
+  }
 
   // --- the season preview, week zero ---------------------------------------
   if (preview) {
@@ -730,6 +1024,13 @@ async function main() {
       await one(season, w, carried)
       await sleep(PAUSE_MS)
     }
+    return
+  }
+
+  // --- the bake-off ---------------------------------------------------------
+  if (bakeoff) {
+    const season = years[0] ?? (await currentSeason())
+    await runBakeoff(season, weeks[0] ?? 1, weeks[1] ?? 3)
     return
   }
 

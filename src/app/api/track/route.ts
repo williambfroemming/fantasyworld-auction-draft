@@ -5,7 +5,7 @@ import { recordVisit } from '@/server/activity-service'
 import { currentManagerId } from '@/server/session'
 
 /**
- * One segment of active time on one page (docs/ACTIVITY_ROADMAP.md).
+ * One segment of active time on one page (docs/archive/ACTIVITY_ROADMAP.md).
  *
  *   POST /api/track { path, startedAt, activeSeconds }   → 204
  *

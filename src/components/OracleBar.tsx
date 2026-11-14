@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { ORACLE_EXAMPLES } from '@/lib/oracle-examples'
 
 /**
- * The Oracle's question bar (docs/ANALYTICS_ROADMAP.md §A, step 43).
+ * The Oracle's question bar (docs/archive/ANALYTICS_ROADMAP.md §A, step 43).
  *
  * Each question stands alone: earlier turns are kept on screen for the session and are
  * NOT sent back to the server. The SQL and the rows are always shown beneath the answer,

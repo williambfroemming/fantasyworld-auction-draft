@@ -2,7 +2,7 @@ import { formatStatLine, type StatKey } from '@/lib/player-stats'
 
 /**
  * Season and career NFL stat totals for one player, from his weekly stat lines
- * (docs/STATS_WEAVE_ROADMAP.md step 67). Pure: no database, no network.
+ * (docs/archive/STATS_WEAVE_ROADMAP.md step 67). Pure: no database, no network.
  *
  * ## Rules this file keeps
  *

@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react'
 import { createActivityClock, isUntrackedPath, type ActivityClock, type Segment } from '@/lib/activity'
 
 /**
- * Records how long each page is actually used (docs/ACTIVITY_ROADMAP.md).
+ * Records how long each page is actually used (docs/archive/ACTIVITY_ROADMAP.md).
  *
  * Mounted once in the root layout, renders nothing, and is built so it can
  * never break a page: every browser call is inside a try/catch and a failed

@@ -64,8 +64,8 @@ an `EraBadge` and says so. This is the same wording the Oracle is already told t
 
 ## Rules that apply to every step here
 
-All the rules in `docs/ANALYTICS_ROADMAP.md` ("Rules that apply to every step") and
-`docs/PLAYER_STATS_ROADMAP.md` still hold. The ones that matter most here:
+All the rules in `docs/archive/ANALYTICS_ROADMAP.md` ("Rules that apply to every step") and
+`docs/archive/PLAYER_STATS_ROADMAP.md` still hold. The ones that matter most here:
 
 - **Group on the player's own `position`, never the lineup slot.** A WR in FLEX is a WR.
 - **Compare within a position, never across.** A list ranked by yards is ranked inside one
@@ -90,7 +90,7 @@ All the rules in `docs/ANALYTICS_ROADMAP.md` ("Rules that apply to every step") 
 
 ## How to work a step
 
-Identical to `docs/ANALYTICS_ROADMAP.md` "How to work a step". In short: read `AGENTS.md`; read the
+Identical to `docs/archive/ANALYTICS_ROADMAP.md` "How to work a step". In short: read `AGENTS.md`; read the
 step; read the files it names (the code wins over this file); read the relevant guide in
 `node_modules/next/dist/docs/` before writing a route or page; work in your **own worktree**
 (`git worktree add .claude/worktrees/<name> -b <branch> origin/main`, with a **cloned**, not

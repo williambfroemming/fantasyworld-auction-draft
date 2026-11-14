@@ -437,7 +437,7 @@ export const playerQueue = pgTable(
 
 /**
  * Which pages league members use, by whom, and for how long: first-party
- * activity tracking (docs/ACTIVITY_ROADMAP.md).
+ * activity tracking (docs/archive/ACTIVITY_ROADMAP.md).
  *
  * One row per *segment*: a stretch of visible, recently-interacted-with time
  * on one path. A segment ends on navigation, on the tab hiding, on page exit,
@@ -1012,15 +1012,26 @@ export const weekIssues = pgTable(
     /** The pack the model was given, as of press time. See the note above. */
     facts: jsonb('facts').notNull(),
     model: text('model').notNull(),
-    /** Bumped on every prompt edit, so `which voice wrote this` is answerable. */
+    /**
+     * Bumped on every prompt edit, so `which voice wrote this` is answerable.
+     * 17 means the editorial room wrote it; `pipeline.versions` says which stages.
+     */
     promptVersion: integer('prompt_version').notNull(),
+    /**
+     * The editorial room's whole run, for an issue it wrote: storylines, plans,
+     * every judged draft, the verdict and the lead (docs/GAZETTE_ROADMAP.md step
+     * 83, `StoredPipeline` in src/lib/gazette-room.ts). **Null on every
+     * single-pass issue.** Next week's lead rotation reads `pipeline.lead`;
+     * `--replay --from plans` reads the plans. No page reads it.
+     */
+    pipeline: jsonb('pipeline'),
     generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.season, t.week] })],
 )
 
 /**
- * One row per question put to the Oracle (docs/ANALYTICS_ROADMAP.md §A).
+ * One row per question put to the Oracle (docs/archive/ANALYTICS_ROADMAP.md §A).
  *
  * Exists for the daily cap, for debugging a wrong answer, and for the bill. It is
  * created by `scripts/migrate-oracle.ts` on Neon and by the local bootstrap from

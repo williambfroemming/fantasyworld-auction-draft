@@ -6,7 +6,7 @@
  * {@link trimStats} to cut Sleeper's response down before it is committed, and
  * `scripts/import-sleeper-history.ts` uses {@link statRows} to turn the
  * committed file into `player_week_stats` rows. See
- * `docs/PLAYER_STATS_ROADMAP.md` for the decisions behind every rule here.
+ * `docs/archive/PLAYER_STATS_ROADMAP.md` for the decisions behind every rule here.
  *
  * ## Null is unknown, zero is a real zero
  *

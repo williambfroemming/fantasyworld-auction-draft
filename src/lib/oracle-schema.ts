@@ -1,5 +1,5 @@
 /**
- * What the Oracle is told about the database (docs/ANALYTICS_ROADMAP.md §A, step 40).
+ * What the Oracle is told about the database (docs/archive/ANALYTICS_ROADMAP.md §A, step 40).
  *
  * This is prose for a language model, kept honest by `oracle-schema.test.ts`, which
  * reads scripts/migrate-oracle.ts and fails if the views or columns here drift from the

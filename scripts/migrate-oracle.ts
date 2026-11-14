@@ -1,5 +1,5 @@
 /**
- * Migration: the database boundary for "Ask the Oracle" (docs/ANALYTICS_ROADMAP.md §A,
+ * Migration: the database boundary for "Ask the Oracle" (docs/archive/ANALYTICS_ROADMAP.md §A,
  * step 38).
  *
  *   npm run db:migrate-oracle              # against DATABASE_URL

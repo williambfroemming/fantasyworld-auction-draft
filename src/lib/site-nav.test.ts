@@ -6,7 +6,7 @@ import { OFF_BAR, SECTIONS, isMenu, sectionItems } from '@/components/SiteNav'
 import { SIGNED_OUT, SWITCHED_OFF, refusalMessage } from '@/components/OracleBar'
 import { isPublicPath } from './gate'
 
-/** docs/SITE_STRUCTURE.md — the properties a comment cannot enforce. */
+/** docs/archive/SITE_STRUCTURE.md — the properties a comment cannot enforce. */
 
 const read = (p: string) => readFileSync(resolve(import.meta.dirname, '..', p), 'utf8')
 

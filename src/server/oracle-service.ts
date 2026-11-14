@@ -3,7 +3,7 @@ import { ROW_LIMIT, guardSql } from '@/lib/oracle-sql'
 import { getSql } from './sql'
 
 /**
- * Runs one untrusted SQL string for the Oracle (docs/ANALYTICS_ROADMAP.md §A, step 39).
+ * Runs one untrusted SQL string for the Oracle (docs/archive/ANALYTICS_ROADMAP.md §A, step 39).
  *
  * Three layers, all required, and this file is where the second and third meet:
  *   1. `guardSql` — a blunt text filter that produces readable refusals.

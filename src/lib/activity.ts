@@ -1,5 +1,5 @@
 /**
- * First-party activity tracking: the pure half (docs/ACTIVITY_ROADMAP.md, step 64).
+ * First-party activity tracking: the pure half (docs/archive/ACTIVITY_ROADMAP.md, step 64).
  *
  * Which pages league members use, by whom, and for how long. Commissioner-only:
  * the rows are read through `checkCommish()` and shown in `/admin`, never in

@@ -1,5 +1,5 @@
 /**
- * The numbers behind the league charts (docs/ANALYTICS_ROADMAP.md step 46).
+ * The numbers behind the league charts (docs/archive/ANALYTICS_ROADMAP.md step 46).
  *
  * Pure: every function takes a `HistoryInput` and returns plain data the chart kit can
  * draw. Nothing here reads the database, and nothing recomputes what `leagueSummary()`

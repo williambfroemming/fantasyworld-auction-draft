@@ -1,5 +1,5 @@
 /**
- * Activity tracking, against a REAL Postgres database (docs/ACTIVITY_ROADMAP.md).
+ * Activity tracking, against a REAL Postgres database (docs/archive/ACTIVITY_ROADMAP.md).
  * ⚠️ Writes and deletes page_visits. Guarded by ALLOW_DB_RESET=1 — see draft-service.itest.ts.
  * Needs `db:migrate-activity -- --test` first.
  */

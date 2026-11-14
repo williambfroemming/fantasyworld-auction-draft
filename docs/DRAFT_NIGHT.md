@@ -18,13 +18,17 @@ Everything for the commissioner lives on one page: **your name (top right) → A
 Only commissioners see that menu item; anyone else who types `/admin` gets a 404.
 
 - [ ] **Reset** if there was a rehearsal — Admin panel → Export & reset → **Erase {year} draft**
-- [ ] PINs set during a rehearsal can stay — they are the members' own. If someone needs a
-      fresh one: Members & access → **Reset PIN** (shown once; tell them). There is no
-      "clear PIN" button any more: a cleared seat can be claimed by anyone who reaches the
-      public sign-in screen first
+- [ ] PINs carry over from last year — they are the members' own. If someone has forgotten
+      theirs: Members & access → **Reset PIN** gives a one-time link (shown once, valid 24
+      hours); send it to them and they choose a new PIN. Their old PIN works until they use it
+- [ ] **Check no seat says "no PIN yet"** under Members & access. A seat with no PIN cannot be
+      claimed from the sign-in screen any more; send that member a reset link before the night
+- [ ] **New members** join from the sign-in screen (**New to the league? Join with Sleeper**)
+      and appear under **Wants to join**. Approve them **before** you start the draft: approval
+      is refused once there are picks
 - [ ] **Draw the order** — Admin panel → Draft order → 🎲 **Randomize**, re-roll until the room's happy, then **Save order**
 - [ ] Check the **Round 1 / Round 2 preview** matches what you announced
-- [ ] Send the link round. Everyone picks their name and sets a 4-digit PIN
+- [ ] Send the link round. Everyone signs in with their name and their own PIN
 - [ ] **Start draft** (Admin panel → Live draft → ▶ Start draft). Nobody can nominate until you do
 
 > Sanity check: everyone should show **$200 / max $185** before the first nomination.
@@ -92,7 +96,7 @@ tab all night. There is no ⚙ Commish button in the Draft Room any more.
 | Someone nominated by mistake | Live draft → **Cancel current lot** |
 | Someone's stepped away | Live draft → **Skip nominator** |
 | Seat in the wrong place after picks | Draft order → **swap two seats** |
-| Forgot their PIN | Members & access → **Reset PIN** — tell them the new one |
+| Forgot their PIN | Members & access → **Reset PIN** — send them the one-time link; they choose a new PIN |
 | Locked out after five wrong PINs | Members & access → **Unlock** — their own PIN works again |
 | Someone's screen looks stuck | Have them refresh — nothing is lost, all state is on the server |
 

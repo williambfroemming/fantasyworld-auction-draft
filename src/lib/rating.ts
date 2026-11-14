@@ -2,7 +2,7 @@ import { isCountedPlayoff, type HistoryMatchup } from '@/lib/history'
 
 /**
  * A strength rating for every manager after every game, 2020 on
- * (docs/ANALYTICS_ROADMAP.md step 56).
+ * (docs/archive/ANALYTICS_ROADMAP.md step 56).
  *
  * **This is a model, not a record.** It is an Elo rating: everyone starts at 1500, a win
  * against a stronger team moves you more than a win against a weaker one, and a bigger margin

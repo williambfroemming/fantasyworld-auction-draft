@@ -91,6 +91,15 @@ async function main() {
     `ALTER TABLE week_issues ADD COLUMN IF NOT EXISTS lens text`,
   )
 
+  // The editorial room's whole run behind a pipeline issue (docs/GAZETTE_ROADMAP.md
+  // step 83): storylines, plans, every judged draft, the verdict and the lead.
+  // Nullable, and null on every issue written single-pass, which is all of them
+  // until the room is switched on. Nothing on a request path reads it.
+  await step(
+    'add week_issues.pipeline',
+    `ALTER TABLE week_issues ADD COLUMN IF NOT EXISTS pipeline jsonb`,
+  )
+
   // --- prove nothing that matters moved ------------------------------------
   console.log('')
   const totalsAfter = await sql`SELECT id, budget, rostered, max_bid FROM manager_totals ORDER BY id`

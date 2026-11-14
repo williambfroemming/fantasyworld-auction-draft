@@ -1,6 +1,6 @@
 /**
  * Migration: `player_week_stats`, each rostered player's weekly NFL stat line
- * (docs/PLAYER_STATS_ROADMAP.md, step 64).
+ * (docs/archive/PLAYER_STATS_ROADMAP.md, step 64).
  *
  *   npm run db:migrate-player-stats              # against DATABASE_URL
  *   npm run db:migrate-player-stats -- --test    # against TEST_DATABASE_URL

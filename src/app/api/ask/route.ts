@@ -5,7 +5,7 @@ import { currentManagerId } from '@/server/session'
 import { oracleEnabled } from '@/server/settings-service'
 
 /**
- * POST /api/ask { question } — "Ask the Oracle" (docs/ANALYTICS_ROADMAP.md §A, step 42).
+ * POST /api/ask { question } — "Ask the Oracle" (docs/archive/ANALYTICS_ROADMAP.md §A, step 42).
  *
  * ## Rules this route exists to keep
  *

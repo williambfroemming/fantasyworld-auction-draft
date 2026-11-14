@@ -1,6 +1,6 @@
 /**
  * Ask the Oracle a fixed set of real questions and score each answer against SQL written
- * independently of the Oracle (docs/ANALYTICS_ROADMAP.md step 44).
+ * independently of the Oracle (docs/archive/ANALYTICS_ROADMAP.md step 44).
  *
  *   npm run local -- npm run oracle:eval                 # local Postgres (the default and the point)
  *   npm run local -- npm run oracle:eval -- --only 3,7   # a few questions by number

@@ -2403,3 +2403,191 @@ function prevSeasonCity(history: HistoryInput, season: number): string | null {
 function prevSeasonState(history: HistoryInput, season: number): string | null {
   return history.seasons.find((s) => s.season === season)?.draftState ?? null
 }
+
+// ---------------------------------------------------------------------------
+// Pack paths -- how the editorial room cites the fact pack
+// ---------------------------------------------------------------------------
+//
+// The pipeline (scripts/history/gazette-room/) splits one writing call into a
+// Story Desk, an Editor, three Writers and a Judge. Every storyline and every
+// beat of a plan cites the evidence it rests on as a PATH into the pack --
+// "games[2].margin", "rosters[3]", "belt" -- so evidence is checkable before any
+// prose exists, and so a Writer can be handed only the slice its plan cites.
+//
+// A narrower menu is the main defence against every issue coming out the same
+// shape. It is NOT a narrower grounding check: the prose is still checked
+// against the FULL pack, because a slice that happened to omit a figure would
+// otherwise turn a true sentence into a failed edition.
+
+/**
+ * Fields that carry continuity for the prompt rather than facts about the week.
+ * Never addressable by a path and never in a slice: the notebook and the prior
+ * columns are handed to each stage separately, on purpose.
+ */
+const CONTINUITY_KEYS = new Set([
+  'kind',
+  'priorThreads',
+  'priorColumns',
+  'priorHeadlines',
+  'priorLenses',
+  'reservedGenres',
+])
+
+/** What every slice carries whatever the plan cites. `notes` are caveats, never optional. */
+const SLICE_SCALARS = ['season', 'week', 'weekLabel', 'genre', 'phase', 'teamsPlaying', 'notes'] as const
+
+type PathToken = string | number
+
+/** "games[2].margin" -> ['games', 2, 'margin']. Null if it is not a path at all. */
+function parsePath(path: string): PathToken[] | null {
+  const tokens: PathToken[] = []
+  const re = /([A-Za-z_][A-Za-z0-9_]*)|\[(\d+)\]|(\.)/y
+  let expectKey = true
+  let consumed = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(path)) !== null) {
+    consumed = re.lastIndex
+    if (m[1] !== undefined) {
+      if (!expectKey) return null
+      tokens.push(m[1])
+      expectKey = false
+    } else if (m[2] !== undefined) {
+      if (expectKey) return null
+      tokens.push(Number(m[2]))
+    } else {
+      if (expectKey) return null
+      expectKey = true
+    }
+  }
+  if (consumed !== path.length || expectKey || tokens.length === 0) return null
+  return tokens
+}
+
+/**
+ * The value a path names, or null if the path does not exist in this pack.
+ *
+ * A path to a field that IS null (no belt this week) also returns null, on
+ * purpose: a storyline cannot be evidenced by an absence, so for validation the
+ * two are the same answer. Continuity fields are not addressable.
+ */
+export function resolvePackPath(facts: GazetteFacts, path: string): unknown {
+  const tokens = parsePath(path.trim())
+  if (!tokens || typeof tokens[0] !== 'string' || CONTINUITY_KEYS.has(tokens[0])) return null
+  let cur: unknown = facts
+  for (const t of tokens) {
+    if (cur === null || cur === undefined) return null
+    if (typeof t === 'number') {
+      if (!Array.isArray(cur) || t >= cur.length) return null
+      cur = cur[t]
+    } else {
+      if (typeof cur !== 'object' || Array.isArray(cur) || !Object.hasOwn(cur, t)) return null
+      cur = (cur as Record<string, unknown>)[t]
+    }
+  }
+  return cur ?? null
+}
+
+/** The paths in a list that do not resolve. Empty means every one is real. */
+export function unresolvedPaths(facts: GazetteFacts, paths: string[]): string[] {
+  return [...new Set(paths)].filter((p) => resolvePackPath(facts, p) === null)
+}
+
+/**
+ * The pack, cut down to the rows a plan cites.
+ *
+ * Every path is widened to its ROW -- "games[2].margin" brings the whole of
+ * games[2] -- because a margin without the two names it belongs to is a number
+ * a Writer can only misattribute. Arrays keep their indices (rows not cited are
+ * null), so "rosters[3]" in the plan is still rosters[3] in the slice the Writer
+ * reads. Unknown paths are ignored here; the Story Desk and Editor validators
+ * are where an unknown path is an error.
+ */
+export function sliceFacts(facts: GazetteFacts, paths: string[]): Partial<GazetteFacts> {
+  const out: Record<string, unknown> = {}
+  const src = facts as unknown as Record<string, unknown>
+  for (const k of SLICE_SCALARS) if (k in src) out[k] = src[k]
+
+  for (const path of paths) {
+    const tokens = parsePath(path.trim())
+    if (!tokens || resolvePackPath(facts, path) === null) continue
+    const key = tokens[0] as string
+    const section = src[key]
+    if (Array.isArray(section) && typeof tokens[1] === 'number') {
+      const i = tokens[1]
+      const arr = (Array.isArray(out[key]) ? out[key] : []) as unknown[]
+      while (arr.length <= i) arr.push(null)
+      arr[i] = section[i]
+      out[key] = arr
+    } else {
+      out[key] = section
+    }
+  }
+  return out as Partial<GazetteFacts>
+}
+
+export interface PackPathEntry {
+  path: string
+  label: string
+}
+
+const signed = (n: number) => (n > 0 ? `+${n}` : String(n))
+
+/**
+ * One line per row a Story Desk might cite. A section with no labeller here is
+ * still indexed by the generic fallback, so a section added to the pack later
+ * is citable the day it exists.
+ */
+const ROW_LABELS: Record<string, (row: never) => string> = {
+  games: (g: GameNoteFacts) =>
+    g.tie
+      ? `${g.winner} and ${g.loser} tied at ${g.winnerPoints}`
+      : `${g.winner} ${g.winnerPoints} beat ${g.loser} ${g.loserPoints} by ${g.margin}` +
+        (g.decides ? ` (decides ${g.decides})` : ''),
+  standings: (r: StandingsRow) => `${r.place}. ${r.manager} ${r.record}, ${r.pointsFor} points for`,
+  powerRankings: (r: PowerRow) =>
+    `power #${r.rank} ${r.manager}${r.move ? ` (${signed(r.move)})` : ''}, all-play ${r.allPlayRecord}`,
+  againstTheField: (r: { manager: string; record: string }) => `${r.manager} against the field ${r.record}`,
+  ledger: (r: LedgerRow) =>
+    `${r.manager} side bet: ${r.highWeeks} high weeks, ${r.lowWeeks} low` +
+    (r.thisWeek ? `, ${r.thisWeek} this week` : ''),
+  thisWeekInHistory: (r: HistoryEcho) => r.claim,
+  milestones: (r: Milestone) => `${r.manager}: ${r.label}${r.crossed ? ' (crossed)' : ''}`,
+  recordBook: (r: RecordNote) => r.claim,
+  rivalry: (r: RivalryNote) => r.claim,
+  stats: (r: StatCandidate) => r.claim,
+  rosters: (r: RosterNote) =>
+    `${r.manager} ${r.points}, carried by ` +
+    (r.carriedBy.map((p) => p.player).slice(0, 2).join(' and ') || 'nobody'),
+}
+
+/** First few string leaves of a row, for a section with no labeller. */
+const genericLabel = (row: unknown) =>
+  stringLeaves(row).filter((s) => /[A-Za-z]/.test(s)).slice(0, 3).join(' · ') || '(row)'
+
+/**
+ * Every addressable path with a short label. This is what the Story Desk is
+ * shown so it can cite real paths instead of inventing plausible ones.
+ *
+ * Rows, not leaves: a leaf path ("games[2].margin") still resolves and may be
+ * cited, but listing every leaf would make the index longer than the pack.
+ */
+export function pathIndex(facts: GazetteFacts): PackPathEntry[] {
+  const out: PackPathEntry[] = []
+  const src = facts as unknown as Record<string, unknown>
+  for (const [key, value] of Object.entries(src)) {
+    if (CONTINUITY_KEYS.has(key) || (SLICE_SCALARS as readonly string[]).includes(key)) continue
+    if (value === null || value === undefined) continue
+    const label = ROW_LABELS[key] as ((row: unknown) => string) | undefined
+    if (Array.isArray(value)) {
+      value.forEach((row, i) => {
+        if (row !== null) out.push({ path: `${key}[${i}]`, label: label ? label(row) : genericLabel(row) })
+      })
+    } else if (key === 'belt') {
+      const b = value as BeltFacts
+      out.push({ path: 'belt', label: `the Worst Manager belt: ${b.manager}, ${b.reason}` })
+    } else {
+      out.push({ path: key, label: typeof value === 'object' ? genericLabel(value) : `${key}: ${value}` })
+    }
+  }
+  return out
+}

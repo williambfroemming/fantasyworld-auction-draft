@@ -1,5 +1,5 @@
 /**
- * The text guard in front of the Oracle's SQL (docs/ANALYTICS_ROADMAP.md §A, step 39).
+ * The text guard in front of the Oracle's SQL (docs/archive/ANALYTICS_ROADMAP.md §A, step 39).
  *
  * This is the THIRD of three layers and the weakest on purpose. The real boundary is
  * Postgres: a NOLOGIN role that can read only the `oracle` views, inside a read-only

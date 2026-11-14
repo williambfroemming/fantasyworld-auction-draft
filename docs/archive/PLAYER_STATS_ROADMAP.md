@@ -3,7 +3,7 @@
 Store each player's **weekly stat line** (yards, TDs, targets, receptions, kicks, sacks …), so the
 league database can answer "how many yards did he have that week?" and the Oracle can too.
 
-Written 2026-11-11. Steps **63–66**. Progress: see `docs/PROGRESS_LOG.md`. The checklist lives in `PROJECT_PLAN.md` §13 (section J).
+Written 2026-11-11. Steps **63–66**. Progress: see `docs/PROGRESS_LOG.md`. The checklist lives in `PROJECT_PLAN.md` §13 (section K).
 Built to be handed to one agent in one worktree: **everything it needs is in this file.**
 
 ## Why this is needed
@@ -68,7 +68,7 @@ Sleeper's, which reintroduces the name-matching problem `sleeper_id` exists to a
 
 ## How to work a step
 
-Identical to `docs/ANALYTICS_ROADMAP.md` "How to work a step" — read `AGENTS.md` first, check
+Identical to `docs/archive/ANALYTICS_ROADMAP.md` "How to work a step" — read `AGENTS.md` first, check
 names against the code (the code wins over this file), read the relevant guide in
 `node_modules/next/dist/docs/` before writing any route or page, work on local Postgres only
 (`npm run db:local:up` → `db:local:setup` → `npm run local -- <cmd>`; **never** `npm run dev`),

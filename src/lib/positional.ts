@@ -2,7 +2,7 @@
  * The positional scorecard: for each manager, how many points their STARTERS scored at
  * each position, against what the average manager's starters scored there.
  *
- * (docs/ANALYTICS_ROADMAP.md step 50)
+ * (docs/archive/ANALYTICS_ROADMAP.md step 50)
  *
  * ## Three rules this file exists to keep
  *
