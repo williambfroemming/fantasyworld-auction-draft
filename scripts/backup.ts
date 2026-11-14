@@ -1,5 +1,5 @@
 /**
- * Full JSON snapshot of the draft database.
+ * Full JSON snapshot of every table that exists ONLY in the database.
  *
  *   npm run db:backup            # -> backups/<db>-<timestamp>.json
  *
@@ -11,6 +11,24 @@
  * cannot reload is a report. `players` is included: a pick's player_id is
  * meaningless without the pool row it points at, and the pool is re-imported
  * every season.
+ *
+ * ## What is in, and what is deliberately out
+ *
+ * **In:** everything typed into the app or recorded by it, which no file can
+ * rebuild — the draft, the private queues, the commissioner's settings and
+ * per-season details (prize money, city, notes on `seasons`), the Oracle's log,
+ * the linked Sleeper accounts and pending sign-up requests.
+ *
+ * **Out:** the league-history tables (`season_standings`, `season_matchups`,
+ * `season_schedule`, `season_transactions`, `season_lineups`, `player_weeks`,
+ * `player_week_stats`, `player_seasons`, `legacy_champions`) and `week_issues`.
+ * They are rebuilt from committed files — `data/sleeper/`, `data/history/` and the
+ * Gazette mirror (`npm run gazette -- --seed`) — and are most of the database by
+ * size.
+ *
+ * ⚠️ A NEW TABLE whose rows are entered in the app belongs in this list. Until
+ * accounts shipped, the list was eight draft tables, and the first backup taken
+ * after the accounts migration quietly left out every linked account.
  */
 import { neon } from '@neondatabase/serverless'
 import '../src/db/neon-local'
@@ -25,6 +43,13 @@ const TABLES = [
   'picks',
   'trades',
   'budget_adjustments',
+  'season_orders',
+  'player_queue',
+  'seasons',
+  'app_settings',
+  'member_identities',
+  'join_requests',
+  'oracle_log',
   'page_visits',
 ] as const
 
