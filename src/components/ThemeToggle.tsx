@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 
 /**
  * Newsprint / Late Edition / follow the OS.
@@ -14,27 +14,35 @@ import { useEffect, useState } from 'react'
  * NOT here. A `useEffect` runs after first paint, which is a visible flash of
  * the wrong theme on every load. This component only handles clicks, and reads
  * back what that script already decided.
+ *
+ * The attribute is read with `useSyncExternalStore`, not copied into state from an
+ * effect: the server snapshot is 'system' (it cannot know), hydration renders that,
+ * and React then re-reads the DOM. A click writes the attribute and the observer
+ * re-renders, so the DOM stays the only copy of the choice.
  */
 type Choice = 'system' | 'light' | 'dark'
 
 const NEXT: Record<Choice, Choice> = { system: 'light', light: 'dark', dark: 'system' }
 const LABEL: Record<Choice, string> = { system: 'Auto', light: 'Paper', dark: 'Night' }
 
-export function ThemeToggle({ className = '' }: { className?: string }) {
-  // 'system' until mounted so the server and the first client render agree;
-  // the real value is read from the DOM in the effect below.
-  const [choice, setChoice] = useState<Choice>('system')
-  const [ready, setReady] = useState(false)
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange)
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  return () => observer.disconnect()
+}
 
-  useEffect(() => {
-    const attr = document.documentElement.getAttribute('data-theme')
-    setChoice(attr === 'light' || attr === 'dark' ? attr : 'system')
-    setReady(true)
-  }, [])
+function readChoice(): Choice {
+  const attr = document.documentElement.getAttribute('data-theme')
+  return attr === 'light' || attr === 'dark' ? attr : 'system'
+}
+
+const serverChoice = (): Choice => 'system'
+
+export function ThemeToggle({ className = '' }: { className?: string }) {
+  const choice = useSyncExternalStore(subscribe, readChoice, serverChoice)
 
   function cycle() {
     const next = NEXT[choice]
-    setChoice(next)
     if (next === 'system') {
       document.documentElement.removeAttribute('data-theme')
       localStorage.removeItem('theme')
@@ -48,14 +56,11 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
     <button
       type="button"
       onClick={cycle}
-      // suppressHydrationWarning: the label depends on localStorage, which the
-      // server cannot know. It settles on mount.
-      suppressHydrationWarning
       aria-label={`Theme: ${LABEL[choice]}. Click to change.`}
       title="Newsprint, Late Edition, or follow your device"
       className={`border border-rule px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400 transition hover:border-slate-500 hover:text-slate-200 ${className}`}
     >
-      {ready ? LABEL[choice] : 'Auto'}
+      {LABEL[choice]}
     </button>
   )
 }

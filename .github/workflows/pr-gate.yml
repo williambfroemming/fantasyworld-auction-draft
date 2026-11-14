@@ -30,6 +30,18 @@ jobs:
       # The rules engine only -- no database. Integration tests need neondb_test
       # and stay a local command on purpose.
       - run: npm test
+      # `next typegen` writes the route types (LayoutProps, PageProps) that
+      # `next build` normally generates. Without it a fresh checkout fails tsc on
+      # types that do exist.
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      # Errors fail the job; warnings do not. A lint error reached main once
+      # (ThemeToggle, set-state-in-effect) because this step did not exist.
+      - run: npm run lint
+      # No `next build` here, on purpose: the history and Gazette pages are
+      # regenerated hourly (`revalidate = 3600`), so the build prerenders them
+      # and needs DATABASE_URL. Vercel already builds every pull request with
+      # its preview environment; that is the build check.
 
   approval:
     name: manual approval
