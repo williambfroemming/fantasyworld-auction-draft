@@ -485,5 +485,5 @@ features the league chose on 2026-11-10 (`docs/archive/ANALYTICS_ROADMAP.md`).
 - [x] **81.** The voice bible and three parallel Writers (EXEMPLARS left for the commissioner)
 - [x] **82.** The blind Judge, game notes as their own call, `--pipeline`
 - [x] **83.** Storage: `week_issues.pipeline`, the mirror, `--replay --from plans`
-- [ ] **84.** The bake-off page (`--bakeoff`); stop for the league vote
+- [~] **84.** The bake-off page (`--bakeoff`); stop for the league vote. **Built; not yet run.** Running it is about 24 Opus calls, then the league votes
 - [ ] **85.** Switch over (only if the pipeline wins the vote)

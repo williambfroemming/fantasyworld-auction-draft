@@ -24,6 +24,7 @@
  *   npm run gazette -- 2025 7 --pipeline --drafts --dry-run   # ... and print the losing drafts
  *   npm run gazette -- 2025 7 --replay --from plans   # Writers + Judge again, from the stored plans
  *   npm run gazette -- --sample 2025 6 3 --pipeline   # three weeks, winners' notebooks threaded
+ *   npm run gazette -- --bakeoff 2025 6 3  # both arms, three weeks, a blind page in backups/
  *
  * Storing a pipeline issue needs `week_issues.pipeline`: `npm run db:migrate-gazette` first.
  * The weekly job does not use the room until step 85, and never needs the column.
@@ -84,8 +85,10 @@ import {
   showPlans,
   showVerdict,
   PIPELINE_PROMPT_VERSION,
+  PIPELINE_VERSIONS,
   type RecentLead,
 } from './gazette-pipeline'
+import { assignLabels, renderBakeoffPage, type BakeoffEdition, type BakeoffWeek } from '../../src/lib/gazette-bakeoff'
 import {
   pipelineGroundingProblems,
   storedLead,
@@ -102,6 +105,8 @@ type Pack = GazetteFacts | PreviewFacts
 
 const ROOT = join(import.meta.dirname, '..', '..')
 const DATA_DIR = join(ROOT, 'data', 'history', 'gazette')
+/** Git-ignored. The bake-off page and its answer key go here, never in public/. */
+const BACKUPS_DIR = join(ROOT, 'backups')
 const PAUSE_MS = 1000
 
 const args = process.argv.slice(2).filter((a) => a !== '--')
@@ -121,6 +126,7 @@ const factsOnly = has('--facts')
 const dryRun =
   has('--dry-run') ||
   has('--sample') ||
+  has('--bakeoff') ||
   has('--desk') ||
   has('--plans') ||
   (has('--drafts') && !has('--pipeline'))
@@ -169,6 +175,11 @@ const fromPlans = args[args.indexOf('--from') + 1] === 'plans' && has('--from')
  * the run that produced it. With --drafts it also prints the losing drafts.
  */
 const pipeline = has('--pipeline') || fromPlans
+/**
+ * The bake-off (step 84): both arms write the same weeks, each threading its own
+ * notebook, and the result is a blind page for the league. Stores nothing.
+ */
+const bakeoff = has('--bakeoff')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -561,6 +572,20 @@ async function recentLeads(season: number, week: number, carried?: Carried[]): P
   return [...byWeek.values()].sort((a, b) => a.week - b.week).slice(-3)
 }
 
+/**
+ * Continuity from issues written earlier in this run rather than read from the
+ * database: the last notebook, the last two columns, the last four headlines.
+ * With nothing carried yet the pack keeps what the database gave it.
+ */
+function applyCarried(facts: GazetteFacts, carried: Carried[]): GazetteFacts {
+  if (carried.length) {
+    facts.priorThreads = carried[carried.length - 1].threads
+    facts.priorColumns = carried.slice(-2).map((c) => c.column)
+    facts.priorHeadlines = carried.slice(-4).map((c) => c.headline)
+  }
+  return facts
+}
+
 async function one(
   season: number,
   week: number,
@@ -617,11 +642,7 @@ async function one(
     console.log(`  ⚠ ${season} wk ${week} looks unfinished, writing anyway`)
   }
 
-  if (carried?.length) {
-    facts.priorThreads = carried[carried.length - 1].threads
-    facts.priorColumns = carried.slice(-2).map((c) => c.column)
-    facts.priorHeadlines = carried.slice(-4).map((c) => c.headline)
-  }
+  if (carried) applyCarried(facts, carried)
 
   if (pipeline) {
     const mark = ledger.length
@@ -774,6 +795,94 @@ async function onePreview(season: number): Promise<'written' | 'skipped' | 'fail
 }
 
 // ---------------------------------------------------------------------------
+// The bake-off (docs/GAZETTE_ROADMAP.md step 84)
+// ---------------------------------------------------------------------------
+
+const readerSees = (i: Issue): BakeoffEdition => ({
+  issueTitle: i.issueTitle,
+  headline: i.headline,
+  deck: i.deck,
+  column: i.column,
+  gameNotes: i.gameNotes,
+})
+
+/**
+ * Both arms, the same weeks, from the same pack, each threading its own
+ * notebook: the single-pass edition reads the single-pass edition before it, and
+ * the room reads the room's (and its own leads for the rotation). Week one of the
+ * run starts both arms from what the database holds, so they begin level.
+ *
+ * Stores nothing. Writes a blind page and a separate answer key to backups/, and
+ * stops: step 85 waits for the league's vote.
+ */
+async function runBakeoff(season: number, from: number, count: number) {
+  console.log(
+    `Bake-off: ${count} consecutive weeks of ${season} from week ${from}, both arms. Nothing is stored.\n` +
+      `  Expect about ${count * 8} model calls.\n`,
+  )
+  const singleArm: Carried[] = []
+  const roomArm: Carried[] = []
+  const weeks: BakeoffWeek[] = []
+  const mark = ledger.length
+
+  try {
+    for (let w = from; w < from + count; w++) {
+      const base = await getWeekFacts(season, w)
+      if (!base) throw new Error(`${season} wk ${w} has no games`)
+      if (!(await weekIsComplete(season, w))) throw new Error(`${season} wk ${w} is not finished yet`)
+
+      console.log(`\n${'═'.repeat(72)}\n${base.weekLabel} · ${season} · single-pass`)
+      const single = await write(PROMPT, applyCarried(structuredClone(base), singleArm))
+      show(season, w, single, base)
+      singleArm.push({ week: w, headline: single.headline, column: single.column, threads: single.threads })
+
+      console.log(`\n${base.weekLabel} · ${season} · the editorial room`)
+      const roomFacts = applyCarried(structuredClone(base), roomArm)
+      const { issue: room, run } = await runPipeline(roomFacts, await recentLeads(season, w, roomArm))
+      showVerdict(run)
+      show(season, w, { ...room }, roomFacts)
+      roomArm.push({ week: w, headline: room.headline, column: room.column, threads: room.threads, lead: run.lead })
+
+      weeks.push({
+        season,
+        week: w,
+        weekLabel: base.weekLabel,
+        editions: { 'single-pass': readerSees(single), pipeline: readerSees(room) },
+      })
+      await sleep(PAUSE_MS)
+    }
+  } finally {
+    printLedger(mark, 'bake-off tokens')
+  }
+
+  // Random, not seeded: see src/lib/gazette-bakeoff.ts. The key is the only record.
+  const key = assignLabels(weeks)
+  const stem = `gazette-bakeoff-${season}-wk${String(from).padStart(2, '0')}-${String(from + count - 1).padStart(2, '0')}`
+  mkdirSync(BACKUPS_DIR, { recursive: true })
+  const page = join(BACKUPS_DIR, `${stem}.html`)
+  const keyFile = join(BACKUPS_DIR, `${stem}-KEY.json`)
+  writeFileSync(page, renderBakeoffPage(weeks, key))
+  writeFileSync(
+    keyFile,
+    `${JSON.stringify(
+      {
+        _comment: 'The answer key for the bake-off page beside this file. Do not share it with the league.',
+        generatedAt: new Date().toISOString(),
+        singlePassPromptVersion: PROMPT_VERSION,
+        pipelineVersions: PIPELINE_VERSIONS,
+        model: MODEL,
+        key,
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  console.log(`\n✓ The page:       ${page}`)
+  console.log(`  The answer key: ${keyFile}  (keep this one to yourself)`)
+  console.log('\nShare the page with the league and collect one letter per week. Step 85 waits for the vote.\n')
+}
+
+// ---------------------------------------------------------------------------
 // Modes
 // ---------------------------------------------------------------------------
 
@@ -915,6 +1024,13 @@ async function main() {
       await one(season, w, carried)
       await sleep(PAUSE_MS)
     }
+    return
+  }
+
+  // --- the bake-off ---------------------------------------------------------
+  if (bakeoff) {
+    const season = years[0] ?? (await currentSeason())
+    await runBakeoff(season, weeks[0] ?? 1, weeks[1] ?? 3)
     return
   }
 

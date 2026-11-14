@@ -188,6 +188,7 @@ npm run local -- npm run gazette -- 2025 7 --drafts      # + three Writers in pa
 npm run local -- npm run gazette -- --sample 2025 6 3 --pipeline   # + Judge and game notes, notebooks threaded (dry)
 npm run local -- npm run gazette -- 2025 7 --pipeline --regenerate # the whole room, STORED with its run
 npm run local -- npm run gazette -- 2025 7 --replay --from plans   # Writers + Judge again from the stored plans
+npm run local -- npm run gazette -- --bakeoff 2025 6 3            # both arms, blind page + answer key in backups/ (~24 calls)
 npm run gazette:art -- 2025 14            # art for one issue, from the issue itself
 npm run gazette:art -- --latest           # just the newest issue -- what the cron runs
 npm run gazette:art -- --all              # backfill every issue that has none
