@@ -493,5 +493,5 @@ features the league chose on 2026-11-10 (`docs/archive/ANALYTICS_ROADMAP.md`).
 - [x] **87.** Bracket derivation: `playoffBracket()`, seeds from wins then points for, null on a contradiction
 - [x] **88.** Bracket odds: `teamRatings()` lifted out of `playoffOdds()` with no draw moved, `bracketOdds()` on its own generator
 - [x] **89.** Context for the cards: titles, playoff appearances, last final, this season's and all-time playoff meetings
-- [ ] **90.** Components: `PlayoffBracketPanel`, and `SeasonSoFarPanel`'s `final` variant
+- [x] **90.** Components: `PlayoffBracketPanel`, and `SeasonSoFarPanel`'s `final` variant
 - [ ] **91.** Integrate into `getSeasonSoFar()` and the front page, verify, docs
